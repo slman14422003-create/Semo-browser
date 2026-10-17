@@ -21,28 +21,18 @@
         f.setAttribute('allow', a);
       } catch (e) { }
     }
-    function scan(n) {
-      try {
-        if (n.nodeType !== 1) return;
-        if (n.tagName === 'IFRAME') { fixFrame(n); return; }
-        if (!n.firstElementChild) return;
-        var l = n.getElementsByTagName('iframe');
-        for (var i = 0; i < l.length && i < 8; i++) fixFrame(l[i]);
-      } catch (e) { }
-    }
     try {
-      var mo = new MutationObserver(function (ms) {
-        for (var i = 0; i < ms.length; i++) {
-          var a = ms[i].addedNodes;
-          for (var j = 0; j < a.length && j < 20; j++) scan(a[j]);
-        }
-      });
+      var live = document.getElementsByTagName('iframe'), pend = 0;
+      var idle = window.requestIdleCallback || function (f) { return setTimeout(f, 120); };
+      var sweep = function () {
+        pend = 0;
+        try { for (var i = 0; i < live.length && i < 60; i++) fixFrame(live[i]); } catch (e) { }
+      };
+      var mo = new MutationObserver(function () { if (!pend) { pend = 1; idle(sweep, { timeout: 500 }); } });
       mo.observe(document, { childList: true, subtree: true });
-      // بعد استقرار الصفحة نوقف المراقبة (توفير المعالج)؛ إطارات كسولة متأخرة تُعالَج حتى ذلك الحين
       window.addEventListener('load', function () {
-        var l = document.getElementsByTagName('iframe');
-        for (var i = 0; i < l.length && i < 30; i++) fixFrame(l[i]);
-        setTimeout(function () { try { mo.disconnect(); } catch (e) { } }, 20000);
+        sweep();
+        setTimeout(function () { try { mo.disconnect(); } catch (e) { } }, 8000);
       });
     } catch (e) { }
 

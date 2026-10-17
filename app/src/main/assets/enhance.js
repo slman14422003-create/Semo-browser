@@ -43,10 +43,19 @@
     window.addEventListener('pageshow', function (ev) {
       try { if (ev.persisted) window.dispatchEvent(new Event('resize')); } catch (x) { }
     });
+    function chunkReload() {
+      try {
+        var k = '__nvChunk:' + location.pathname;
+        if (sessionStorage.getItem(k)) return;
+        sessionStorage.setItem(k, '1');
+        location.reload();
+      } catch (x) { }
+    }
     window.addEventListener('unhandledrejection', function (ev) {
-      try { if (ev && ev.reason && /ChunkLoadError|Loading chunk|Failed to fetch dynamically imported module/i.test(String(ev.reason.message || ev.reason))) {
-        if (!sessionStorage.getItem('__nvChunk')) { sessionStorage.setItem('__nvChunk', '1'); location.reload(); }
-      } } catch (x) { }
+      try {
+        if (ev && ev.reason && /ChunkLoadError|Loading chunk|Failed to fetch dynamically imported module|error loading dynamically imported module/i.test(String(ev.reason.message || ev.reason))) chunkReload();
+      } catch (x) { }
     });
+    window.addEventListener('vite:preloadError', chunkReload);
   } catch (e) { }
 })();

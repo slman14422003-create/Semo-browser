@@ -65,6 +65,9 @@ object Prefs {
     var smoothAnim by mutableStateOf(true); private set     // الأنيميشن
     var cap60 by mutableStateOf(true); private set          // تحديد 60Hz عند السخونة
     var fitPages by mutableStateOf(true); private set       // تحسين عرض الصفحات (render.js)
+    var forceZoom by mutableStateOf(true); private set
+    var unlockCopy by mutableStateOf(true); private set
+    var draftSave by mutableStateOf(true); private set
     var pwaMode by mutableStateOf(true); private set        // وضع التطبيق (PWA) ليوتيوب ومواقع الذكاء الاصطناعي
     var ytCcSize by mutableIntStateOf(1); private set       // حجم الترجمة في يوتيوب: 0 صغير 1 عادي 2 كبير 3 كبير جداً
     var ytCcBg by mutableIntStateOf(0); private set         // خلفية الترجمة: 0 زجاجية 1 غامقة 2 بلا
@@ -105,7 +108,7 @@ object Prefs {
         autoPip = p.getBoolean("autopip", true); ytBg = p.getBoolean("ytbg", true)
         autoUpdate = p.getBoolean("autoupd", true); adaptive = p.getBoolean("adaptive", true)
         smoothAnim = p.getBoolean("anim", true); cap60 = p.getBoolean("cap60", true)
-        fitPages = p.getBoolean("fitpages", true); pwaMode = p.getBoolean("pwa", true); pwaHaptics = p.getBoolean("pwahap", true);
+        fitPages = p.getBoolean("fitpages", true); forceZoom = p.getBoolean("fzoom", true); unlockCopy = p.getBoolean("ucopy", true); draftSave = p.getBoolean("draft", true); pwaMode = p.getBoolean("pwa", true); pwaHaptics = p.getBoolean("pwahap", true);
         ytCcSize = p.getInt("yccsize", 1).coerceIn(0, 3); ytCcBg = p.getInt("yccbg", 0).coerceIn(0, 2); ytCcPos = p.getInt("yccpos", 0).coerceIn(0, 2)
         ytNoShorts = p.getBoolean("ytnoshorts", false)
         ytResume = p.getBoolean("ytresume", true); ytKeepRate = p.getBoolean("ytkeeprate", true); ytHold2x = p.getBoolean("ythold2x", true)
@@ -147,6 +150,9 @@ object Prefs {
     fun pickSmoothAnim(v: Boolean) { smoothAnim = v; sp?.putBoolean("anim", v) }
     fun pickCap60(v: Boolean) { cap60 = v; sp?.putBoolean("cap60", v) }
     fun pickFitPages(v: Boolean) { fitPages = v; sp?.putBoolean("fitpages", v) }
+    fun pickForceZoom(v: Boolean) { forceZoom = v; sp?.putBoolean("fzoom", v) }
+    fun pickUnlockCopy(v: Boolean) { unlockCopy = v; sp?.putBoolean("ucopy", v) }
+    fun pickDraftSave(v: Boolean) { draftSave = v; sp?.putBoolean("draft", v) }
     fun pickPwaMode(v: Boolean) { pwaMode = v; sp?.putBoolean("pwa", v) }
     fun pickYtResume(v: Boolean) { ytResume = v; sp?.putBoolean("ytresume", v) }
     fun pickYtKeepRate(v: Boolean) { ytKeepRate = v; sp?.putBoolean("ytkeeprate", v) }
@@ -321,6 +327,12 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
                 { IosSwitch(checked = Prefs.autoClean, onCheckedChange = null) }),
             RowSpec(L("تحسين عرض الصفحات"), L("يضبط الصور والأكواد على عرض الشاشة ويمنع التمرير الأفقي (يُطبَّق على التبويبات الجديدة)"), Icons.Default.Settings, { Prefs.pickFitPages(!Prefs.fitPages) },
                 { IosSwitch(checked = Prefs.fitPages, onCheckedChange = null) }),
+            RowSpec(S(R.string.x_zoom_title), S(R.string.x_zoom_sub), Icons.Default.Search, { Prefs.pickForceZoom(!Prefs.forceZoom) },
+                { IosSwitch(checked = Prefs.forceZoom, onCheckedChange = null) }),
+            RowSpec(S(R.string.x_copy_title), S(R.string.x_copy_sub), Icons.Default.Edit, { Prefs.pickUnlockCopy(!Prefs.unlockCopy) },
+                { IosSwitch(checked = Prefs.unlockCopy, onCheckedChange = null) }),
+            RowSpec(S(R.string.x_draft_title), S(R.string.x_draft_sub), Icons.Default.Edit, { Prefs.pickDraftSave(!Prefs.draftSave) },
+                { IosSwitch(checked = Prefs.draftSave, onCheckedChange = null) }),
             RowSpec(L("تسريع التنقل"), L("جلب مسبق لروابط الموقع عند اللمس، تسخين DNS، وإيقاف الفيديوهات الصامتة خارج الشاشة (يُطبَّق على التبويبات الجديدة)"), Icons.Default.PlayArrow, { Prefs.pickBoost(!Prefs.boost) },
                 { IosSwitch(checked = Prefs.boost, onCheckedChange = null) }),
             RowSpec(S(R.string.smart_settings_title), S(R.string.smart_settings_sub), Icons.Default.Star, { Prefs.pickSmart(!Prefs.smart) },

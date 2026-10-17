@@ -36,6 +36,6 @@ fun NetImage(url: String, modifier: Modifier = Modifier, contentScale: ContentSc
         }
     }
     val b = bmp
-    if (b != null) Image(b.asImageBitmap(), null, modifier, contentScale = contentScale)
+    if (b != null) Image(remember(b) { b.asImageBitmap() }, null, modifier, contentScale = contentScale)
     else Box(modifier.background(Color(0x22888888)))
 }

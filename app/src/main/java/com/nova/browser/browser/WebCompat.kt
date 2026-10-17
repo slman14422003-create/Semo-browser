@@ -180,11 +180,18 @@ object WebCompat {
     private val perfboost: String? by lazy { runCatching { Perf.asset("perfboost.js") }.getOrNull() }
     private val langfix: String? by lazy { runCatching { Perf.asset("langfix.js") }.getOrNull() }
     private val enhance: String? by lazy { runCatching { Perf.asset("enhance.js") }.getOrNull() }
+    private val extrasJs: String? by lazy { runCatching { Perf.asset("extras.js") }.getOrNull() }
+
+    private fun extras(): String? {
+        if (!(Prefs.forceZoom || Prefs.unlockCopy || Prefs.draftSave)) return null
+        val cfg = "{\"zoom\":${Prefs.forceZoom},\"copy\":${Prefs.unlockCopy},\"draft\":${Prefs.draftSave}}"
+        return extrasJs?.replace("__EXTRAS__", cfg)
+    }
 
     fun install(wv: WebView) {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return
         // polyfills أولاً كي تجدها بقية السكربتات جاهزة
-        listOfNotNull(polyfills, js, langfix, enhance, perfboost).forEach { s ->
+        listOfNotNull(polyfills, js, langfix, enhance, perfboost, extras()).forEach { s ->
             runCatching { WebViewCompat.addDocumentStartJavaScript(wv, s, setOf("*")) }
         }
     }

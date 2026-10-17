@@ -46,16 +46,26 @@
     function imgs() {
       try {
         var l = document.images, n = Math.min(l.length, 300), vh = window.innerHeight * 2;
-        for (var i = 0; i < n; i++) {
-          var im = l[i];
-          if (im.__nv) continue; im.__nv = 1;
-          if (!im.hasAttribute('decoding')) im.decoding = 'async';
-          if (__LAZY__ && !im.hasAttribute('loading') && !im.complete && im.getBoundingClientRect().top > vh) im.loading = 'lazy';
+        var todo = [], defer = [], i;
+        for (i = 0; i < n; i++) {
+          if (l[i].__nv) continue;
+          l[i].__nv = 1;
+          todo.push(l[i]);
         }
+        // reads first, writes after: no forced layout between them
+        if (__LAZY__) {
+          for (i = 0; i < todo.length; i++) {
+            var m = todo[i];
+            if (!m.hasAttribute('loading') && !m.complete && m.getBoundingClientRect().top > vh) defer.push(m);
+          }
+        }
+        for (i = 0; i < todo.length; i++) if (!todo[i].hasAttribute('decoding')) todo[i].decoding = 'async';
+        for (i = 0; i < defer.length; i++) defer[i].loading = 'lazy';
       } catch (e) { }
     }
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(imgs, 50); });
-    window.addEventListener('load', function () { setTimeout(imgs, 300); });
+    var ric = window.requestIdleCallback || function (f) { return setTimeout(f, 60); };
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(function () { ric(imgs, { timeout: 800 }); }, 50); });
+    window.addEventListener('load', function () { setTimeout(function () { ric(imgs, { timeout: 800 }); }, 300); });
   } catch (e) { }
 })();
 // 1) جلب مسبق لروابط نفس الموقع عند لمس الرابط أكثر من 90ms (يُلغى مع أي سحب/تمرير).
@@ -190,7 +200,9 @@
         }
       }
     }
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(check, 800); });
-    window.addEventListener('load', function () { setTimeout(check, 1500); setTimeout(check, 5000); });
+    var ric2 = window.requestIdleCallback || function (f) { return setTimeout(f, 200); };
+    function later(ms) { setTimeout(function () { if (!applied) ric2(check, { timeout: 1500 }); }, ms); }
+    document.addEventListener('DOMContentLoaded', function () { later(1200); });
+    window.addEventListener('load', function () { later(1500); later(5000); });
   } catch (e) { }
 })();

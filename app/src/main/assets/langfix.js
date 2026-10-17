@@ -2,6 +2,7 @@
   'use strict';
   if (window.__nvl) return;
   try { Object.defineProperty(window, '__nvl', { value: 1 }); } catch (e) {}
+  if (window.top !== window) return;
   // الصفحات بلا lang تُعرض بخط/نموذج حروف خاطئ (أشهرها حروف الصينية/اليابانية/الكورية المشتركة). نستنتج اللغة من النص ونضبطها.
   var TRAD = '國學體說這們會從來個時對發經過後實點開問無為與關門車長東機書電話現學';
   var SIMP = '国学体说这们会从来个时对发经过后实点开问无为与关门车长东机书电话现学';
@@ -41,12 +42,34 @@
     for (var key in m) if (c[key] / n > 0.4) return m[key];
     return '';
   }
+  function sample(limit) {
+    var out = '', n, c = 0;
+    var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (t) {
+        var p = t.parentNode, nm = p && p.nodeName;
+        return (!p || nm === 'SCRIPT' || nm === 'STYLE' || nm === 'NOSCRIPT' || nm === 'TEMPLATE') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    while (out.length < limit && c++ < 400 && (n = w.nextNode())) {
+      var s = n.nodeValue && n.nodeValue.trim();
+      if (s) out += s + ' ';
+    }
+    return out.slice(0, limit);
+  }
+  function metaLang() {
+    try {
+      var m = document.querySelector('meta[http-equiv="content-language" i],meta[name="language" i],meta[property="og:locale"]');
+      var v = m && m.getAttribute('content');
+      if (v && /^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$/.test(v.trim())) return v.trim().replace('_', '-');
+    } catch (e) {}
+    return '';
+  }
   var tries = 0;
   function run() {
     try {
       var h = document.documentElement;
       if (!h || h.getAttribute('lang') || !document.body) { if (++tries < 3 && h && !h.getAttribute('lang')) setTimeout(run, 1500); return; }
-      var code = detect((document.body.innerText || '').slice(0, 1500));
+      var code = detect(sample(1500)) || metaLang();
       if (code) h.setAttribute('lang', code);
       else if (++tries < 3) setTimeout(run, 1500);
     } catch (e) {}

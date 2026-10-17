@@ -318,7 +318,7 @@ private fun SiteIcon(url: String, fallback: androidx.compose.ui.graphics.vector.
     val ver = Favicons.version
     val bmp = remember(ver, url) { Favicons.get(hostOf(url)) }
     IconCircle {
-        if (bmp != null) Image(bmp.asImageBitmap(), null, Modifier.size(22.dp).clip(RoundedCornerShape(5.dp))) else Icon(fallback, null)
+        if (bmp != null) Image(remember(bmp) { bmp.asImageBitmap() }, null, Modifier.size(22.dp).clip(RoundedCornerShape(5.dp))) else Icon(fallback, null)
     }
 }
 

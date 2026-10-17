@@ -19,4 +19,10 @@
     <string name="smart_dups_closed">%1$d duplicate tabs closed</string>
     <string name="smart_settings_title">Smart assistant</string>
     <string name="smart_settings_sub">Page summary, text selection actions, instant answers and adaptive loading</string>
+    <string name="x_zoom_title">Always allow pinch zoom</string>
+    <string name="x_zoom_sub">Overrides sites that disable zooming (applies to new tabs)</string>
+    <string name="x_copy_title">Unlock text selection and copy</string>
+    <string name="x_copy_sub">Lets you select and copy text on pages that block it (applies to new tabs)</string>
+    <string name="x_draft_title">Draft rescue</string>
+    <string name="x_draft_sub">Keeps long text typed in text boxes for 30 minutes if the page reloads or closes (applies to new tabs)</string>
 </resources>

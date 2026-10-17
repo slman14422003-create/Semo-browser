@@ -23,7 +23,7 @@ android {
     compileSdk = 35
     defaultConfig {
         applicationId = "com.nova.browser"
-        minSdk = 29
+        minSdk = 35
         targetSdk = 35
         versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 9
         versionName = System.getenv("VERSION_NAME") ?: "1.8.1"
@@ -60,7 +60,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        isCoreLibraryDesugaringEnabled = true      // مطلوب لمكتبة NewPipeExtractor
     }
     buildFeatures { compose = true; buildConfig = true }   // BuildConfig مطلوب لـ Updater (كان سبب الخطأ)
 }
@@ -101,6 +100,5 @@ dependencies {
     implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.5") // استخراج روابط الفيديو/الصوت من يوتيوب (مجاني ومفتوح المصدر)
     implementation("androidx.metrics:metrics-performance:1.0.0")   // JankStats: رصد الإطارات البطيئة (يُفعَّل في نسخة debug فقط)
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")   // كشف تسرّب الذاكرة (WebView/Activity) أثناء التطوير فقط؛ لا يدخل نسخة الإصدار
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     testImplementation("junit:junit:4.13.2")
 }

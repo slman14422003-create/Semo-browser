@@ -30,6 +30,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 
 private class Site(val name: String, val host: String, val url: String, val glyph: String, val color: Long, val icon: ImageVector?, val tint: Color? = null)
 
@@ -43,12 +46,14 @@ private fun FavoriteItem(st: Site, modifier: Modifier, onRemove: (() -> Unit)? =
     var menu by remember { mutableStateOf(false) }
     val ver = Favicons.version
     val fav = if (st.tint != null) remember(ver, st.host) { Favicons.get(st.host) } else null
+    val favImage = remember(fav) { fav?.asImageBitmap() }
+    val haptic = LocalHapticFeedback.current
     Column(
-        modifier.pressScale(src, 0.92f).combinedClickable(interactionSource = src, indication = null, onLongClick = if (onRemove != null) ({ menu = true }) else null, onClick = onClick).padding(vertical = 6.dp),
+        modifier.pressScale(src, 0.92f).combinedClickable(interactionSource = src, indication = null, role = Role.Button, onLongClick = if (onRemove != null) ({ haptic.performHapticFeedback(HapticFeedbackType.LongPress); menu = true }) else null, onClick = onClick).padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(Modifier.size(60.dp).clip(RoundedCornerShape(13.5.dp)).background(if (fav != null) Color.White else (st.tint ?: Color(st.color))), contentAlignment = Alignment.Center) {
-            if (fav != null) Image(fav.asImageBitmap(), null, Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)))
+            if (favImage != null) Image(favImage, null, Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)))
             else if (st.icon != null) Icon(st.icon, null, Modifier.size(28.dp), tint = Color.White)
             else Text(st.glyph, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
         }
@@ -84,14 +89,20 @@ fun StartPage(
             Site("GitHub", "github.com", "https://github.com", "</>", 0xFF3A3A3C, null)
         )
     }
-    val userFavs = Library.favorites.map { b ->
-        val h = hostOf(b.url)
-        Site(b.title, h, b.url, h.take(1).uppercase(), 0L, null, Color.hsv((h.hashCode().toLong().let { if (it < 0) -it else it } % 360).toFloat(), 0.55f, 0.72f))
+    val rows by remember(sites) {
+        derivedStateOf {
+            val userFavs = Library.favorites.map { b ->
+                val h = hostOf(b.url)
+                Site(b.title, h, b.url, h.take(1).uppercase(), 0L, null, Color.hsv((h.hashCode().toLong().let { if (it < 0) -it else it } % 360).toFloat(), 0.55f, 0.72f))
+            }
+            (sites + userFavs).chunked(4)
+        }
     }
-    val latest = Downloader.tasks.firstOrNull()
+    val latestName by remember { derivedStateOf { Downloader.tasks.firstOrNull()?.name } }
+    val ln = latestName
     val dlSub = when {
         activeDl > 0 -> ("" + activeDl + L(" قيد التنزيل"))
-        latest != null -> latest.name
+        ln != null -> ln
         else -> L("لا توجد تنزيلات بعد")
     }
 
@@ -112,7 +123,7 @@ fun StartPage(
         }
         StartHeader(L("المفضلة"))
         Column(Modifier.padding(horizontal = 12.dp)) {
-            (sites + userFavs).chunked(4).forEach { row ->
+            rows.forEach { row ->
                 Row(Modifier.fillMaxWidth()) {
                     row.forEach { st -> FavoriteItem(st, Modifier.weight(1f), if (st.tint != null) ({ Library.favorites.firstOrNull { it.url == st.url }?.let { Library.toggleFavorite(it.url, it.title) }; Unit }) else null) { onOpen(st.url) } }
                     repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }

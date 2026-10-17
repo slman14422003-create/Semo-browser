@@ -159,7 +159,7 @@ class DownloadService : Service() {
             )
             .setCategory(Notification.CATEGORY_PROGRESS)
             .setContentIntent(contentIntent()).setOngoing(true).setOnlyAlertOnce(true).setShowWhen(false)
-        if (Build.VERSION.SDK_INT >= 31) b.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+        b.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
         if (n == 0) {
             b.setProgress(0, 0, true)
             return b.build()

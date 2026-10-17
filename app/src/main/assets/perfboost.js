@@ -8,19 +8,35 @@
 
     var idle = window.requestIdleCallback || function (f) { return setTimeout(f, 200); };
 
+    var cn = navigator.connection || {};
+    var slow = !!cn.saveData || /(^|-)2g$/.test(cn.effectiveType || '');
+
     function hints() {
       try {
-        var seen = {}, n = 0, here = location.origin;
+        if (slow || !document.head) return;
+        var seen = {}, pre = 0, dns = 0, here = location.origin;
+        var ex = document.querySelectorAll('link[rel=preconnect],link[rel=dns-prefetch]');
+        for (var j = 0; j < ex.length; j++) {
+          try { seen[new URL(ex[j].href, here).origin] = 1; } catch (e) { }
+        }
         var els = document.querySelectorAll('script[src],link[href][rel=stylesheet],img[src]');
-        for (var i = 0; i < els.length && i < 60 && n < 4; i++) {
+        for (var i = 0; i < els.length && i < 80 && (pre < 3 || dns < 8); i++) {
           var u = els[i].src || els[i].href;
           if (!u) continue;
           var o;
           try { o = new URL(u, here).origin; } catch (e) { continue; }
           if (o === here || seen[o] || !/^https:/.test(o)) continue;
-          seen[o] = 1; n++;
+          seen[o] = 1;
           var l = document.createElement('link');
-          l.rel = 'preconnect'; l.href = o; l.crossOrigin = 'anonymous';
+          if (pre < 3) {
+            l.rel = 'preconnect';
+            if (els[i].hasAttribute('crossorigin')) l.crossOrigin = els[i].getAttribute('crossorigin') || 'anonymous';
+            pre++;
+          } else {
+            l.rel = 'dns-prefetch';
+            dns++;
+          }
+          l.href = o;
           document.head.appendChild(l);
         }
       } catch (e) { }

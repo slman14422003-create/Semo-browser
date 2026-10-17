@@ -33,7 +33,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -55,6 +59,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.delay
@@ -75,6 +80,7 @@ class AppActivity : ComponentActivity() {
     private var custom by mutableStateOf<View?>(null)
     private var customCb: WebChromeClient.CustomViewCallback? = null
     private var inPip by mutableStateOf(false)
+    private var configTick by mutableStateOf(0)
     private var wasPip = false
     private val permQueue = ArrayDeque<Pair<List<String>, () -> Unit>>()
     private var permBusy = false
@@ -159,18 +165,12 @@ class AppActivity : ComponentActivity() {
         val f = raw.toFloat()
         val ratio = if (f > 2.39f) Rational(239, 100) else if (f < 0.4184f) Rational(100, 239) else raw
         val b = PictureInPictureParams.Builder().setAspectRatio(ratio)
-        if (Build.VERSION.SDK_INT >= 31) b.setAutoEnterEnabled(Prefs.autoPip && canPip()).setSeamlessResizeEnabled(false)
+        b.setAutoEnterEnabled(Prefs.autoPip && canPip()).setSeamlessResizeEnabled(false)
         return b.build()
     }
 
     private fun refreshPip() {
         runCatching { setPictureInPictureParams(pipParams()) }
-    }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        if (Build.VERSION.SDK_INT < 31 && Prefs.autoPip && canPip() && packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE))
-            runCatching { enterPictureInPictureMode(pipParams()) }
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
@@ -182,10 +182,31 @@ class AppActivity : ComponentActivity() {
         if (YtWeb.owns(w)) YtWeb.onPip(w, isInPictureInPictureMode, custom != null)
     }
 
+    private fun reapplyInsets() {
+        val root = window.decorView
+        ViewCompat.requestApplyInsets(root)
+        root.requestLayout()
+    }
+
+    private fun refitWeb(w: WebView) {
+        val lp = w.layoutParams
+        if (lp != null) w.layoutParams = lp
+        (w.parent as? View)?.requestLayout()
+        w.requestLayout()
+        w.invalidate()
+    }
+
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
-        val w = tab.webView ?: return
         if (inPip || isInPictureInPictureMode) return
+        configTick++
+        val root = window.decorView
+        for (d in longArrayOf(0L, 120L, 400L, 900L)) root.postDelayed({
+            if (isFinishing || isDestroyed) return@postDelayed
+            reapplyInsets()
+            tab.webView?.let { refitWeb(it) }
+        }, d)
+        val w = tab.webView ?: return
         if (YtWeb.owns(w)) {
             YtWeb.afterRotate(w)
         } else {
@@ -258,7 +279,10 @@ class AppActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         boot()
-        window.attributes = window.attributes.apply { rotationAnimation = android.view.WindowManager.LayoutParams.ROTATION_ANIMATION_CROSSFADE }
+        window.attributes = window.attributes.apply {
+            rotationAnimation = android.view.WindowManager.LayoutParams.ROTATION_ANIMATION_CROSSFADE
+            layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        }
         val data = intent?.data
         if (data == null || (data.scheme != "https" && data.scheme != "http")) {
             finishAndRemoveTask()
@@ -352,6 +376,7 @@ class AppActivity : ComponentActivity() {
         val cs = MaterialTheme.colorScheme
         val bg = tab.topColor?.let { Color(it) } ?: cs.background
         val fullscreen = custom != null
+        @Suppress("UNUSED_VARIABLE") val tick = configTick
         var splash by remember { mutableStateOf(true) }
         val icon = remember { Favicons.get(hostOf(startUrl)) }
 
@@ -387,6 +412,7 @@ class AppActivity : ComponentActivity() {
             onDispose {
                 c.show(WindowInsetsCompat.Type.systemBars())
                 requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                window.decorView.post { reapplyInsets() }
             }
         }
 
@@ -398,7 +424,12 @@ class AppActivity : ComponentActivity() {
             Modifier
                 .fillMaxSize()
                 .background(bg)
-                .then(if (fullscreen || inPip) Modifier else Modifier.systemBarsPadding().imePadding())
+                .then(
+                    if (fullscreen || inPip) Modifier
+                    else Modifier
+                        .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
+                        .imePadding()
+                )
         ) {
             key(tab.epoch) {
                 AndroidView(

@@ -44,7 +44,7 @@ object Notif {
     }
 
     /** هل يحتاج الجهاز إذناً صريحاً؟ (أندرويد 13+) */
-    val needsPermission get() = Build.VERSION.SDK_INT >= 33
+    val needsPermission get() = true
 
     /** هل الإشعارات مسموحة للتطبيق (الإذن + عدم إيقافها من النظام)؟ */
     fun enabled(c: Context): Boolean {

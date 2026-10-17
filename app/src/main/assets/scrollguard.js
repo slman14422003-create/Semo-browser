@@ -9,6 +9,15 @@
     var sent = '';
     function post(v) { if (v !== sent) { sent = v; try { window.NovaScroll.postMessage(v); } catch (x) { } } }
     function root(el) { return el === document.documentElement || el === document.body || el === document.scrollingElement; }
+    var ecache = new WeakMap();
+    function isEditor(el) {
+      var c = ecache.get(el), now = Date.now();
+      if (c && now - c.t < 1500) return c.e;
+      var e = 0;
+      try { e = el.matches && el.matches(EDITOR) ? 1 : 0; } catch (x) { }
+      ecache.set(el, { t: now, e: e });
+      return e;
+    }
     function verdict(el) {
       var c = cache.get(el);
       var now = Date.now();
@@ -32,7 +41,7 @@
           var el = p[i];
           if (!el || el.nodeType !== 1) continue;
           if (el.scrollTop > 0) return 1;
-          if (el.matches && el.matches(EDITOR)) return 1;
+          if (isEditor(el)) return 1;
           if (root(el)) {
             var cs = getComputedStyle(el);
             if (cs.overscrollBehaviorY === 'contain' || cs.overscrollBehaviorY === 'none') return 1;

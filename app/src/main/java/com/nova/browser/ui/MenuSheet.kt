@@ -34,7 +34,7 @@ private fun ShareHeader(tab: BrowserTab, onClose: () -> Unit) {
     val ic = remember(host, fvTick) { Favicons.get(host) }
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).background(ios.cell), contentAlignment = Alignment.Center) {
-            if (ic != null) Image(ic.asImageBitmap(), null, Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)))
+            if (ic != null) Image(remember(ic) { ic.asImageBitmap() }, null, Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)))
             else Text(host.take(1).uppercase(), style = MaterialTheme.typography.titleMedium, color = ios.label2)
         }
         Spacer(Modifier.width(12.dp))
@@ -90,7 +90,7 @@ private fun ShareApps(url: String, title: String, act: (() -> Unit) -> Unit) {
             ) {
                 Box(Modifier.size(56.dp).clip(RoundedCornerShape(13.dp)).background(ios.cell), contentAlignment = Alignment.Center) {
                     val ic = t.icon
-                    if (ic != null) Image(ic.asImageBitmap(), null, Modifier.fillMaxSize())
+                    if (ic != null) Image(remember(ic) { ic.asImageBitmap() }, null, Modifier.fillMaxSize())
                     else Text(t.label.take(1).uppercase(), style = MaterialTheme.typography.titleMedium, color = ios.label2)
                 }
                 Spacer(Modifier.height(5.dp))

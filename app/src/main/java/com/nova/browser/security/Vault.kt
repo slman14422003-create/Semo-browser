@@ -128,16 +128,11 @@ object Vault {
 
 /** تأكيد الهوية ببصمة/وجه/قفل الشاشة. إن لم يكن للجهاز قفل يُسمح مباشرة (لا يمكن التحقق). */
 object Auth {
-    @Suppress("DEPRECATION")
-    private fun legacyCredential(b: BiometricPrompt.Builder) { b.setDeviceCredentialAllowed(true) }
-
     fun run(activity: Activity, title: String, onOk: () -> Unit) {
         val km = activity.getSystemService(KeyguardManager::class.java)
         if (km == null || !km.isDeviceSecure) { onOk(); return }
         val b = BiometricPrompt.Builder(activity).setTitle(title)
-        if (Build.VERSION.SDK_INT >= 30)
-            b.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
-        else legacyCredential(b)
+        b.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
         runCatching {
             b.build().authenticate(CancellationSignal(), activity.mainExecutor, object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) { onOk() }

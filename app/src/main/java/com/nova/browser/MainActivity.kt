@@ -136,10 +136,8 @@ class MainActivity : ComponentActivity() {
                 pipAction(android.R.drawable.ic_media_ff, L("تقديم 10 ثوانٍ"), PIP_FWD, 24)
             ))
         }
-        if (Build.VERSION.SDK_INT >= 31) {
-            b.setAutoEnterEnabled(pipAuto).setSeamlessResizeEnabled(false)
-            if (hasVideo) b.setTitle(YtMedia.title.ifBlank { null }).setSubtitle(YtMedia.artist.ifBlank { null })
-        }
+        b.setAutoEnterEnabled(pipAuto).setSeamlessResizeEnabled(false)
+        if (hasVideo) b.setTitle(YtMedia.title.ifBlank { null }).setSubtitle(YtMedia.artist.ifBlank { null })
         // انتقال أنعم: نحدّد مكان المشغّل في الصفحة ليتحوّل منه إطار المنبثقة
         if (hasVideo && !fullscreenActive) runCatching {
             val w = wvProvider()
@@ -194,6 +192,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
+        window.decorView.let { d -> d.post { androidx.core.view.ViewCompat.requestApplyInsets(d); d.requestLayout() } }
         val w = wvProvider()
         // الدخول للمنبثقة يطلق تغيير الإعدادات قبل onPictureInPictureModeChanged: لا نعتبره دوراناً (كان يعيد قياس الفيديو ويُفسد المنبثقة)
         val pipNow = inPip || isInPictureInPictureMode
@@ -202,11 +201,6 @@ class MainActivity : ComponentActivity() {
             YtLog.add("config orientation=" + newConfig.orientation + " fullscreen=" + fullscreenActive + " pip=" + pipNow)
             if (!pipNow) YtWeb.afterRotate(w)
         }
-    }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        if (pipAuto && Build.VERSION.SDK_INT < 31) enterPip()
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
@@ -298,6 +292,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val lvl = Adaptive.level
             LaunchedEffect(lvl, Prefs.cap60) { applyRefreshCap(lvl) }
+            LaunchedEffect(Unit) { androidx.compose.runtime.withFrameNanos { }; reportFullyDrawn() }
             LaunchedEffect(Unit) { kotlinx.coroutines.delay(4000); Updater.check(applicationContext); WebEngine.checkLatest(applicationContext) }   // بعد استقرار الواجهة
             // محرك WebView مفقود فعلياً (مزوّد معطّل/غير مثبّت): شاشة توجيه بدل محاولة إنشاء WebView التي تنهار التطبيق بلا تفسير
             NovaTheme(this) {

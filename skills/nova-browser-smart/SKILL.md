@@ -35,7 +35,7 @@ Pass finished without a compiler (none in the session). First step next time: ru
 
 # Verify on device
 
-- Selection toolbar shows the three new items on Android 10 to 15 and does not break copy/paste handles.
+- Selection toolbar shows the three new items on Android 15 and above and does not break copy/paste handles.
 - Summary dialog on an Arabic article, an English article and a page without paragraphs (should toast the no-summary message).
 - Slow-network deferral: throttle to 2G, images appear after the page body.
 - Library with a few thousand history entries: typing in the search box stays smooth.
