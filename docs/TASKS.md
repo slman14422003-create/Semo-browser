@@ -1,5 +1,16 @@
 # سجل المهام والتعديلات
 
+## 2026-10-17 (2) - auto reload on reconnect, installed-app bottom gap
+- core/NetRetry.kt: on network available, reloads only tabs whose load failed (BrowserTab.failed set when the error page is shown; cleared by the next real navigation). Wired in MainActivity and AppActivity (start in onStart, stop in onStop). YtWeb and WebFactory mark failures.
+- AppActivity: with gesture navigation the bottom system-bar inset was reserved as an empty strip below the page (the gap in the screenshot, worse after rotation). Now only top/sides are padded with gesture nav; 3-button nav keeps the bottom padding.
+- Not compiled in the session.
+
+## 2026-10-17 - rotation gap fix, installed-app features, motion/perf
+- Rotation gap (YouTube): `yt.js` gets `__novaFit` (re-measures fixed bars/player, restores scroll, fires resize; also on orientationchange). `YtWeb.create` adds a layout-change listener (debounced 160ms) so ANY real size change notifies the page; `YtWeb.forceRemeasure` toggles the WebView height by 1px then back. `MainActivity` also refits non-YouTube pages after rotation and uses a crossfade rotation animation.
+- Installed apps (`AppActivity`): handle at the top edge opens `AppOptionsSheet` (reload/share/open in Nova, per-app screen orientation, keep screen on, full screen, pull-to-refresh, remove app). Settings are per host via `AppPrefs` (nova.conf keys pwa_o_/pwa_k_/pwa_i_/pwa_r_). Pull-to-refresh added for non-YouTube apps. Launcher long-press shows the 4 newest installed apps (dynamic shortcuts, `Pwa.publishShortcuts`). Open/close activity transitions.
+- Motion/perf: page switch no longer scales the live WebView (fade only); bottom bar slides with the emphasized curve; StartPage sections enter in a stagger (graphicsLayer only); rounder icons/search; app splash exit scales out.
+- Not compiled in the session; run a Gradle build first. `tools/project_check.py` passes.
+
 ## 2026-10-16 - smart assistant, WebView support, smoothness audit
 - New: summarize.js + SmartAssist.kt (on-device page summary, Ask AI via Google AI Mode), SmartCalc.java (address-bar calculator), NovaWebView.kt (selection toolbar actions), WebBoost.kt (slow-network image deferral), Strings.kt + res/values(-ar)/strings.xml (resource strings that follow Prefs.lang).
 - Menus: Summarize page and Ask AI in the page menu; Close duplicate tabs in the tab overview menu.

@@ -112,12 +112,19 @@ object YtWeb {
         setDownloadListener { u, ua, cd, mime, _ -> h.onDownload(u, ua, cd, mime, this.url) }
         webViewClient = Client(tab, h)
         webChromeClient = Chrome(ctx, tab, h)
+        // أي تغيّر فعلي في مقاس الـ WebView (تدوير، شريط النظام، طيّ الجهاز) يُبلَّغ للصفحة مرة واحدة بعد استقراره:
+        // هذا هو علاج الفراغ بعد التدوير، ويعمل في المتصفح وفي التطبيقات المثبّتة معاً
+        val fit = Runnable { if (!pip && owns(this)) evaluateJavascript("window.__novaFit&&window.__novaFit()", null) }
+        addOnLayoutChangeListener { _, l, t, r, b, ol, ot, or2, ob ->
+            if ((r - l) != (or2 - ol) || (b - t) != (ob - ot)) { removeCallbacks(fit); postDelayed(fit, 160L) }
+        }
         // تسخين DNS لنطاقات التشغيل قبل أول طلب
         WebSupport.prefetchDns("m.youtube.com"); WebSupport.prefetchDns("i.ytimg.com"); WebSupport.prefetchDns("www.gstatic.com")
     }
 
     private class Client(val tab: BrowserTab, val h: Handlers) : WebViewClient() {
         override fun onPageStarted(v: WebView, u: String, f: Bitmap?) {
+            tab.clearFailedIfNew()
             tab.loading = true; tab.url = u; tab.shieldHost = Shield.hostFor(u)
             YtHub.onPageStart(v, u); YtMedia.pageChanged(tab, u)
         }
@@ -151,6 +158,7 @@ object YtWeb {
         override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
             if (!r.isForMainFrame) return
             val u = r.url.toString()
+            tab.markFailed()
             v.loadDataWithBaseURL(u, errorHtml(u, e.description.toString()), "text/html", "UTF-8", u)
         }
         override fun onReceivedSslError(v: WebView, handler: SslErrorHandler, e: SslError) {
@@ -265,12 +273,32 @@ object YtWeb {
     fun afterRotate(w: WebView?) {
         w ?: return
         if (pip) return
+        forceRemeasure(w)
         for (d in longArrayOf(150L, 500L, 1000L, 1800L)) w.postDelayed({
             if (pip) return@postDelayed
             w.requestLayout(); w.invalidate()
             w.evaluateJavascript("window.__novaRefit&&window.__novaRefit(${d >= 1000L})", null)
         }, d)
         heal(w)
+    }
+
+    /**
+     * يجبر الـ WebView على إصدار مقاس جديد للصفحة: ينقص ارتفاعه بكسلاً واحداً ثم يعيده إلى MATCH_PARENT في الإطار التالي.
+     * بعض إصدارات WebView تُبقي مقاس العرض القديم بعد التدوير فيظهر فراغ أعلى/أسفل الصفحة حتى أول لمسة.
+     */
+    fun forceRemeasure(w: WebView?) {
+        w ?: return
+        val lp = w.layoutParams ?: return
+        val h = w.height
+        if (h <= 2 || lp.height != ViewGroup.LayoutParams.MATCH_PARENT) return
+        lp.height = h - 1
+        w.layoutParams = lp
+        w.postDelayed({
+            val l2 = w.layoutParams ?: return@postDelayed
+            l2.height = ViewGroup.LayoutParams.MATCH_PARENT
+            w.layoutParams = l2
+            w.requestLayout(); w.invalidate()
+        }, 48L)
     }
 
     /** دخول/خروج النافذة المنبثقة. */

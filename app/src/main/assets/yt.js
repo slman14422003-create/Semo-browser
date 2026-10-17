@@ -155,7 +155,29 @@ try {
       v.style.setProperty('transform', 'translateZ(0)', 'important');
       requestAnimationFrame(function () { requestAnimationFrame(function () { v.style.removeProperty('transform'); }); });
     }
-    window.__novaRefit = function (deep) { lastShown = null; refit(); if (deep) nudge(); setTimeout(tick, 80); };
+    // إصلاح الفراغ بعد التدوير: يوتيوب يحسب ارتفاع الصفحة وشريطه السفلي الثابت (position:fixed) من مقاس قديم؛
+    // نعيد القياس بتحريك العناصر الثابتة إطارين ثم نعيد المؤشر إلى مكانه، دون تغيير موضع التمرير.
+    var fitT = 0;
+    function relayout() {
+      try {
+        var de = document.documentElement;
+        de.style.setProperty('--nova-vh', window.innerHeight + 'px');
+        var fixed = document.querySelectorAll('ytm-pivot-bar-renderer,ytm-mobile-topbar-renderer,.mobile-topbar-header,#player-container-id,.player-container');
+        for (var i = 0; i < fixed.length; i++) fixed[i].style.setProperty('transform', 'translateZ(0)', 'important');
+        var sy = window.scrollY, sx = window.scrollX;
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            for (var j = 0; j < fixed.length; j++) fixed[j].style.removeProperty('transform');
+            if (sy > 0) window.scrollTo(sx, sy);
+            fromUs = true; try { window.dispatchEvent(new Event('resize')); } catch (e) {} fromUs = false;
+          });
+        });
+      } catch (e) {}
+    }
+    window.__novaFit = function () { clearTimeout(fitT); fitT = setTimeout(relayout, 60); };
+    window.addEventListener('orientationchange', function () { setTimeout(window.__novaFit, 120); setTimeout(window.__novaFit, 700); });
+    try { if (screen.orientation) screen.orientation.addEventListener('change', function () { setTimeout(window.__novaFit, 150); }); } catch (e) {}
+    window.__novaRefit = function (deep) { lastShown = null; refit(); if (deep) nudge(); window.__novaFit(); setTimeout(tick, 80); };
     ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (n) {
       document.addEventListener(n, function () { setTimeout(function () { window.__novaRefit(false); }, 250); setTimeout(function () { window.__novaRefit(true); }, 900); }, true);
     });

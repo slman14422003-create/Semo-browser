@@ -48,6 +48,11 @@ class BrowserTab(val id: Int, startUrl: String = "") {
     var siteCustom = false
     var safari = false
     var appHome = ""
+    @Volatile var failed = false         // فشل تحميل الصفحة (صفحة الخطأ معروضة): تُعاد تلقائياً عند عودة الاتصال
+    @Volatile var failedAt = 0L
+    fun markFailed() { failedAt = android.os.SystemClock.elapsedRealtime(); failed = true }
+    /** صفحة الخطأ نفسها تطلق onPageStarted بعد لحظة؛ أي بدء تحميل لاحق جديد يمسح العلامة. */
+    fun clearFailedIfNew() { if (android.os.SystemClock.elapsedRealtime() - failedAt > 1500L) failed = false }
     var yt = false                       // هذا التبويب يعرض يوتيوب في الـ WebView المخصّص (YtWeb) لا العام
 }
 

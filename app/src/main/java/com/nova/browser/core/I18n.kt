@@ -488,6 +488,15 @@ object I18n {
         "تم" to "Done",
         "إغلاق التبويب" to "Close tab",
         "تقرير الخصوصية" to "Privacy Report",
+        "خيارات التطبيق" to "App options",
+        "فتح في Nova" to "Open in Nova",
+        "اتجاه الشاشة" to "Screen orientation",
+        "عمودي" to "Portrait",
+        "أفقي" to "Landscape",
+        "إبقاء الشاشة مضاءة" to "Keep screen on",
+        "ملء الشاشة" to "Full screen",
+        "السحب للتحديث" to "Pull to refresh",
+        "إزالة التطبيق" to "Remove app",
         "متتبعات تم منعها من تتبعك" to "Trackers prevented from profiling you"
     )
 }

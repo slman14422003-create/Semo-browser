@@ -84,6 +84,7 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
     webViewClient = object : WebViewClient() {
         override fun onPageStarted(v: WebView, u: String, f: Bitmap?) {
             if (YtWeb.isYtUrl(u)) { v.post { YtWeb.swapIfNeeded(tab, u) }; return }   // وصلنا ليوتيوب (تحويل من الخادم): يُكمل في الـ WebView المخصّص
+            tab.clearFailedIfNew()
             SiteStore.apply(tab, v, hostOf(u))
             WebSupport.resetInnerScroll(v)
             WebBoost.onPageStart(v)
@@ -152,6 +153,7 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
             if (r.isForMainFrame) {
                 val u = r.url.toString()
                 if (WebSupport.tryCacheFallback(v, u)) return
+                tab.markFailed()
                 v.loadDataWithBaseURL(u, errorHtml(u, e.description.toString()), "text/html", "UTF-8", u)
             }
         }

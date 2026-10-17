@@ -81,6 +81,8 @@ class MainActivity : ComponentActivity() {
     var pipAuto = false
     var fullscreenActive = false
     var wvProvider: () -> WebView? = { null }
+    var netTabs: () -> List<BrowserTab> = { emptyList() }
+    private val netRetry by lazy { NetRetry(this) { netTabs() } }
 
     private val PIP_PLAY = "nova.pip.play"
     private val PIP_PAUSE = "nova.pip.pause"
@@ -157,6 +159,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        netRetry.start()
         if (!pipReceiverOn) {
             val f = IntentFilter().apply { addAction(PIP_PLAY); addAction(PIP_PAUSE); addAction(PIP_BACK); addAction(PIP_FWD) }
             pipReceiverOn = runCatching { ContextCompat.registerReceiver(this, pipReceiver, f, ContextCompat.RECEIVER_NOT_EXPORTED) }.isSuccess
@@ -200,6 +203,11 @@ class MainActivity : ComponentActivity() {
         if (YtWeb.owns(w)) {
             YtLog.add("config orientation=" + newConfig.orientation + " fullscreen=" + fullscreenActive + " pip=" + pipNow)
             if (!pipNow) YtWeb.afterRotate(w)
+        } else if (w != null && !pipNow) {
+            for (d in longArrayOf(120L, 450L, 1000L)) w.postDelayed({
+                w.requestLayout(); w.invalidate()
+                w.evaluateJavascript("window.dispatchEvent(new Event('resize'))", null)
+            }, d)
         }
     }
 
@@ -246,6 +254,10 @@ class MainActivity : ComponentActivity() {
             })
         }
         enableEdgeToEdge()
+        // تدوير بتلاشٍ متقاطع بدل القفزة
+        window.attributes = window.attributes.apply {
+            rotationAnimation = android.view.WindowManager.LayoutParams.ROTATION_ANIMATION_CROSSFADE
+        }
         Prefs.init(this)
         SiteStore.init(applicationContext)
         GoogleAccounts.init(this)
@@ -314,6 +326,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        netRetry.stop()
         Perf.flushCookies(true)
         val nowMs = android.os.SystemClock.elapsedRealtime()
         if (nowMs - lastCacheCheck > 10 * 60_000L) {   // قياس حجم الكاش في خيط خلفي وبحدّ أقصى مرة كل 10 دقائق
@@ -783,6 +796,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
     val mainAct = activity as? MainActivity
     SideEffect {
         mainAct?.wvProvider = { tabs.getOrNull(current)?.webView }
+        mainAct?.netTabs = { tabs.toList() }
         mainAct?.fullscreenActive = customView != null
         val want = Prefs.autoPip && ((tab.yt && isYtVideo(tab.url)) || customView != null)
         if (mainAct != null && mainAct.pipAuto != want) { mainAct.pipAuto = want; mainAct.refreshPip() }
@@ -841,7 +855,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
                         targetState = tab.id to tab.url.isBlank(),
                         transitionSpec = {
                             if (targetState.second) fadeIn(tween(Adaptive.ms(180), easing = NovaMotion.emphasized)) togetherWith fadeOut(tween(Adaptive.ms(110)))
-                            else (fadeIn(tween(Adaptive.ms(220), easing = NovaMotion.emphasized)) + scaleIn(tween(Adaptive.ms(260), easing = NovaMotion.emphasized), initialScale = 0.985f)) togetherWith fadeOut(tween(Adaptive.ms(120)))
+                            else fadeIn(tween(Adaptive.ms(200), easing = NovaMotion.emphasized)) togetherWith fadeOut(tween(Adaptive.ms(110)))
                         },
                         label = "page"
                     ) { (id, blank) ->
@@ -925,7 +939,8 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
                 }
                 AnimatedVisibility(
                     visible = !inPip && !pageTyping, modifier = Modifier.align(Alignment.BottomCenter),
-                    enter = fadeIn(tween(Adaptive.ms(160))), exit = fadeOut(tween(Adaptive.ms(90)))
+                    enter = androidx.compose.animation.slideInVertically(tween(Adaptive.ms(300), easing = NovaMotion.emphasized)) { it / 2 } + fadeIn(tween(Adaptive.ms(180))),
+                    exit = androidx.compose.animation.slideOutVertically(tween(Adaptive.ms(180), easing = NovaMotion.emphasizedAccel)) { it / 3 } + fadeOut(tween(Adaptive.ms(110)))
                 ) {
                 if (tab.finding) key(tab.id) { FindBar(tab) } else BottomPill(
                     tab = tab, tabCount = tabs.size, editing = editing, setEditing = { editing = it },

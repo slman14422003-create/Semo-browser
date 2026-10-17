@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.systemBars
@@ -47,6 +49,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -56,6 +59,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -81,6 +88,13 @@ class AppActivity : ComponentActivity() {
     private var customCb: WebChromeClient.CustomViewCallback? = null
     private var inPip by mutableStateOf(false)
     private var configTick by mutableStateOf(0)
+    private var hostKey = ""
+    private var optOrient by mutableIntStateOf(0)
+    private var optAwake by mutableStateOf(false)
+    private var optImmersive by mutableStateOf(false)
+    private var optPull by mutableStateOf(true)
+    private var optSheet by mutableStateOf(false)
+    private val netRetry by lazy { NetRetry(this) { listOf(tab) } }
     private var wasPip = false
     private val permQueue = ArrayDeque<Pair<List<String>, () -> Unit>>()
     private var permBusy = false
@@ -156,6 +170,19 @@ class AppActivity : ComponentActivity() {
         }
     }
 
+    private fun setOrient(v: Int) {
+        optOrient = v
+        AppPrefs.setOrient(this, hostKey, v)
+        if (custom == null) requestedOrientation = AppPrefs.orientFlag(v)
+    }
+
+    private fun setAwake(v: Boolean) {
+        optAwake = v
+        AppPrefs.setKeepAwake(this, hostKey, v)
+        if (v) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
     private fun canPip() = tab.yt && YtMedia.owner === tab && YtMedia.playing && isYtVideo(tab.url)
 
     private fun pipParams(): PictureInPictureParams {
@@ -220,6 +247,7 @@ class AppActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        netRetry.start()
         val w = tab.webView
         w?.onResume()
         w?.resumeTimers()
@@ -244,6 +272,7 @@ class AppActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        netRetry.stop()
         Perf.flushCookies(true)
         val w = tab.webView
         if (wasPip && !isInPictureInPictureMode && !isFinishing) {
@@ -291,6 +320,18 @@ class AppActivity : ComponentActivity() {
         startUrl = data.toString()
         val host = hostOf(startUrl)
         appName = Pwa.nameFor(host) ?: host
+        hostKey = host.removePrefix("www.")
+        optOrient = AppPrefs.orient(this, hostKey)
+        optAwake = AppPrefs.keepAwake(this, hostKey)
+        optImmersive = AppPrefs.immersive(this, hostKey)
+        optPull = AppPrefs.pull(this, hostKey)
+        requestedOrientation = AppPrefs.orientFlag(optOrient)
+        if (optAwake) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // حركة فتح/إغلاق ناعمة للتطبيق المثبّت بدل قفزة النظام الافتراضية
+        runCatching {
+            overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, R.anim.nova_panel_in, R.anim.nova_hold)
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.nova_hold, R.anim.nova_panel_out)
+        }
         tab.app = true
         tab.appHome = startUrl
         tab.url = startUrl
@@ -371,6 +412,7 @@ class AppActivity : ComponentActivity() {
         }
     }
 
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
     @androidx.compose.runtime.Composable
     private fun AppHost(handlers: Handlers) {
         val cs = MaterialTheme.colorScheme
@@ -411,23 +453,45 @@ class AppActivity : ComponentActivity() {
             }
             onDispose {
                 c.show(WindowInsetsCompat.Type.systemBars())
-                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                requestedOrientation = AppPrefs.orientFlag(optOrient)
                 window.decorView.post { reapplyInsets() }
             }
         }
 
-        BackHandler(enabled = fullscreen) { customCb?.onCustomViewHidden() }
-        BackHandler(enabled = !fullscreen && tab.canBack) { tab.webView?.let { WebSupport.goBackFast(it) } }
-        BackHandler(enabled = !fullscreen && !tab.canBack) { finishAndRemoveTask() }
+        LaunchedEffect(optImmersive, fullscreen) {
+            if (fullscreen) return@LaunchedEffect
+            val c = WindowInsetsControllerCompat(window, window.decorView)
+            if (optImmersive) {
+                c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                c.hide(WindowInsetsCompat.Type.systemBars())
+            } else c.show(WindowInsetsCompat.Type.systemBars())
+        }
+        // الفراغ الأسود تحت صفحة التطبيق: مع تنقّل الإيماءات يُحجز ارتفاع شريط النظام السفلي كحشوة فارغة بلون الخلفية.
+        // نترك الصفحة تمتدّ خلفه (الإيماءات شفافة) ونُبقي الحشوة السفلية فقط مع أزرار التنقل الثلاثة؛ الأعلى والجوانب دائماً محفوظة.
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val navBottom = WindowInsets.navigationBars.getBottom(density)
+        val gestureNav = navBottom <= with(density) { 34.dp.roundToPx() }
+        val safe = WindowInsets.systemBars.union(WindowInsets.displayCutout).let {
+            if (gestureNav) it.only(androidx.compose.foundation.layout.WindowInsetsSides.Horizontal + androidx.compose.foundation.layout.WindowInsetsSides.Top) else it
+        }
+        val primaryInt = cs.primary.toArgb()
+        val bgInt = cs.surfaceContainerHigh.toArgb()
+        val spinnerInt = cs.onSurface.toArgb()
 
+        BackHandler(enabled = optSheet) { optSheet = false }
+        BackHandler(enabled = fullscreen) { customCb?.onCustomViewHidden() }
+        BackHandler(enabled = !fullscreen && !optSheet && tab.canBack) { tab.webView?.let { WebSupport.goBackFast(it) } }
+        BackHandler(enabled = !fullscreen && !optSheet && !tab.canBack) { finishAndRemoveTask() }
+
+        Box(Modifier.fillMaxSize().background(bg)) {
         Box(
             Modifier
                 .fillMaxSize()
-                .background(bg)
                 .then(
                     if (fullscreen || inPip) Modifier
+                    else if (optImmersive) Modifier.windowInsetsPadding(WindowInsets.displayCutout).imePadding()
                     else Modifier
-                        .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
+                        .windowInsetsPadding(safe)
                         .imePadding()
                 )
         ) {
@@ -441,10 +505,21 @@ class AppActivity : ComponentActivity() {
                         wv.onResume()
                         wv.resumeTimers()
                         if (YtWeb.isYtUrl(startUrl)) wv.loadUrl(startUrl) else wv.loadUrl(startUrl, Perf.privacyHeaders)
-                        FrameLayout(ctx).apply {
-                            addView(wv, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                        val lp = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                        if (tab.yt) FrameLayout(ctx).apply { addView(wv, lp) }   // يوتيوب: بلا سحب للتحديث (يتعارض مع تمرير الصفحة)
+                        else SwipeRefreshLayout(ctx).apply {
+                            addView(wv, lp)
+                            setOnRefreshListener { wv.reload() }
+                            setOnChildScrollUpCallback { _, _ -> wv.scrollY > 0 || wv.canScrollVertically(-1) || WebSupport.innerScrolled(wv) }
+                            setDistanceToTriggerSync((120 * ctx.resources.displayMetrics.density).toInt())
+                            setSlingshotDistance((140 * ctx.resources.displayMetrics.density).toInt())
+                            setColorSchemeColors(primaryInt)
+                            setProgressBackgroundColorSchemeColor(bgInt)
+                            useIosSpinner(spinnerInt)
+                            isEnabled = optPull
                         }
-                    }
+                    },
+                    update = { v -> (v as? SwipeRefreshLayout)?.isEnabled = optPull }
                 )
             }
 
@@ -468,7 +543,7 @@ class AppActivity : ComponentActivity() {
                 )
             }
 
-            AnimatedVisibility(visible = splash && !inPip, exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
+            AnimatedVisibility(visible = splash && !inPip, exit = fadeOut(androidx.compose.animation.core.tween(Adaptive.ms(220))) + androidx.compose.animation.scaleOut(androidx.compose.animation.core.tween(Adaptive.ms(260), easing = NovaMotion.emphasized), targetScale = 1.04f), modifier = Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxSize().background(cs.background), contentAlignment = Alignment.Center) {
                     androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         if (icon != null) {
@@ -483,6 +558,31 @@ class AppActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+        if (!inPip && !fullscreen && !splash) {
+            // مقبض صغير بمنتصف الحافة العلوية يفتح خيارات التطبيق
+            Box(
+                Modifier.align(Alignment.TopCenter)
+                    .then(if (optImmersive) Modifier.windowInsetsPadding(WindowInsets.displayCutout) else Modifier.windowInsetsPadding(safe))
+                    .width(84.dp).height(22.dp)
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { optSheet = true },
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Box(Modifier.padding(top = 4.dp).width(30.dp).height(4.dp).clip(RoundedCornerShape(50)).background(cs.onBackground.copy(alpha = 0.26f)))
+            }
+        }
+        AppOptionsSheet(
+            visible = optSheet && !inPip && !fullscreen, name = appName, orient = optOrient, keepAwake = optAwake,
+            immersive = optImmersive, pull = optPull,
+            onOrient = { setOrient(it) }, onKeepAwake = { setAwake(it) },
+            onImmersive = { optImmersive = it; AppPrefs.setImmersive(this@AppActivity, hostKey, it) },
+            onPull = { optPull = it; AppPrefs.setPull(this@AppActivity, hostKey, it) },
+            onReload = { tab.webView?.reload() },
+            onShare = { shareText(this@AppActivity, tab.url.ifBlank { startUrl }) },
+            onOpenNova = { openExternal(tab.url.ifBlank { startUrl }) },
+            onRemove = { Pwa.togglePin(this@AppActivity, startUrl, appName); finishAndRemoveTask() },
+            onDismiss = { optSheet = false }
+        )
         }
     }
 }

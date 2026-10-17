@@ -62,6 +62,19 @@ object Pwa {
     private fun save(c: Context) {
         ConfStore.open(c).putString("pwa_apps", apps.entries.joinToString(";;") { it.key + "|" + it.value })
         lastUrl = null; lastInfo = null
+        publishShortcuts(c)
+    }
+
+    /** اختصارات ديناميكية: الضغط المطوّل على أيقونة Nova يعرض التطبيقات المثبّتة (أحدث 4) لفتحها مباشرة. */
+    fun publishShortcuts(c: Context) {
+        runCatching {
+            val list = apps.entries.toList().takeLast(4).map { (host, name) ->
+                ShortcutInfoCompat.Builder(c, "dyn_$host").setShortLabel(name).setLongLabel(name)
+                    .setIcon(IconCompat.createWithBitmap(Favicons.get(host)?.let { Bitmap.createScaledBitmap(it, 192, 192, true) } ?: letterIcon(host, name)))
+                    .setIntent(AppActivity.intentFor(c, homeFor("https://$host/"))).build()
+            }
+            ShortcutManagerCompat.setDynamicShortcuts(c, list)
+        }
     }
 
     fun isInstalled(host: String): Boolean = apps.containsKey(host.removePrefix("www."))
@@ -74,6 +87,7 @@ object Pwa {
     }
 
     fun launch(ctx: Context, url: String) {
+        ensure(ctx)
         runCatching { ctx.startActivity(AppActivity.intentFor(ctx, homeFor(url))) }
     }
 
