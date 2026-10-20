@@ -53,7 +53,7 @@ object WebSupport {
         warmed0 = true
         runCatching {
             val cfg = WebViewStartUpConfig.Builder(Work.cpuPool).build()
-            WebViewCompat.startUpWebView(c.applicationContext, cfg) { }
+            WebViewCompat.startUpWebView(c.applicationContext, cfg, WebViewCompat.WebViewStartUpCallback { _ -> })
         }
     }
 
