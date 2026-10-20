@@ -28,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
@@ -95,7 +96,8 @@ private fun QuickAction(icon: ImageVector, label: String, modifier: Modifier, on
 fun AppOptionsSheet(
     visible: Boolean, name: String, orient: Int, keepAwake: Boolean, immersive: Boolean, pull: Boolean,
     onOrient: (Int) -> Unit, onKeepAwake: (Boolean) -> Unit, onImmersive: (Boolean) -> Unit, onPull: (Boolean) -> Unit,
-    onReload: () -> Unit, onShare: () -> Unit, onOpenNova: () -> Unit, onRemove: () -> Unit, onDismiss: () -> Unit
+    onReload: () -> Unit, onShare: () -> Unit, onOpenNova: () -> Unit, onRemove: () -> Unit, onDismiss: () -> Unit,
+    onAudioOnly: (() -> Unit)? = null
 ) {
     val ios = LocalIos.current
     Box(Modifier.fillMaxSize()) {
@@ -128,6 +130,16 @@ fun AppOptionsSheet(
                     QuickAction(Icons.Default.Home, L("فتح في Nova"), Modifier.weight(1f)) { onDismiss(); onOpenNova() }
                 }
                 Spacer(Modifier.height(16.dp))
+                if (onAudioOnly != null) {
+                    IosGroup {
+                        IosCell(
+                            L("صوت فقط"), { onDismiss(); onAudioOnly() }, divider = false,
+                            leading = { IosTile(ios.indigo) { Icon(Icons.Default.PlayArrow, null, Modifier.size(18.dp)) } },
+                            chevron = true
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
                 IosGroup {
                     IosCell(
                         L("اتجاه الشاشة"),

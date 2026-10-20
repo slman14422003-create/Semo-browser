@@ -34,6 +34,8 @@ class MediaService : Service() {
                 override fun onSeekTo(pos: Long) = YtMedia.control("seek:$pos")
                 override fun onFastForward() = YtMedia.control("fwd")
                 override fun onRewind() = YtMedia.control("back")
+                override fun onSkipToNext() = YtMedia.control("next")
+                override fun onSkipToPrevious() = YtMedia.control("prev")
             })
             isActive = true
         }
@@ -94,7 +96,8 @@ class MediaService : Service() {
             PlaybackState.Builder()
                 .setActions(
                     PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE or
-                        PlaybackState.ACTION_SEEK_TO or PlaybackState.ACTION_FAST_FORWARD or PlaybackState.ACTION_REWIND
+                        PlaybackState.ACTION_SEEK_TO or PlaybackState.ACTION_FAST_FORWARD or PlaybackState.ACTION_REWIND or
+                        PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SKIP_TO_PREVIOUS
                 )
                 .setState(st, YtMedia.pos, if (YtMedia.playing) 1f else 0f).build()
         )
@@ -131,7 +134,8 @@ class MediaService : Service() {
                 else action(android.R.drawable.ic_media_play, L("تشغيل"), "play", 3)
             )
             .addAction(action(android.R.drawable.ic_media_ff, L("تقديم 10 ثوانٍ"), "fwd", 4))
-            .setStyle(Notification.MediaStyle().setMediaSession(session.sessionToken).setShowActionsInCompactView(0, 1, 2))
+            .addAction(action(android.R.drawable.ic_media_next, L("التالي"), "next", 5))
+            .setStyle(Notification.MediaStyle().setMediaSession(session.sessionToken).setShowActionsInCompactView(0, 1, 3))
         YtMedia.art?.let { b.setLargeIcon(it) }
         return b.build()
     }

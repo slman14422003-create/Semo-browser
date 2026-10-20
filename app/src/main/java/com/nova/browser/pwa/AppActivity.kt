@@ -418,7 +418,8 @@ class AppActivity : ComponentActivity() {
     @androidx.compose.runtime.Composable
     private fun AppHost(handlers: Handlers) {
         val cs = MaterialTheme.colorScheme
-        val bg = tab.topColor?.let { Color(it) } ?: cs.background
+        // YouTube: until the page colour is sampled, use YouTube's own header colour (not the system background) so the status bar never looks like a separate black strip
+        val bg = tab.topColor?.let { Color(it) } ?: if (tab.yt) (if (cs.background.luminance() < 0.5f) Color(0xFF0F0F0F) else Color.White) else cs.background
         val fullscreen = custom != null
         @Suppress("UNUSED_VARIABLE") val tick = configTick
         var splash by remember { mutableStateOf(true) }
@@ -476,6 +477,9 @@ class AppActivity : ComponentActivity() {
         val safe = WindowInsets.systemBars.union(WindowInsets.displayCutout).let {
             if (gestureNav) it.only(androidx.compose.foundation.layout.WindowInsetsSides.Horizontal + androidx.compose.foundation.layout.WindowInsetsSides.Top) else it
         }
+        val miniOn = YtAudio.active && !inPip && !fullscreen
+        val navDp = with(density) { navBottom.toDp() }
+        val miniPad = if (miniOn) YT_MINI_BAR_HEIGHT + (if (gestureNav) navDp else 0.dp) else 0.dp
         val primaryInt = cs.primary.toArgb()
         val bgInt = cs.surfaceContainerHigh.toArgb()
         val spinnerInt = cs.onSurface.toArgb()
@@ -499,7 +503,7 @@ class AppActivity : ComponentActivity() {
         ) {
             key(tab.epoch) {
                 AndroidView(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().padding(bottom = miniPad),
                     factory = { ctx ->
                         val wv = if (YtWeb.isYtUrl(startUrl)) YtWeb.create(ctx, tab, handlers) else createWebView(ctx, tab, handlers)
                         tab.webView = wv
@@ -535,6 +539,14 @@ class AppActivity : ComponentActivity() {
                 )
             }
 
+            if (miniOn) {
+                YtMiniBar(Modifier.align(Alignment.BottomCenter).padding(bottom = if (gestureNav) navDp else 0.dp)) {
+                    val u = YtAudio.watchUrl()
+                    YtAudio.close()
+                    tab.webView?.loadUrl(u)
+                }
+            }
+
             custom?.let { v ->
                 AndroidView(
                     modifier = Modifier.fillMaxSize().background(Color.Black),
@@ -562,15 +574,19 @@ class AppActivity : ComponentActivity() {
             }
         }
         if (!inPip && !fullscreen && !splash) {
-            // مقبض صغير بمنتصف الحافة العلوية يفتح خيارات التطبيق
+            // Options handle: shown as a hint for a few seconds after launch, then invisible so it never sits on top of the page header.
+            // The touch target is a thin strip at the very top edge (14dp) where page buttons are not.
+            var hint by remember { mutableStateOf(true) }
+            LaunchedEffect(Unit) { delay(2800); hint = false }
+            val hintA by androidx.compose.animation.core.animateFloatAsState(if (hint || optSheet) 1f else 0f, androidx.compose.animation.core.tween(400), label = "handle")
             Box(
                 Modifier.align(Alignment.TopCenter)
                     .then(if (optImmersive) Modifier.windowInsetsPadding(WindowInsets.displayCutout) else Modifier.windowInsetsPadding(safe))
-                    .width(84.dp).height(22.dp)
+                    .width(72.dp).height(14.dp)
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { optSheet = true },
                 contentAlignment = Alignment.TopCenter
             ) {
-                Box(Modifier.padding(top = 4.dp).width(30.dp).height(4.dp).clip(RoundedCornerShape(50)).background(cs.onBackground.copy(alpha = 0.26f)))
+                if (hintA > 0.01f) Box(Modifier.padding(top = 3.dp).width(30.dp).height(4.dp).clip(RoundedCornerShape(50)).background(cs.onBackground.copy(alpha = 0.3f * hintA)))
             }
         }
         AppOptionsSheet(
@@ -583,7 +599,13 @@ class AppActivity : ComponentActivity() {
             onShare = { shareText(this@AppActivity, tab.url.ifBlank { startUrl }) },
             onOpenNova = { openExternal(tab.url.ifBlank { startUrl }) },
             onRemove = { Pwa.togglePin(this@AppActivity, startUrl, appName); finishAndRemoveTask() },
-            onDismiss = { optSheet = false }
+            onDismiss = { optSheet = false },
+            onAudioOnly = if (tab.yt && isYtVideo(tab.url)) ({
+                val u = tab.url; val p = YtMedia.pos
+                YtMedia.control("pause")
+                YtAudio.start(this@AppActivity, u, p, YtMedia.title, YtMedia.artist)
+                tab.webView?.loadUrl("https://m.youtube.com/")   // leave the video page; the mini player takes over
+            }) else null
         )
         }
     }

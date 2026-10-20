@@ -535,6 +535,19 @@ try {
     else if (a === 'fwd') e.currentTime = Math.min(e.duration || 1e9, e.currentTime + 10);
     else if (a === 'back') e.currentTime = Math.max(0, e.currentTime - 10);
     else if (a.indexOf('seek:') === 0) e.currentTime = parseFloat(a.slice(5)) / 1000;
+    else if (a === 'next') {
+      try {
+        var mpn = document.getElementById('movie_player');
+        if (mpn && mpn.nextVideo) mpn.nextVideo();
+        else { var nb = document.querySelector('.ytp-next-button,button[aria-label*="Next"]'); if (nb) nb.click(); }
+      } catch (x) {}
+    }
+    else if (a === 'prev') {
+      try {
+        var mpp = document.getElementById('movie_player');
+        if (e.currentTime > 5 || !(mpp && mpp.previousVideo)) e.currentTime = 0; else mpp.previousVideo();
+      } catch (x) {}
+    }
     stateSoon();
   };
 

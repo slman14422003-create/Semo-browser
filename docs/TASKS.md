@@ -1,5 +1,14 @@
 # سجل المهام والتعديلات
 
+## 2026-10-20 (2) - in-app mini player, audio-only, next/prev, YouTube status bar
+- yt/YtAudio.kt (new): audio-only engine (NewPipe audio stream + MediaPlayer, runs on Work.media), autoplays the first related video when a track ends. Feeds YtMedia so the notification/lock screen work.
+- yt/YtMiniBar.kt (new): in-app mini player bar (thumbnail, title, play/pause, next, close, progress). AppActivity reserves space for it (WebView is padded up) and tapping it reopens the video at the same second.
+- YtMedia.pageChanged: in an installed app, leaving a video page while playing hands the sound over to YtAudio instead of stopping. Browser tabs keep the old behaviour.
+- App options sheet: new "Audio only" row on video pages (hands over and goes to the YouTube home page).
+- Next/previous: new `next`/`prev` commands in yt.js (__novaYtCtl), notification action + MediaSession skip actions.
+- Status bar: YtWeb now samples the page colour (PageTint) and AppActivity falls back to YouTube's own header colour; options handle is a short hint, then invisible.
+- Not compiled in the session; run a Gradle build first.
+
 ## 2026-10-20 - thread lanes, web-app manifest, cosmetic filter, YouTube warm-up
 - core/Work.kt (new): named pools net / disk (single thread) / cpu / media + coroutine dispatchers (Work.netD...) + Work.ui. All 14 ad-hoc Thread() calls (MainActivity, AppActivity, WebEngine, Updater, Library, YtMedia, YtDownload mux) moved to a lane. Library read+save now share the single disk lane (no more two writers racing on library.tmp). NetImage loads on Work.netD (bounded) instead of Dispatchers.IO.
 - pwa/PwaManifest.kt (new): on install, reads the site's Web App Manifest in the background (4.5s deadline, https only, size caps): short_name/name, best PNG icon (192px, saved in filesDir/pwa), orientation (default only if the user has not chosen), theme_color (stored as pwa_t_<host>). Pwa.togglePin pins after the fetch and falls back to the favicon. Removing the app deletes the stored icon.

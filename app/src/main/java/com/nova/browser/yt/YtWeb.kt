@@ -139,6 +139,7 @@ object YtWeb {
             tab.canBack = v.canGoBack(); tab.canForward = v.canGoForward()
             Perf.flushCookies()
             Library.visit(u, v.title)
+            PageTint.sample(v, tab)   // status bar follows the real YouTube header colour (installed app + tab)
         }
         override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
             val u = r.url

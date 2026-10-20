@@ -34,11 +34,14 @@ object YtMedia {
     @Volatile var dur = 0L
     @Volatile var vw = 0          // أبعاد الفيديو الحقيقية: نسبة النافذة المنبثقة (طولي للـ Shorts)
     @Volatile var vh = 0
+    @Volatile var videoUrl = ""      // last watch URL seen (for the audio hand-off)
+    @Volatile private var lastPlayAt = 0L
     var owner: BrowserTab? = null
     private var wvRef: WeakReference<WebView>? = null
     private var artUrl = ""
 
     fun control(a: String) {
+        if (YtAudio.active) { YtAudio.control(a); return }
         val w = wvRef?.get() ?: return
         w.post {
             // الصفحة قد تكون مجمّدة (onPause/pauseTimers) فنوقظها قبل تنفيذ الأمر؛ وقد تكون دُمّرت: لا نُسقط التطبيق
@@ -52,9 +55,19 @@ object YtMedia {
     fun update(ctx: Context, tab: BrowserTab, wv: WebView, o: JSONObject) {
         owner = tab; wvRef = WeakReference(wv)
         playing = o.optBoolean("playing"); pos = o.optLong("pos"); dur = o.optLong("dur")
+        if (playing) { lastPlayAt = System.currentTimeMillis(); if (YtAudio.active) YtAudio.release() }   // the page plays again: audio-only ends
+        wv.url?.takeIf { isYtVideo(it) }?.let { videoUrl = it }
         vw = o.optInt("vw"); vh = o.optInt("vh")
         title = o.optString("title"); artist = o.optString("artist")
-        val url = o.optString("art")
+        loadArt(o.optString("art"))
+        val svc = MediaService.instance
+        if (svc != null) svc.refresh()
+        else if (playing && title.isNotBlank())
+            runCatching { ContextCompat.startForegroundService(ctx, Intent(ctx, MediaService::class.java)) }
+    }
+
+    /** Loads the artwork (trusted YouTube/Google hosts only) off the main thread, then refreshes the notification. */
+    fun loadArt(url: String) {
         if (url.isNotBlank() && url != artUrl && isTrustedArt(url)) {
             artUrl = url
             Work.media {
@@ -69,10 +82,6 @@ object YtMedia {
                 }
             }
         }
-        val svc = MediaService.instance
-        if (svc != null) svc.refresh()
-        else if (playing && title.isNotBlank())
-            runCatching { ContextCompat.startForegroundService(ctx, Intent(ctx, MediaService::class.java)) }
     }
 
     // نجلب الصور من خوادم يوتيوب/جوجل فقط (لا نطلب روابط عشوائية جاءت من الصفحة)
@@ -84,6 +93,7 @@ object YtMedia {
     /** يُنهي الإشعار والخدمة؛ pause=true يوقف الفيديو أيضاً (إغلاق النافذة المنبثقة). */
     fun stop(pause: Boolean = false) {
         if (pause) control("pause")
+        YtAudio.release()
         playing = false; owner = null; vw = 0; vh = 0; MediaService.instance?.shutdown()
     }
     fun killPlayback() {
@@ -92,9 +102,24 @@ object YtMedia {
             w.evaluateJavascript("window.__novaYtCtl&&window.__novaYtCtl('pause')", null)
             w.onPause()
         }
+        YtAudio.release()
         playing = false; owner = null; vw = 0; vh = 0; MediaService.instance?.shutdown()
     }
-    fun pageChanged(tab: BrowserTab, url: String) { if (owner === tab && !isYtVideo(url)) stop() }
+    /**
+     * Leaving a video page: in an installed app the sound continues as audio-only (in-app mini player);
+     * everywhere else playback ends as before.
+     */
+    fun pageChanged(tab: BrowserTab, url: String) {
+        if (owner !== tab || isYtVideo(url)) return
+        if (YtAudio.active) return
+        val ctx = wvRef?.get()?.context?.applicationContext
+        val recent = playing || System.currentTimeMillis() - lastPlayAt < 2500L
+        if (tab.app && ctx != null && recent && videoUrl.isNotBlank()) {
+            val u = videoUrl; val p = pos; val t = title; val a = artist
+            control("pause")                      // pauses the page video (audio engine not active yet)
+            YtAudio.start(ctx, u, p, t, a)
+        } else stop()
+    }
     fun tabClosed(tab: BrowserTab) { if (owner === tab) stop() }
 }
 

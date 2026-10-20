@@ -87,7 +87,7 @@ class NpDownloader : org.schabi.newpipe.extractor.downloader.Downloader() {
 
 /** خيار تنزيل: audioUrl غير فارغ = فيديو بلا صوت يُدمج مع هذا الصوت بعد التنزيل. */
 class YtOpt(val label: String, val sub: String, val url: String, val ext: String, val mime: String, val audioUrl: String? = null, val fmt: AudioFmt? = null)
-class YtInfo(val title: String, val author: String, val videos: List<YtOpt>, val audios: List<YtOpt>, val seconds: Long = 0L)
+class YtInfo(val title: String, val author: String, val videos: List<YtOpt>, val audios: List<YtOpt>, val seconds: Long = 0L, val next: String? = null)
 
 object YtFetch {
     private var ready = false
@@ -142,7 +142,12 @@ object YtFetch {
             val ext = if (aac != null) "m4a" else "webm"; val mime = if (aac != null) "audio/mp4" else "audio/webm"
             AudioFormats.all.forEach { f -> audios.add(YtOpt(f.label, f.sub, srcUrl, ext, mime, null, f)) }
         }
-        return YtInfo(si.name, si.uploaderName ?: "", videos, audios, si.duration)
+        // first related video = autoplay suggestion (reflection: the getter name differs between extractor versions)
+        val nextUrl = runCatching {
+            val m = si.javaClass.methods.firstOrNull { it.name == "getRelatedItems" } ?: si.javaClass.methods.firstOrNull { it.name == "getRelatedStreams" }
+            (m?.invoke(si) as? List<*>)?.firstNotNullOfOrNull { it?.javaClass?.getMethod("getUrl")?.invoke(it) as? String }
+        }.getOrNull()
+        return YtInfo(si.name, si.uploaderName ?: "", videos, audios, si.duration, nextUrl)
     }
 }
 

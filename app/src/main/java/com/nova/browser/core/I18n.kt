@@ -200,6 +200,7 @@ object I18n {
         "خدمة النظام (Samsung Pass وغيرها)" to "System service (Samsung Pass and others)",
         "رجوع 10 ثوانٍ" to "Back 10 seconds",
         "صوت فقط" to "Audio only",
+        "التالي" to "Next",
         "عدم الحفظ لهذا الموقع" to "Never for this site",
         "عند الخروج من التطبيق أثناء تشغيل فيديو" to "When leaving the app while a video plays",
         "فشل الدمج — الملفان محفوظان منفصلَين" to "Merge failed — both files were saved separately",
