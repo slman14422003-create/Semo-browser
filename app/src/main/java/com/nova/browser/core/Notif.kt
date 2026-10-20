@@ -75,7 +75,7 @@ object Notif {
             c.getSystemService(NotificationManager::class.java).notify(
                 ID_UPDATE,
                 Notification.Builder(c, CH_UPDATE).setSmallIcon(android.R.drawable.stat_sys_download_done)
-                    .setContentTitle(L("تحديث جديد لـ Nova")).setContentText(L("الإصدار ") + version.removePrefix("v") + L(" جاهز للتنزيل"))
+                    .setContentTitle(L("تحديث جديد لـ Semo brawser")).setContentText(L("الإصدار ") + version.removePrefix("v") + L(" جاهز للتنزيل"))
                     .setContentIntent(pi).setAutoCancel(true).build()
             )
         }
@@ -124,7 +124,7 @@ fun NotifPermissionDialog(onAllow: () -> Unit, onLater: () -> Unit) {
         title = L("تفعيل الإشعارات"), icon = Icons.Default.Notifications, onDismiss = onLater,
         confirmText = L("السماح"), onConfirm = onAllow, dismissText = L("لاحقاً")
     ) {
-        DialogText(L("لمتابعة التنزيلات وأزرار التشغيل في الخلفية، ومعرفة اكتمال التنزيل وتوفّر التحديثات، يحتاج Nova إلى إذن الإشعارات."))
+        DialogText(L("لمتابعة التنزيلات وأزرار التشغيل في الخلفية، ومعرفة اكتمال التنزيل وتوفّر التحديثات، يحتاج Semo brawser إلى إذن الإشعارات."))
         DialogText(L("يمكنك تخصيصها أو إيقافها لاحقاً من الإعدادات ← الإشعارات."))
     }
 }

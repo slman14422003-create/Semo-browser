@@ -147,6 +147,7 @@ class AppActivity : ComponentActivity() {
         Robust.init(c)
         Prefs.init(c)
         SiteStore.init(c)
+        PageBrain.init(c)
         GoogleAccounts.init(c)
         Adaptive.init(c)
         Library.init(c)
@@ -527,6 +528,11 @@ class AppActivity : ComponentActivity() {
                     },
                     update = { v -> (v as? SwipeRefreshLayout)?.isEnabled = optPull }
                 )
+            }
+
+            val insetPx = if (gestureNav && !fullscreen && !inPip) navDp.value else 0f
+            LaunchedEffect(insetPx, tab.epoch) {
+                if (tab.yt) tab.webView?.let { YtWeb.setInset(it, insetPx) }
             }
 
             if (tab.loading && !inPip && !fullscreen) {

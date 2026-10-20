@@ -26,7 +26,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 internal fun googleSignIn(v: WebView, h: Handlers, u: Uri, allowTab: Boolean = true): Boolean {
     val hinted = GoogleAccounts.withHint(u)
     if (allowTab && GoogleAccounts.useChrome && GoogleAccounts.openInCustomTab(h.activity, hinted)) {
-        toast(h.activity, L("فُتح تسجيل دخول Google في Chrome — الجلسة هناك منفصلة عن Nova"))
+        toast(h.activity, L("فُتح تسجيل دخول Google في Chrome — الجلسة هناك منفصلة عن Semo brawser"))
         return true
     }
     if (hinted != u) { v.loadUrl(hinted.toString(), Perf.privacyHeaders); return true }
@@ -59,6 +59,7 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
     WebSupport.installScrollGuard(this)
     WebCompat.install(this)
     Pwa.install(this)
+    PageBrain.install(this)
     Speculate.warmStart(this)
     PasswordBridge.install(this, tab, h)
     importantForAutofill = if (Prefs.pwMode == 1) View.IMPORTANT_FOR_AUTOFILL_YES else View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
@@ -89,6 +90,7 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
             SiteStore.apply(tab, v, hostOf(u))
             WebSupport.resetInnerScroll(v)
             WebBoost.onPageStart(v)
+            PageBrain.onStart(v, u)
             PageTint.onStart(tab, u)
             tab.loading = true; tab.url = u; tab.shieldHost = Shield.hostFor(u); Shield.onPageStart(v); Perf.onPageStart(v); Pwa.onPageStart(v, u); if (WebCompat.loopTrip(v, tab, u)) return; WebCompat.onPageStart(v, tab, u)
         }
@@ -124,6 +126,7 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
         }
         override fun onPageCommitVisible(v: WebView, u: String) {
             PageTint.sample(v, tab)
+            PageBrain.onCommit(v, u)
             if (Prefs.smoothAnim && Adaptive.level == 0 && v.alpha > 0.9f) {
                 v.animate().cancel()
                 v.alpha = 0.86f

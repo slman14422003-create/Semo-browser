@@ -79,6 +79,7 @@ object Prefs {
     var pwaHaptics by mutableStateOf(true); private set     // اهتزاز خفيف على أزرار صفحات وضع التطبيق
     var boost by mutableStateOf(true); private set          // تسريع التنقل: جلب مسبق + تسخين DNS + إيقاف فيديو خارج الشاشة
     var smart by mutableStateOf(true); private set
+    var brain by mutableStateOf(true); private set
     var suggest by mutableStateOf(true); private set        // اقتراحات البحث أثناء الكتابة
     var notifDone by mutableStateOf(true); private set      // إشعار اكتمال التنزيل
     var notifUpdate by mutableStateOf(true); private set    // إشعار تحديث متاح
@@ -112,7 +113,7 @@ object Prefs {
         ytCcSize = p.getInt("yccsize", 1).coerceIn(0, 3); ytCcBg = p.getInt("yccbg", 0).coerceIn(0, 2); ytCcPos = p.getInt("yccpos", 0).coerceIn(0, 2)
         ytNoShorts = p.getBoolean("ytnoshorts", false)
         ytResume = p.getBoolean("ytresume", true); ytKeepRate = p.getBoolean("ytkeeprate", true); ytHold2x = p.getBoolean("ythold2x", true)
-        boost = p.getBoolean("boost", true); suggest = p.getBoolean("suggest", true); smart = p.getBoolean("smart", true)
+        boost = p.getBoolean("boost", true); suggest = p.getBoolean("suggest", true); smart = p.getBoolean("smart", true); brain = p.getBoolean("brain", true)
         notifDone = p.getBoolean("notifdone", true); notifUpdate = p.getBoolean("notifupd", true); notifAsked = p.getBoolean("notifasked", false)
     }
 
@@ -143,6 +144,7 @@ object Prefs {
     fun pickSecureScreen(v: Boolean) { secureScreen = v; sp?.putBoolean("secscr", v) }
     fun pickPwMode(v: Int) { pwMode = v; sp?.putInt("pwmode", v) }
     fun pickSmart(v: Boolean) { smart = v; sp?.putBoolean("smart", v) }
+    fun pickBrain(v: Boolean) { brain = v; sp?.putBoolean("brain", v) }
     fun pickAutoPip(v: Boolean) { autoPip = v; sp?.putBoolean("autopip", v) }
     fun pickYtBg(v: Boolean) { ytBg = v; sp?.putBoolean("ytbg", v) }
     fun pickAutoUpdate(v: Boolean) { autoUpdate = v; sp?.putBoolean("autoupd", v) }
@@ -234,7 +236,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
     val sections = listOf(
         SectionSpec("general", L("عام"), L("المتصفح الافتراضي • محرك البحث • المظهر"), Icons.Default.Settings, listOf(
             RowSpec(L("المتصفح الافتراضي"),
-                if (DefaultBrowser.isDefault) L("Nova هو متصفحك الافتراضي — اضغط لتغيير الإعدادات") else L("افتح الروابط من واتساب وبقية التطبيقات عبر Nova"),
+                if (DefaultBrowser.isDefault) L("Semo brawser هو متصفحك الافتراضي — اضغط لتغيير الإعدادات") else L("افتح الروابط من واتساب وبقية التطبيقات عبر Semo brawser"),
                 if (DefaultBrowser.isDefault) Icons.Default.Check else Icons.Default.Star,
                 { val ri = DefaultBrowser.requestIntent(ctx); if (ri != null) runCatching { roleLauncher.launch(ri) }.onFailure { DefaultBrowser.openSystemSettings(ctx) } else DefaultBrowser.openSystemSettings(ctx) }),
             RowSpec(L("محرك البحث"), Prefs.engines[Prefs.engine].first, Icons.Default.Search, { dialog = "engine" }),
@@ -285,13 +287,13 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
             RowSpec(L("سجل التشخيص"), L("يساعد في معرفة سبب توقف الفيديو (انسخه وأرسله)"), Icons.Default.Info, { dialog = "ytlog" })
         )),
         SectionSpec("notifications", L("الإشعارات"), L("الإذن • اكتمال التنزيل • التحديثات"), Icons.Default.Notifications, listOf(
-            RowSpec(L("إشعارات Nova"),
+            RowSpec(L("إشعارات Semo brawser"),
                 if (notif.enabled) L("مفعّلة — اضغط لفتح إعدادات النظام") else if (Notif.needsPermission) L("معطّلة — اضغط للسماح بالإشعارات") else L("معطّلة من إعدادات النظام — اضغط لتفعيلها"),
                 Icons.Default.Notifications, { notif.request() },
                 { IosSwitch(checked = notif.enabled, onCheckedChange = null) }),
             RowSpec(L("اكتمال التنزيل"), L("إشعار عند انتهاء كل ملف مع فتحه بلمسة"), Icons.Default.KeyboardArrowDown, { Prefs.pickNotifDone(!Prefs.notifDone) },
                 { IosSwitch(checked = Prefs.notifDone, onCheckedChange = null) }),
-            RowSpec(L("توفّر تحديث"), L("إشعار عند صدور إصدار جديد من Nova"), Icons.Default.Refresh, { Prefs.pickNotifUpdate(!Prefs.notifUpdate) },
+            RowSpec(L("توفّر تحديث"), L("إشعار عند صدور إصدار جديد من Semo brawser"), Icons.Default.Refresh, { Prefs.pickNotifUpdate(!Prefs.notifUpdate) },
                 { IosSwitch(checked = Prefs.notifUpdate, onCheckedChange = null) }),
             RowSpec(L("أزرار التشغيل في الخلفية"), L("إشعار التحكم بيوتيوب وشاشة القفل — يُضبط من قسم يوتيوب"), Icons.Default.PlayArrow, { Prefs.pickYtBg(!Prefs.ytBg) },
                 { IosSwitch(checked = Prefs.ytBg, onCheckedChange = null) }),
@@ -361,14 +363,16 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
             RowSpec(L("تحديد 60Hz عند السخونة"), L("يقلل استهلاك الشاشة والمعالج"), Icons.Default.Refresh, { Prefs.pickCap60(!Prefs.cap60) },
                 { IosSwitch(checked = Prefs.cap60, onCheckedChange = null) }),
             RowSpec(L("حركات الواجهة"), L("إيقافها يجعل التنقل فورياً ويوفر الطاقة"), Icons.Default.Star, { Prefs.pickSmoothAnim(!Prefs.smoothAnim) },
-                { IosSwitch(checked = Prefs.smoothAnim, onCheckedChange = null) })
+                { IosSwitch(checked = Prefs.smoothAnim, onCheckedChange = null) }),
+            RowSpec(L("Page brain"), L("Detects the page type and framework, applies matching fixes and speed tweaks, and updates its rules. Applies to new tabs"), Icons.Default.Star, { Prefs.pickBrain(!Prefs.brain) },
+                { IosSwitch(checked = Prefs.brain, onCheckedChange = null) })
         )),
         SectionSpec("downloads", L("التنزيلات"), L("الاتصالات • مكان الحفظ"), Icons.Default.KeyboardArrowDown, listOf(
             RowSpec(L("الحد الأقصى للاتصالات"), connNames[connOpts.indexOf(Prefs.maxConns).coerceAtLeast(0)], Icons.Default.KeyboardArrowDown, { dialog = "conns" }),
             RowSpec(L("مكان الحفظ"), "Download/Nova", Icons.Default.Info, {})
         )),
         SectionSpec("about", L("حول"), L("الإصدار والتحديثات"), Icons.Default.Info, listOf(
-            RowSpec("Nova Browser", L("الإصدار ") + BuildConfig.VERSION_NAME, Icons.Default.Star, {}),
+            RowSpec("Semo brawser", L("الإصدار ") + BuildConfig.VERSION_NAME, Icons.Default.Star, {}),
             RowSpec(L("التحديث التلقائي"), L("فحص الإصدارات الجديدة من GitHub كل 12 ساعة"), Icons.Default.Refresh, { Prefs.pickAutoUpdate(!Prefs.autoUpdate) },
                 { IosSwitch(checked = Prefs.autoUpdate, onCheckedChange = null) }),
             RowSpec(L("سجل الأعطال"), if (CrashLog.text().isBlank()) L("لا توجد أعطال مسجلة") else L("اضغط لعرض آخر عطل ونسخه"), Icons.Default.Warning, { dialog = "crash" }),
@@ -475,7 +479,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                     )
                     Text(
-                        L("يُحفظ البريد فقط على جهازك. لا تُخزَّن كلمة مرور Google، ولا تنتقل جلسة Google إلى Nova."),
+                        L("يُحفظ البريد فقط على جهازك. لا تُخزَّن كلمة مرور Google، ولا تنتقل جلسة Google إلى Semo brawser."),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp)
                     )
                 }

@@ -102,7 +102,7 @@ fun EngineMissingScreen(ctx: Context, onRetry: () -> Unit) {
             Text(L("تعذّر تشغيل محرك عرض الصفحات"), style = MaterialTheme.typography.headlineSmall, color = ios.label, textAlign = TextAlign.Center)
             Spacer(Modifier.height(10.dp))
             Text(
-                L("يعتمد Nova على مكوّن Android System WebView، ويبدو أنه معطّل أو غير مثبّت على جهازك. فعّله أو حدّثه ثم أعد المحاولة."),
+                L("يعتمد Semo brawser على مكوّن Android System WebView، ويبدو أنه معطّل أو غير مثبّت على جهازك. فعّله أو حدّثه ثم أعد المحاولة."),
                 style = MaterialTheme.typography.bodyMedium, color = ios.label2, textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(28.dp))

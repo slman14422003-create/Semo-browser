@@ -127,7 +127,7 @@ fun AppOptionsSheet(
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     QuickAction(Icons.Default.Refresh, L("تحديث"), Modifier.weight(1f)) { onDismiss(); onReload() }
                     QuickAction(Icons.Default.Share, L("مشاركة"), Modifier.weight(1f)) { onDismiss(); onShare() }
-                    QuickAction(Icons.Default.Home, L("فتح في Nova"), Modifier.weight(1f)) { onDismiss(); onOpenNova() }
+                    QuickAction(Icons.Default.Home, L("فتح في Semo brawser"), Modifier.weight(1f)) { onDismiss(); onOpenNova() }
                 }
                 Spacer(Modifier.height(16.dp))
                 if (onAudioOnly != null) {

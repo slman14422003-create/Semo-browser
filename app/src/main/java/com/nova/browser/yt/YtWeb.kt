@@ -42,6 +42,18 @@ object YtWeb {
     /** صحيح أثناء النافذة المنبثقة: كل عمليات الإنعاش/إعادة القياس المؤجّلة تتوقف كي لا تُفسد عرض المنبثقة (سبب التقطيع والصفحة الكاملة المصغّرة). */
     @Volatile var pip = false
 
+    private val insets = WeakHashMap<WebView, Float>()
+
+    fun setInset(w: WebView, px: Float) {
+        insets[w] = px
+        pushInset(w)
+    }
+
+    private fun pushInset(w: WebView) {
+        val px = insets[w] ?: return
+        w.evaluateJavascript("window.__novaInset&&window.__novaInset($px)", null)
+    }
+
     /** صفحات تبقى داخل الـ WebView المخصّص بجانب يوتيوب نفسه: الدخول بحساب Google والموافقة. */
     private val authHosts = setOf("accounts.google.com", "consent.google.com", "accounts.youtube.com", "consent.youtube.com")
 
@@ -134,7 +146,9 @@ object YtWeb {
             if (!u.startsWith("http")) return
             tab.url = u; tab.canBack = v.canGoBack(); tab.canForward = v.canGoForward(); YtMedia.pageChanged(tab, u)
         }
+        override fun onPageCommitVisible(v: WebView, u: String) { pushInset(v) }
         override fun onPageFinished(v: WebView, u: String) {
+            pushInset(v)
             tab.loading = false; tab.url = u
             tab.canBack = v.canGoBack(); tab.canForward = v.canGoForward()
             Perf.flushCookies()

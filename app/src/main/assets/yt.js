@@ -65,6 +65,12 @@ try {
     }
     addStyle('nova-yt-fix-style', CSS + SHORTS);
     addStyle('nova-yt-fix-style2', SHORTS2);
+    addStyle('nova-yt-inset', 'ytm-pivot-bar-renderer{box-sizing:content-box!important;padding-bottom:var(--nova-nav,0px)!important;background:var(--yt-spec-base-background,#0f0f0f)!important}');
+    window.__novaInset = function (px) {
+      var r = root();
+      if (!r) { setTimeout(function () { window.__novaInset(px); }, 30); return; }
+      r.style.setProperty('--nova-nav', (px > 0 ? px : 0) + 'px');
+    };
 
     // ───────── لمسات جمالية وسلاسة لقوائم يوتيوب (لا تمسّ المشغّل ولا صفحة المشاهدة نفسها) ─────────
     var POLISH =
@@ -616,5 +622,65 @@ try {
     clearInterval(pipIv); pipIv = setInterval(pipApply, 800);
     [150, 500, 1200].forEach(function (d) { setTimeout(pipApply, d); });
   };
+})();
+} catch (e) {}
+
+/* ═════════ 4) NAV ═════════ */
+try {
+(function () {
+  'use strict';
+  try {
+    if (window.__novaYtNav || window.top !== window || location.hostname === 'music.youtube.com') return;
+    window.__novaYtNav = 1;
+    var UI = __UI__;
+    if (!UI.anim) return;
+    var still = ['ytm-watch', 'ytm-reel-player-renderer', 'ytm-shorts-page'];
+    var last = '', popAt = 0, pending = 0, timer = 0, playedAt = 0;
+    function key() {
+      var m = location.search.match(/[?&](v|search_query|list)=[^&]*/);
+      return location.pathname + (m ? m[0] : '');
+    }
+    function target() {
+      return document.querySelector('ytm-search,ytm-browse,ytm-watch,ytm-reel-player-renderer,ytm-shorts-page,ytm-playlist-page-renderer');
+    }
+    function dir() {
+      try { return getComputedStyle(document.documentElement).direction === 'rtl' ? -1 : 1; } catch (e) { return 1; }
+    }
+    function play(back) {
+      var now = Date.now();
+      if (now - playedAt < 220 || document.fullscreenElement || document.querySelector('video[data-nova-v]')) return;
+      var el = target();
+      if (!el || !el.animate) return;
+      playedAt = now;
+      var move = still.indexOf(el.tagName.toLowerCase()) < 0;
+      var d = (back ? -1 : 1) * dir() * 28;
+      var frames = move
+        ? [{ opacity: 0, transform: 'translate3d(' + d + 'px,0,0)' }, { opacity: 1, transform: 'none' }]
+        : [{ opacity: 0 }, { opacity: 1 }];
+      try { el.animate(frames, { duration: move ? 280 : 200, easing: 'cubic-bezier(.2,0,0,1)' }); } catch (e) {}
+    }
+    function fire() {
+      if (!pending) return;
+      var back = pending === 2;
+      pending = 0;
+      clearTimeout(timer);
+      requestAnimationFrame(function () { play(back); });
+    }
+    function check() {
+      if (document.hidden) return;
+      var k = key();
+      if (k === last) return;
+      last = k;
+      pending = Date.now() - popAt < 700 ? 2 : 1;
+      clearTimeout(timer);
+      timer = setTimeout(fire, 380);
+    }
+    last = key();
+    window.addEventListener('popstate', function () { popAt = Date.now(); });
+    ['yt-navigate-finish', 'state-navigateend', 'yt-page-data-updated'].forEach(function (n) {
+      window.addEventListener(n, function () { check(); setTimeout(fire, 60); }, true);
+    });
+    setInterval(check, 120);
+  } catch (e) {}
 })();
 } catch (e) {}

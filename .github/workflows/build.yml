@@ -76,7 +76,7 @@ jobs:
         if: always()
         run: |
           {
-            echo "## Nova Browser — نتيجة البناء"
+            echo "## Semo brawser — نتيجة البناء"
             echo "- التوقيع: ${SIGNED:-debug (لا أسرار)}"
             for f in app/build/outputs/apk/*/*.apk; do
               [ -f "$f" ] && echo "- \`$(basename "$f")\` — $(du -h "$f" | cut -f1) — sha256 \`$(sha256sum "$f" | cut -c1-16)…\`"

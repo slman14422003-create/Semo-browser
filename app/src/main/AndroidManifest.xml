@@ -21,7 +21,7 @@
         <package android:name="com.samsung.android.samsungpass" />
     </queries>
     <application
-        android:label="Nova Browser"
+        android:label="Semo brawser"
         android:supportsRtl="true"
         android:localeConfig="@xml/locales_config"
         android:allowBackup="false"

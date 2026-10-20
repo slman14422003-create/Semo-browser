@@ -260,6 +260,7 @@ class MainActivity : ComponentActivity() {
         }
         Prefs.init(this)
         SiteStore.init(applicationContext)
+        PageBrain.init(applicationContext)
         GoogleAccounts.init(this)
         Adaptive.init(this)
         Library.init(this)
@@ -305,7 +306,7 @@ class MainActivity : ComponentActivity() {
             val lvl = Adaptive.level
             LaunchedEffect(lvl, Prefs.cap60) { applyRefreshCap(lvl) }
             LaunchedEffect(Unit) { androidx.compose.runtime.withFrameNanos { }; reportFullyDrawn() }
-            LaunchedEffect(Unit) { kotlinx.coroutines.delay(4000); Updater.check(applicationContext); WebEngine.checkLatest(applicationContext) }   // بعد استقرار الواجهة
+            LaunchedEffect(Unit) { kotlinx.coroutines.delay(4000); Updater.check(applicationContext); WebEngine.checkLatest(applicationContext); PageBrain.refresh() }   // بعد استقرار الواجهة
             // محرك WebView مفقود فعلياً (مزوّد معطّل/غير مثبّت): شاشة توجيه بدل محاولة إنشاء WebView التي تنهار التطبيق بلا تفسير
             NovaTheme(this) {
                 if (WebEngine.missing) EngineMissingScreen(this) { WebEngine.init(this) }
@@ -530,7 +531,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
     fun printPage(t: BrowserTab) {
         val w = t.webView ?: return
         val pm = activity.getSystemService(Context.PRINT_SERVICE) as android.print.PrintManager
-        val name = (t.title.ifBlank { "Nova" } + " - " + hostOf(t.url)).take(60)
+        val name = (t.title.ifBlank { "Semo brawser" } + " - " + hostOf(t.url)).take(60)
         runCatching { pm.print(name, w.createPrintDocumentAdapter(name), android.print.PrintAttributes.Builder().build()) }
     }
     fun translatePage(t: BrowserTab) {
