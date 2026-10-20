@@ -285,11 +285,12 @@ class MainActivity : ComponentActivity() {
         // نُبقي الـ Splash ظاهرة حتى ينتهي تنظيف المؤقت وتُعرض الواجهة
         splash.setKeepOnScreenCondition { !ready }
         // الكاش يُمسح كلياً عند التشغيل فقط إن فعّل المستخدم «مسح الكاش عند كل تشغيل»؛ وإلا يُنظَّف فقط إن تجاوز الحد (علم يضعه onStop)
-        if (!cleanedThisProcess && (Prefs.autoClean || CacheCleaner.pending(this))) {
+        val newBuild = Updater.versionChanged(this)
+        if (!cleanedThisProcess && (newBuild || Prefs.autoClean || CacheCleaner.pending(this))) {
             cleanedThisProcess = true
             // التنظيف يجري قبل إنشاء أي WebView كي لا تكون ملفات الكاش مفتوحة
             Work.disk {
-                runCatching { if (Prefs.autoClean) CacheCleaner.cleanAll(applicationContext) else CacheCleaner.cleanLarge(applicationContext) }
+                runCatching { if (newBuild || Prefs.autoClean) CacheCleaner.cleanAll(applicationContext) else CacheCleaner.cleanLarge(applicationContext) }
                 runOnUiThread { if (!isFinishing && !isDestroyed) showUi(start) else ready = true }
             }
         } else showUi(start)

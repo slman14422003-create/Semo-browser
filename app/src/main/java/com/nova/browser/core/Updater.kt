@@ -33,7 +33,17 @@ object Updater {
 
     private val main = Handler(Looper.getMainLooper())
     private fun ui(block: () -> Unit) { if (Looper.myLooper() == Looper.getMainLooper()) block() else main.post(block) }
-    private fun apkFile(c: Context) = File(File(c.cacheDir, "update").apply { mkdirs() }, "nova-update.apk")
+    private fun apkFile(c: Context, v: String = info?.version ?: "x") =
+        File(File(c.cacheDir, "update").apply { mkdirs() }, "nova-update-" + v.filter { it.isLetterOrDigit() || it == '.' } + ".apk")
+
+    /** True once per installed build: the caller then wipes caches so a fresh install never reuses stale files. */
+    fun versionChanged(c: Context): Boolean {
+        val sp = c.applicationContext.getSharedPreferences("updater", Context.MODE_PRIVATE)
+        val cur = BuildConfig.VERSION_NAME + "#" + BuildConfig.VERSION_CODE
+        if (sp.getString("build", null) == cur) return false
+        sp.edit().putString("build", cur).putLong("last", 0L).apply()
+        return true
+    }
 
     // ───────── حماية التحديث ─────────
     // ملف التحديث لا يُنزَّل إلا من GitHub عبر https، ويُتحقق من حجمه وبصمته (إن وفّرتها GitHub) ومن أنه حزمة التطبيق نفسه
@@ -78,6 +88,8 @@ object Updater {
         }
         return false
     }
+
+    @Volatile private var cacheRoot: File = File("/nonexistent")
 
     fun dismissPrompt() { prompt = false }
     fun showPrompt() { if (info != null) prompt = true }
@@ -124,7 +136,8 @@ object Updater {
                 ui {
                     if (newer) {
                         info = UpdateInfo(tag.removePrefix("v"), j.optString("body"), size, apk, j.optString("html_url"), sha)
-                        phase = if (apkFile(app).exists() && apkFile(app).length() == size && size > 0) UpdPhase.READY else UpdPhase.AVAILABLE
+                        val cf = apkFile(app, tag.removePrefix("v"))
+                        phase = if (cf.exists() && cf.length() == size && size > 0) UpdPhase.READY else UpdPhase.AVAILABLE
                         prompt = true
                         Notif.updateAvailable(app, info?.version ?: tag)
                     } else { info = null; phase = UpdPhase.UP_TO_DATE }
@@ -148,31 +161,28 @@ object Updater {
         phase = UpdPhase.DOWNLOADING; progress = 0f; error = ""
         Work.net {
             try {
-                val f = apkFile(app); val tmp = File(f.parentFile, "nova-update.part")
-                val cn = URL(url).openConnection() as HttpURLConnection
-                cn.connectTimeout = 10000; cn.readTimeout = 20000; cn.instanceFollowRedirects = true
-                if (cn.responseCode != 200) throw java.io.IOException("HTTP " + cn.responseCode)
-                // بعد التحويلات: يجب أن نبقى على https وعلى نطاقات GitHub
-                if (!trustedUrl(cn.url.toString())) { cn.disconnect(); throw java.io.IOException("untrusted redirect") }
-                val total = cn.contentLengthLong.takeIf { it > 0 } ?: i.size
-                var done = 0L; var lastUi = 0L
-                val md = MessageDigest.getInstance("SHA-256")
-                cn.inputStream.use { ins -> tmp.outputStream().use { out ->
-                    val buf = ByteArray(64 * 1024)
-                    while (true) {
-                        val n = ins.read(buf); if (n < 0) break
-                        if (i.size > 0 && done + n > i.size + 1024) throw java.io.IOException("size mismatch")   // أكبر من المعلن: ملف مختلف
-                        out.write(buf, 0, n); md.update(buf, 0, n); done += n
-                        val now = android.os.SystemClock.elapsedRealtime()
-                        if (total > 0 && now - lastUi > 250) { lastUi = now; val p = (done.toFloat() / total).coerceIn(0f, 1f); ui { progress = p } }
-                    }
-                } }
-                cn.disconnect()
-                val got = md.digest().joinToString("") { b -> "%02x".format(b) }
-                if ((i.size > 0 && done != i.size) || (i.sha256.isNotEmpty() && got != i.sha256)) {
+                val f = apkFile(app, i.version); val tmp = File(f.parentFile, f.name + ".part")
+                f.parentFile?.listFiles()?.forEach { if (it != f && it != tmp) runCatching { it.delete() } }
+                val prog = java.util.concurrent.atomic.AtomicLong(0)
+                var lastUi = 0L
+                val report = {
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    if (now - lastUi > 200) { lastUi = now; val t = if (i.size > 0) i.size else 1L; val p = (prog.get().toFloat() / t).coerceIn(0f, 1f); ui { progress = p } }
+                }
+                val total = fetch(url, tmp, i.size, prog, report)
+                if ((i.size > 0 && total != i.size) || tmp.length() != total) {
                     tmp.delete()
                     ui { error = "checksum mismatch"; phase = UpdPhase.ERROR }
                     return@net
+                }
+                if (i.sha256.isNotEmpty()) {
+                    val md = MessageDigest.getInstance("SHA-256")
+                    tmp.inputStream().use { ins -> val buf = ByteArray(256 * 1024); while (true) { val n = ins.read(buf); if (n < 0) break; md.update(buf, 0, n) } }
+                    if (md.digest().joinToString("") { b -> "%02x".format(b) } != i.sha256) {
+                        tmp.delete()
+                        ui { error = "checksum mismatch"; phase = UpdPhase.ERROR }
+                        return@net
+                    }
                 }
                 if (f.exists()) f.delete()
                 if (!tmp.renameTo(f)) throw java.io.IOException("rename failed")
@@ -185,9 +195,88 @@ object Updater {
         }
     }
 
+    private fun open(u: String, range: String?): HttpURLConnection {
+        val cn = URL(u).openConnection() as HttpURLConnection
+        cn.connectTimeout = 10000; cn.readTimeout = 20000; cn.instanceFollowRedirects = true
+        cn.setRequestProperty("Accept-Encoding", "identity")
+        if (range != null) cn.setRequestProperty("Range", range)
+        return cn
+    }
+
+    /** Parallel ranged download (6 connections for big files, 4 for medium) with per-segment retry; falls back to one stream. Returns the byte count. */
+    private fun fetch(url: String, tmp: File, expected: Long, prog: java.util.concurrent.atomic.AtomicLong, report: () -> Unit): Long {
+        var finalUrl = url; var total = -1L
+        runCatching {
+            val cn = open(url, "bytes=0-0")
+            try {
+                if (!trustedUrl(cn.url.toString())) throw java.io.IOException("untrusted redirect")
+                if (cn.responseCode == 206) {
+                    total = cn.getHeaderField("Content-Range")?.substringAfter('/')?.trim()?.toLongOrNull() ?: -1L
+                    finalUrl = cn.url.toString()
+                }
+            } finally { runCatching { cn.inputStream.close() }; cn.disconnect() }
+        }
+        if (expected > 0 && total > 0 && total != expected) total = -1L
+        if (total >= 1_000_000L) {
+            val parts = if (total >= 8_000_000L) 6 else 4
+            val seg = (total + parts - 1) / parts
+            java.io.RandomAccessFile(tmp, "rw").use { raf ->
+                raf.setLength(total)
+                val ch = raf.channel
+                val jobs = (0 until parts).map { k ->
+                    val start = k * seg; val end = minOf(total - 1, start + seg - 1)
+                    Work.dlPool.submit(java.util.concurrent.Callable {
+                        var pos = start; var tries = 0
+                        val buf = ByteArray(128 * 1024)
+                        while (pos <= end) {
+                            try {
+                                val cn = open(finalUrl, "bytes=$pos-$end")
+                                try {
+                                    if (!trustedUrl(cn.url.toString())) throw java.io.IOException("untrusted redirect")
+                                    if (cn.responseCode != 206) throw java.io.IOException("HTTP " + cn.responseCode)
+                                    cn.inputStream.use { ins ->
+                                        while (pos <= end) {
+                                            val n = ins.read(buf, 0, minOf(buf.size.toLong(), end - pos + 1).toInt()); if (n < 0) break
+                                            var off = 0
+                                            while (off < n) off += ch.write(java.nio.ByteBuffer.wrap(buf, off, n - off), pos + off)
+                                            pos += n; prog.addAndGet(n.toLong()); report()
+                                        }
+                                    }
+                                } finally { cn.disconnect() }
+                                if (pos <= end) throw java.io.IOException("short read")
+                            } catch (e: java.io.IOException) {
+                                if (++tries >= 4) throw e
+                                Thread.sleep(400L * tries)
+                            }
+                        }
+                    })
+                }
+                try { jobs.forEach { it.get() } } catch (e: Exception) { jobs.forEach { it.cancel(true) }; throw (e.cause as? java.io.IOException ?: java.io.IOException(e.message ?: "download failed")) }
+            }
+            return total
+        }
+        // single stream fallback
+        prog.set(0)
+        val cn = open(url, null)
+        if (cn.responseCode != 200) throw java.io.IOException("HTTP " + cn.responseCode)
+        if (!trustedUrl(cn.url.toString())) { cn.disconnect(); throw java.io.IOException("untrusted redirect") }
+        var done = 0L
+        cn.inputStream.use { ins -> tmp.outputStream().use { out ->
+            val buf = ByteArray(256 * 1024)
+            while (true) {
+                val n = ins.read(buf); if (n < 0) break
+                if (expected > 0 && done + n > expected + 1024) throw java.io.IOException("size mismatch")
+                out.write(buf, 0, n); done += n; prog.set(done); report()
+            }
+        } }
+        cn.disconnect()
+        return done
+    }
+
     /** يثبّت الملف المنزَّل عبر PackageInstaller؛ يطلب إذن «التثبيت من هذا المصدر» أولاً إن لزم. */
     fun install(c: Context) {
         val app = c.applicationContext
+        cacheRoot = app.cacheDir
         val f = apkFile(app)
         if (!f.exists()) { error = "file missing"; phase = UpdPhase.AVAILABLE; return }
         verifyApk(app, f)?.let { reject(f, it); return }
@@ -201,6 +290,7 @@ object Updater {
         Work.disk {
             try {
                 val pi = app.packageManager.packageInstaller
+                pi.mySessions.forEach { runCatching { pi.abandonSession(it.sessionId) } }   // drop stuck sessions from earlier attempts
                 val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
                 val id = pi.createSession(params)
                 pi.openSession(id).use { s ->
@@ -218,7 +308,7 @@ object Updater {
     /** نتيجة جلسة التثبيت من UpdateReceiver. عند النجاح يُعاد تشغيل التطبيق من النظام. */
     fun onInstallResult(status: Int, msg: String?) {
         ui {
-            if (status == PackageInstaller.STATUS_SUCCESS) { phase = UpdPhase.IDLE; error = "" }
+            if (status == PackageInstaller.STATUS_SUCCESS) { phase = UpdPhase.IDLE; error = ""; Work.disk { runCatching { File(cacheRoot, "update").deleteRecursively() } } }
             else { error = msg ?: ("code " + status); phase = UpdPhase.READY }
         }
     }
