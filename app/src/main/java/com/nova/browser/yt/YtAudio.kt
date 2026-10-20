@@ -79,31 +79,79 @@ object YtAudio {
         else if (playing) runCatching { ContextCompat.startForegroundService(a, Intent(a, MediaService::class.java)) }
     }
 
-    private fun fail(a: Context) {
-        val was = active
-        release()
-        if (was) { toast(a, "Audio playback failed"); YtMedia.stop(false) }
+    // ---- resolved-stream cache: stream info is fetched ahead while the page plays, so the hand-off is instant ----
+    private class Pre(val info: YtInfo, val at: Long)
+    private val cache = object : LinkedHashMap<String, Pre>(8, 0.75f, true) {
+        override fun removeEldestEntry(e: MutableMap.MutableEntry<String, Pre>?) = size > 6
+    }
+    private val inflight = HashSet<String>()
+    private const val TTL = 20 * 60_000L
+    @Volatile private var silentFallback = false
+
+    private fun idOf(url: String): String? = runCatching { YtFetch.canonical(url).substringAfter("v=") }.getOrNull()
+
+    @Synchronized private fun cached(id: String): YtInfo? {
+        val c = cache[id] ?: return null
+        return if (System.currentTimeMillis() - c.at < TTL) c.info else { cache.remove(id); null }
+    }
+    @Synchronized private fun put(id: String, i: YtInfo) { cache[id] = Pre(i, System.currentTimeMillis()) }
+    @Synchronized private fun claim(id: String): Boolean = inflight.add(id)
+    @Synchronized private fun unclaim(id: String) { inflight.remove(id) }
+
+    private fun nat(i: YtInfo?): List<YtOpt> = i?.audios?.filter { it.fmt == null }.orEmpty()
+
+    private fun resolve(url: String, id: String, fresh: Boolean): YtInfo? {
+        if (!fresh) cached(id)?.let { return it }
+        repeat(2) { n ->
+            try {
+                val i = YtFetch.info(url)
+                if (nat(i).isNotEmpty()) { put(id, i); return i }
+            } catch (e: Throwable) {
+                YtLog.add("audio resolve " + e.javaClass.simpleName)
+            }
+            if (n == 0) runCatching { Thread.sleep(350L) }
+        }
+        return null
     }
 
-    /** Starts audio-only playback of [url] from [startMs]. Safe to call again to switch videos. */
-    fun start(ctx: Context, url: String, startMs: Long, title0: String = "", author0: String = "") {
-        val a = ctx.applicationContext; app = a
-        val id = runCatching { YtFetch.canonical(url).substringAfter("v=") }.getOrNull() ?: return
-        val g = ++gen
+    /** Resolves the audio stream of [url] in the background so a later hand-off does not have to wait for the extractor. */
+    fun warm(url: String) {
+        val id = idOf(url) ?: return
+        if (cached(id) != null || !claim(id)) return
+        Work.yt { try { resolve(url, id, false) } finally { unclaim(id) } }
+    }
+
+    private fun failFinal(a: Context) {
+        val was = active
+        val quiet = silentFallback
+        release()
+        if (!was) return
+        if (quiet && YtMedia.resumePage()) return
+        toast(a, "Audio playback failed")
+        YtMedia.stop(false)
+    }
+
+    private fun retryOrFail(a: Context, url: String, id: String, g: Int, attempt: Int, at: Long) {
+        if (g != gen) return
+        if (attempt >= 2) { failFinal(a); return }
+        val ng = ++gen
         releasePlayer()
-        videoId = id; title = title0; author = author0
-        posMs = startMs; durMs = 0L; active = true; loading = true; playing = false; nextUrl = null
-        sync(a)
-        Work.media {
-            val info = runCatching { YtFetch.info(url) }.getOrNull()
-            val opt = info?.audios?.let { l -> l.firstOrNull { it.ext == "m4a" } ?: l.firstOrNull() }
-            if (g != gen) return@media
-            if (info == null || opt == null) { Work.ui { if (g == gen) fail(a) }; return@media }
+        loading = true; playing = false
+        begin(a, url, id, at, ng, attempt + 1)
+    }
+
+    private fun begin(a: Context, url: String, id: String, startMs: Long, g: Int, attempt: Int) {
+        Work.yt {
+            val info = resolve(url, id, attempt > 0)
+            if (g != gen) return@yt
+            val cands = nat(info)
+            if (info == null || cands.isEmpty()) { Work.ui { retryOrFail(a, url, id, g, attempt + 1, startMs) }; return@yt }
+            val opt = cands[attempt % cands.size]
             val p = MediaPlayer()
             try {
                 p.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
-                p.setWakeMode(a, PowerManager.PARTIAL_WAKE_LOCK)
-                p.setDataSource(a, Uri.parse(opt.url), mapOf("User-Agent" to YT_UA))
+                runCatching { p.setWakeMode(a, PowerManager.PARTIAL_WAKE_LOCK) }
+                p.setDataSource(a, Uri.parse(opt.url), mapOf("User-Agent" to YT_UA, "Referer" to "https://www.youtube.com/", "Origin" to "https://www.youtube.com"))
                 p.setOnPreparedListener { m ->
                     if (g != gen) { runCatching { m.release() } }
                     else {
@@ -121,21 +169,39 @@ object YtAudio {
                         if (n != null) start(a, n, 0L) else { playing = false; posMs = 0L; sync(a) }
                     }
                 }
-                p.setOnErrorListener { _, _, _ -> if (g == gen) fail(a); true }
+                p.setOnErrorListener { _, w, x ->
+                    YtLog.add("audio player error $w/$x")
+                    if (g == gen) retryOrFail(a, url, id, g, attempt, maxOf(posMs, startMs))
+                    true
+                }
                 Work.ui {
                     if (g != gen) { runCatching { p.release() } }
                     else {
                         title = info.title; author = info.author; nextUrl = info.next
                         mp = p
                         sync(a)
-                        runCatching { p.prepareAsync() }.onFailure { fail(a) }
+                        runCatching { p.prepareAsync() }.onFailure { retryOrFail(a, url, id, g, attempt, startMs) }
                     }
                 }
             } catch (e: Throwable) {
                 runCatching { p.release() }
-                Work.ui { if (g == gen) fail(a) }
+                YtLog.add("audio setup " + e.javaClass.simpleName)
+                Work.ui { retryOrFail(a, url, id, g, attempt, startMs) }
             }
         }
+    }
+
+    /** Starts audio-only playback of [url] from [startMs]. Safe to call again to switch videos. */
+    fun start(ctx: Context, url: String, startMs: Long, title0: String = "", author0: String = "", quiet: Boolean = false) {
+        val a = ctx.applicationContext; app = a
+        val id = idOf(url) ?: return
+        val g = ++gen
+        releasePlayer()
+        silentFallback = quiet
+        videoId = id; title = title0; author = author0
+        posMs = startMs; durMs = 0L; active = true; loading = true; playing = false; nextUrl = null
+        sync(a)
+        begin(a, url, id, startMs, g, 0)
     }
 
     /** Same command names as the page player (play, pause, fwd, back, seek:<ms>, next, prev). */

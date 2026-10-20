@@ -36,6 +36,7 @@ object YtMedia {
     @Volatile var vh = 0
     @Volatile var videoUrl = ""      // last watch URL seen (for the audio hand-off)
     @Volatile private var lastPlayAt = 0L
+    @Volatile private var lastHandoff = 0L
     var owner: BrowserTab? = null
     private var wvRef: WeakReference<WebView>? = null
     private var artUrl = ""
@@ -56,7 +57,7 @@ object YtMedia {
         owner = tab; wvRef = WeakReference(wv)
         playing = o.optBoolean("playing"); pos = o.optLong("pos"); dur = o.optLong("dur")
         if (playing) { lastPlayAt = System.currentTimeMillis(); if (YtAudio.active) YtAudio.release() }   // the page plays again: audio-only ends
-        wv.url?.takeIf { isYtVideo(it) }?.let { videoUrl = it }
+        wv.url?.takeIf { isYtVideo(it) }?.let { if (it != videoUrl && tab.app) YtAudio.warm(it); videoUrl = it }
         vw = o.optInt("vw"); vh = o.optInt("vh")
         title = o.optString("title"); artist = o.optString("artist")
         loadArt(o.optString("art"))
@@ -70,7 +71,7 @@ object YtMedia {
     fun loadArt(url: String) {
         if (url.isNotBlank() && url != artUrl && isTrustedArt(url)) {
             artUrl = url
-            Work.media {
+            Work.img {
                 runCatching {
                     val c = URL(url).openConnection().apply { connectTimeout = 8000; readTimeout = 8000 }
                     val bmp = c.getInputStream().use { BitmapFactory.decodeStream(it) }
@@ -96,6 +97,17 @@ object YtMedia {
         YtAudio.release()
         playing = false; owner = null; vw = 0; vh = 0; MediaService.instance?.shutdown()
     }
+    /** Audio hand-off failed: let the page player continue (returns false when there is no page to resume). */
+    fun resumePage(): Boolean {
+        val w = wvRef?.get() ?: return false
+        w.post {
+            runCatching {
+                w.resumeTimers(); w.onResume()
+                w.evaluateJavascript("window.__novaYtCtl&&window.__novaYtCtl('play')", null)
+            }
+        }
+        return true
+    }
     fun killPlayback() {
         val w = wvRef?.get()
         if (w != null) runCatching {
@@ -116,8 +128,11 @@ object YtMedia {
         val recent = playing || System.currentTimeMillis() - lastPlayAt < 2500L
         if (tab.app && ctx != null && recent && videoUrl.isNotBlank()) {
             val u = videoUrl; val p = pos; val t = title; val a = artist
+            val now = System.currentTimeMillis()
+            if (now - lastHandoff < 1200L) return
+            lastHandoff = now
             control("pause")                      // pauses the page video (audio engine not active yet)
-            YtAudio.start(ctx, u, p, t, a)
+            YtAudio.start(ctx, u, p, t, a, true)
         } else stop()
     }
     fun tabClosed(tab: BrowserTab) { if (owner === tab) stop() }

@@ -218,7 +218,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
     }
     val warnings = remember { Security.deviceWarnings(ctx) }
     LaunchedEffect(cacheTick) {
-        cacheSize = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { CacheCleaner.format(CacheCleaner.size(ctx)) }
+        cacheSize = kotlinx.coroutines.withContext(Work.ioD) { CacheCleaner.format(CacheCleaner.size(ctx)) }
     }
     val themeNames = listOf(L("تلقائي (حسب النظام)"), L("فاتح"), L("داكن"))
     val langNames = listOf(L("تلقائي"), "العربية", "English")

@@ -143,6 +143,7 @@ class AppActivity : ComponentActivity() {
 
     private fun boot() {
         val c = applicationContext
+        WebSupport.warmStart(c)
         CrashLog.install(c)
         Robust.init(c)
         Prefs.init(c)

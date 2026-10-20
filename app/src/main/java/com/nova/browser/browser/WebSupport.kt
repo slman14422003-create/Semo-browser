@@ -16,6 +16,7 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import androidx.webkit.WebViewRenderProcess
 import androidx.webkit.WebViewRenderProcessClient
+import androidx.webkit.WebViewStartUpConfig
 import java.net.InetAddress
 import java.util.Collections
 import java.util.WeakHashMap
@@ -42,6 +43,19 @@ object WebSupport {
     private var registered = false
 
     private val readerJs: String? by lazy { runCatching { Perf.asset("reader.js") }.getOrNull() }
+
+    @Volatile private var warmed0 = false
+
+    /** Starts WebView engine initialisation on a background lane so the first page does not block the UI thread. */
+    @Suppress("UnsafeOptInUsageError")
+    fun warmStart(c: Context) {
+        if (warmed0) return
+        warmed0 = true
+        runCatching {
+            val cfg = WebViewStartUpConfig.Builder(Work.cpuPool).build()
+            WebViewCompat.startUpWebView(c.applicationContext, cfg) { }
+        }
+    }
 
     // ---------- تهيئة عامة ----------
     fun init(c: Context) {
@@ -203,7 +217,6 @@ object WebSupport {
         if (hard.remove(wv)) runCatching { wv.settings.cacheMode = WebSettings.LOAD_DEFAULT }
     }
 
-    private val dnsPool = Executors.newFixedThreadPool(2, ThreadFactory { r -> Thread(r, "nova-dns").apply { isDaemon = true } })
     private val warmed = ConcurrentHashMap<String, Long>()
 
     /** يحلّ اسم النطاق مسبقاً في خيط خلفي (يملأ كاش DNS للنظام) كي يبدأ الاتصال أسرع عند الفتح. */
@@ -215,7 +228,7 @@ object WebSupport {
         if (last != null && now - last < 120_000) return
         if (warmed.size > 200) warmed.clear()
         warmed[h] = now
-        dnsPool.execute { runCatching { InetAddress.getAllByName(h) } }
+        Work.dns { runCatching { InetAddress.getAllByName(h) } }
     }
 
     // ---------- أدوات الصفحة ----------

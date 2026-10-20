@@ -23,8 +23,8 @@ object Robust {
         if (BuildConfig.DEBUG) android.util.Log.e("Nova", "coroutine failed", e)
     }
 
-    val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + handler)
-    val io: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + handler)
+    val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Work.cpuD + handler)
+    val io: CoroutineScope = CoroutineScope(SupervisorJob() + Work.ioD + handler)
     val main: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate + handler)
 
     fun init(c: Context) {

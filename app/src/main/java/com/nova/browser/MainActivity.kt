@@ -232,6 +232,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        WebSupport.warmStart(applicationContext)
         val splash = installSplashScreen()
         // نتولى حركة الخروج بأنفسنا بدل الاعتماد على سلوك المكتبة الافتراضي (كان يُسقط التطبيق أحياناً على بعض الأجهزة
         // بخطأ NullPointerException داخلي عند مزامنة حركة الأيقونة). provider.view مضمونة غير فارغة دوماً هنا.

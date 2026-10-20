@@ -106,7 +106,7 @@ object YtFetch {
         return "https://www.youtube.com/watch?v=$id"
     }
 
-    private fun ensure() { if (!ready) { NewPipe.init(NpDownloader()); ready = true } }
+    @Synchronized private fun ensure() { if (!ready) { NewPipe.init(NpDownloader()); ready = true } }
 
     fun info(url: String): YtInfo {
         ensure()
@@ -301,7 +301,7 @@ fun YtDownloadSheet(url: String, onDismiss: () -> Unit, onStarted: () -> Unit) {
     val vid = remember(url) { runCatching { YtFetch.canonical(url).substringAfter("v=") }.getOrNull() }
     LaunchedEffect(url, attempt) {
         info = null; err = null
-        val r = withContext(Dispatchers.IO) { runCatching { YtFetch.info(url) } }
+        val r = withContext(Work.ytD) { runCatching { YtFetch.info(url) } }
         r.onSuccess { info = it }.onFailure { err = it.message ?: it.javaClass.simpleName }
     }
     fun pick(i: YtInfo, o: YtOpt) { YtDownload.start(ctx, i, o); toast(ctx, L("بدأ التنزيل — القائمة ⋮ ثم التنزيلات")); onStarted(); onDismiss() }

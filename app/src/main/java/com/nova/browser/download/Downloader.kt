@@ -77,7 +77,7 @@ object Downloader {
 
     lateinit var app: Context
     val tasks = mutableStateListOf<DlTask>()
-    private val pool: ExecutorService = Executors.newCachedThreadPool()
+    private val pool: ExecutorService get() = Work.dlPool
     private val main = Handler(Looper.getMainLooper())
     private var inited = false
     private var lastSave = 0L
@@ -101,7 +101,7 @@ object Downloader {
         engineOn = true
         System.setProperty("http.maxConnections", "32")
         Notif.ensureChannels(app)
-        Executors.newSingleThreadScheduledExecutor()
+        Work.scheduler("dl-tick")
             .scheduleWithFixedDelay({ runCatching { tick() } }, 400, 400, TimeUnit.MILLISECONDS)
     }
 
