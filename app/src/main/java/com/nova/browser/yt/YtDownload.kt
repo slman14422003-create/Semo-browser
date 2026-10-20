@@ -169,9 +169,9 @@ object YtDownload {
         val finish: (DlTask) -> Unit = {
             if (left.decrementAndGet() == 0) {
                 Downloader.work.incrementAndGet()   // يُبقي إشعار «جارٍ المعالجة» حيّاً حتى انتهاء الدمج
-                Thread {
+                Work.media {
                     try { runMux(ctx.applicationContext, base, holder[0]!!, holder[1]!!) } finally { Downloader.work.decrementAndGet() }
-                }.start()
+                }
             }
         }
         holder[0] = Downloader.startNamed(ctx, o.url, YT_UA, ref, "$base [video].mp4", "video/mp4", finish)

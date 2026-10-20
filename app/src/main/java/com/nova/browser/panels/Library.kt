@@ -47,7 +47,7 @@ object Library {
     fun init(c: Context) {
         if (file != null) return
         val f = File(c.applicationContext.filesDir, "library.json"); file = f
-        Thread({
+        Work.disk {
             val b = ArrayList<Bookmark>(); val h = ArrayList<HistoryItem>(); val rl = ArrayList<Bookmark>(); val fv = ArrayList<Bookmark>()
             runCatching {
                 if (f.exists()) {
@@ -59,7 +59,7 @@ object Library {
                 }
             }
             main.post { bookmarks.addAll(b); history.addAll(h); readingList.addAll(rl); favorites.addAll(fv); loaded = true }
-        }, "nova-library").start()
+        }
     }
 
     private fun scheduleSave() {
@@ -68,7 +68,7 @@ object Library {
         main.postDelayed({
             saveQueued = false
             val b = bookmarks.toList(); val h = history.toList(); val rl = readingList.toList(); val fv = favorites.toList(); val f = file ?: return@postDelayed
-            Thread({
+            Work.disk {
                 runCatching {
                     val o = JSONObject()
                     o.put("b", JSONArray().also { a -> b.forEach { a.put(JSONObject().put("u", it.url).put("t", it.title).put("f", it.folder).put("a", it.added)) } })
@@ -77,7 +77,7 @@ object Library {
                     o.put("h", JSONArray().also { a -> h.forEach { a.put(JSONObject().put("u", it.url).put("t", it.title).put("m", it.time)) } })
                     val tmp = File(f.parentFile, "library.tmp"); tmp.writeText(o.toString()); tmp.renameTo(f)
                 }
-            }, "nova-library-save").start()
+            }
         }, 4000)
     }
 
@@ -175,10 +175,10 @@ fun LibraryScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) {
             importing = true
-            Thread({
+            Work.cpu {
                 val r = runCatching { ChromeImport.run(ctx.applicationContext, uris) }.getOrElse { ImportResult().also { x -> x.notes += (it.message ?: "error") } }
                 Handler(Looper.getMainLooper()).post { importing = false; result = r }
-            }, "nova-import").start()
+            }
         }
     }
 

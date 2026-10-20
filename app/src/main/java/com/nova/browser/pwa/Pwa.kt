@@ -70,7 +70,7 @@ object Pwa {
         runCatching {
             val list = apps.entries.toList().takeLast(4).map { (host, name) ->
                 ShortcutInfoCompat.Builder(c, "dyn_$host").setShortLabel(name).setLongLabel(name)
-                    .setIcon(IconCompat.createWithBitmap(Favicons.get(host)?.let { Bitmap.createScaledBitmap(it, 192, 192, true) } ?: letterIcon(host, name)))
+                    .setIcon(IconCompat.createWithBitmap((PwaManifest.cachedIcon(c, host) ?: Favicons.get(host))?.let { Bitmap.createScaledBitmap(it, 192, 192, true) } ?: letterIcon(host, name)))
                     .setIntent(AppActivity.intentFor(c, homeFor("https://$host/"))).build()
             }
             ShortcutManagerCompat.setDynamicShortcuts(c, list)
@@ -120,7 +120,7 @@ object Pwa {
             return
         }
         val ok = runCatching {
-            val icon = IconCompat.createWithBitmap(Favicons.get(host)?.let { Bitmap.createScaledBitmap(it, 192, 192, true) } ?: letterIcon(host, name))
+            val icon = IconCompat.createWithBitmap((PwaManifest.cachedIcon(ctx, host) ?: Favicons.get(host))?.let { Bitmap.createScaledBitmap(it, 192, 192, true) } ?: letterIcon(host, name))
             val sc = ShortcutInfoCompat.Builder(ctx, "app_" + host + "_" + System.currentTimeMillis()).setShortLabel(name).setLongLabel(name).setIcon(icon)
                 .setIntent(AppActivity.intentFor(ctx, homeFor(url))).build()
             ShortcutManagerCompat.requestPinShortcut(ctx, sc, null)
@@ -134,13 +134,18 @@ object Pwa {
         val host = hostOf(url)
         if (!url.startsWith("https://") || host.isBlank()) return false
         if (apps.containsKey(host)) {
-            apps.remove(host); save(ctx)
+            apps.remove(host); save(ctx); PwaManifest.forget(ctx, host)
             toast(ctx, "App removed")
             return false
         }
         val name = (title.ifBlank { host }).replace("|", " ").replace(";;", " ").trim().take(30)
         apps[host] = name; save(ctx)
-        pinShortcut(ctx, url)
+        // Read the site's manifest in the background (name + sharp icon + orientation), then pin; falls back to the favicon
+        PwaManifest.refresh(ctx, host) { meta ->
+            val n = meta?.name?.takeIf { it.isNotBlank() }
+            if (n != null && apps.containsKey(host)) { apps[host] = n; save(ctx) }
+            if (apps.containsKey(host)) pinShortcut(ctx, url)
+        }
         return true
     }
 

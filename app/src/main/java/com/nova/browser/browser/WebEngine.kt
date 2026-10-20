@@ -108,7 +108,7 @@ object WebEngine {
         val nowH = (System.currentTimeMillis() / 3_600_000L).toInt()
         if (checking || (!force && nowH - st.getInt("wvchk", 0) < 12)) return
         checking = true
-        Thread({
+        Work.net {
             val m = runCatching { fetchLatestMajor() }.getOrDefault(0)
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 checking = false
@@ -121,7 +121,7 @@ object WebEngine {
                     }
                 }
             }
-        }, "nova-wvcheck").start()
+        }
     }
 
     private fun readMajors(url: String): List<Int> {

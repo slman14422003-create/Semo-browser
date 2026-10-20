@@ -150,7 +150,7 @@ class AppActivity : ComponentActivity() {
         GoogleAccounts.init(c)
         Adaptive.init(c)
         Library.init(c)
-        Thread({ Vault.init(c) }, "nova-vault").start()
+        Work.cpu { Vault.init(c) }
         Security.init(c)
         Perf.init(c)
         PageExtras.preheat(c)

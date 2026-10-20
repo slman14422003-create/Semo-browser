@@ -27,7 +27,7 @@ fun NetImage(url: String, modifier: Modifier = Modifier, contentScale: ContentSc
     var bmp by remember(url) { mutableStateOf(netImageCache.get(url)) }
     LaunchedEffect(url) {
         if (bmp == null) {
-            bmp = withContext(Dispatchers.IO) {
+            bmp = withContext(Work.netD) {
                 runCatching {
                     val c = URL(url).openConnection().apply { connectTimeout = 8000; readTimeout = 8000 }
                     c.getInputStream().use { BitmapFactory.decodeStream(it) }

@@ -94,7 +94,7 @@ object Updater {
             if (System.currentTimeMillis() - sp.getLong("last", 0L) < 12L * 3600_000L) return
         }
         phase = UpdPhase.CHECKING; error = ""
-        Thread({
+        Work.net {
             try {
                 val cn = URL("https://api.github.com/repos/$repo/releases/latest").openConnection() as HttpURLConnection
                 cn.connectTimeout = 8000; cn.readTimeout = 8000
@@ -132,7 +132,7 @@ object Updater {
             } catch (e: Exception) {
                 ui { if (force) { error = e.message ?: "error"; phase = UpdPhase.ERROR } else phase = UpdPhase.IDLE }
             }
-        }, "nova-update").apply { priority = Thread.MIN_PRIORITY }.start()
+        }
     }
 
     /** تنزيل الـ APK إلى كاش التطبيق ثم التثبيت تلقائياً. */
@@ -146,7 +146,7 @@ object Updater {
         }
         if (phase == UpdPhase.DOWNLOADING) return
         phase = UpdPhase.DOWNLOADING; progress = 0f; error = ""
-        Thread({
+        Work.net {
             try {
                 val f = apkFile(app); val tmp = File(f.parentFile, "nova-update.part")
                 val cn = URL(url).openConnection() as HttpURLConnection
@@ -172,17 +172,17 @@ object Updater {
                 if ((i.size > 0 && done != i.size) || (i.sha256.isNotEmpty() && got != i.sha256)) {
                     tmp.delete()
                     ui { error = "checksum mismatch"; phase = UpdPhase.ERROR }
-                    return@Thread
+                    return@net
                 }
                 if (f.exists()) f.delete()
                 if (!tmp.renameTo(f)) throw java.io.IOException("rename failed")
                 val bad = verifyApk(app, f)
-                if (bad != null) { ui { reject(f, bad) }; return@Thread }
+                if (bad != null) { ui { reject(f, bad) }; return@net }
                 ui { progress = 1f; phase = UpdPhase.READY; install(app) }
             } catch (e: Exception) {
                 ui { error = e.message ?: "error"; phase = UpdPhase.ERROR }
             }
-        }, "nova-update-dl").apply { priority = Thread.MIN_PRIORITY }.start()
+        }
     }
 
     /** يثبّت الملف المنزَّل عبر PackageInstaller؛ يطلب إذن «التثبيت من هذا المصدر» أولاً إن لزم. */
@@ -198,7 +198,7 @@ object Updater {
             return
         }
         phase = UpdPhase.INSTALLING; error = ""
-        Thread({
+        Work.disk {
             try {
                 val pi = app.packageManager.packageInstaller
                 val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
@@ -212,7 +212,7 @@ object Updater {
             } catch (e: Exception) {
                 ui { error = e.message ?: "error"; phase = UpdPhase.READY }
             }
-        }, "nova-update-install").start()
+        }
     }
 
     /** نتيجة جلسة التثبيت من UpdateReceiver. عند النجاح يُعاد تشغيل التطبيق من النظام. */

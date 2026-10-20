@@ -1,5 +1,12 @@
 # سجل المهام والتعديلات
 
+## 2026-10-20 - thread lanes, web-app manifest, cosmetic filter, YouTube warm-up
+- core/Work.kt (new): named pools net / disk (single thread) / cpu / media + coroutine dispatchers (Work.netD...) + Work.ui. All 14 ad-hoc Thread() calls (MainActivity, AppActivity, WebEngine, Updater, Library, YtMedia, YtDownload mux) moved to a lane. Library read+save now share the single disk lane (no more two writers racing on library.tmp). NetImage loads on Work.netD (bounded) instead of Dispatchers.IO.
+- pwa/PwaManifest.kt (new): on install, reads the site's Web App Manifest in the background (4.5s deadline, https only, size caps): short_name/name, best PNG icon (192px, saved in filesDir/pwa), orientation (default only if the user has not chosen), theme_color (stored as pwa_t_<host>). Pwa.togglePin pins after the fetch and falls back to the favicon. Removing the app deletes the stored icon.
+- assets/cosmetic.js + Perf.installCosmetic: generic ad-container hiding at document start (only when Prefs.blockAds; skipped on YouTube/Google/Cloudflare/GitHub).
+- YtWeb.create: preconnect to i.ytimg.com and yt3.ggpht.com.
+- Not compiled in the session; run a Gradle build first. tools/project_check.py passes.
+
 ## 2026-10-17 (2) - auto reload on reconnect, installed-app bottom gap
 - core/NetRetry.kt: on network available, reloads only tabs whose load failed (BrowserTab.failed set when the error page is shown; cleared by the next real navigation). Wired in MainActivity and AppActivity (start in onStart, stop in onStop). YtWeb and WebFactory mark failures.
 - AppActivity: with gesture navigation the bottom system-bar inset was reserved as an empty strip below the page (the gap in the screenshot, worse after rotation). Now only top/sides are padded with gesture nav; 3-button nav keeps the bottom padding.

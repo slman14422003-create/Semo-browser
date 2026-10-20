@@ -57,7 +57,7 @@ object YtMedia {
         val url = o.optString("art")
         if (url.isNotBlank() && url != artUrl && isTrustedArt(url)) {
             artUrl = url
-            Thread {
+            Work.media {
                 runCatching {
                     val c = URL(url).openConnection().apply { connectTimeout = 8000; readTimeout = 8000 }
                     val bmp = c.getInputStream().use { BitmapFactory.decodeStream(it) }
@@ -67,7 +67,7 @@ object YtMedia {
                         MediaService.instance?.refresh()
                     }
                 }
-            }.start()
+            }
         }
         val svc = MediaService.instance
         if (svc != null) svc.refresh()

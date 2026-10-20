@@ -263,7 +263,7 @@ class MainActivity : ComponentActivity() {
         GoogleAccounts.init(this)
         Adaptive.init(this)
         Library.init(this)
-        Thread({ Vault.init(applicationContext) }, "nova-vault").start()   // فك التشفير (Keystore) خارج الخيط الرئيسي
+        Work.cpu { Vault.init(applicationContext) }   // فك التشفير (Keystore) خارج الخيط الرئيسي
         Security.init(this)
         Perf.init(this)
         PageExtras.preheat(this)
@@ -271,7 +271,7 @@ class MainActivity : ComponentActivity() {
         WebEngine.init(this)
         NetKit.init(this)
         WebSupport.init(this)
-        Thread({ Security.deviceWarnings(applicationContext).forEach { Security.log(L("الجهاز"), it) } }, "nova-sec").start()
+        Work.cpu { Security.deviceWarnings(applicationContext).forEach { Security.log(L("الجهاز"), it) } }
         Downloader.init(this)
         Notif.ensureChannels(applicationContext)
         DefaultBrowser.refresh(this)
@@ -286,10 +286,10 @@ class MainActivity : ComponentActivity() {
         if (!cleanedThisProcess && (Prefs.autoClean || CacheCleaner.pending(this))) {
             cleanedThisProcess = true
             // التنظيف يجري قبل إنشاء أي WebView كي لا تكون ملفات الكاش مفتوحة
-            Thread({
+            Work.disk {
                 runCatching { if (Prefs.autoClean) CacheCleaner.cleanAll(applicationContext) else CacheCleaner.cleanLarge(applicationContext) }
                 runOnUiThread { if (!isFinishing && !isDestroyed) showUi(start) else ready = true }
-            }, "nova-clean").start()
+            }
         } else showUi(start)
     }
 
@@ -331,7 +331,7 @@ class MainActivity : ComponentActivity() {
         val nowMs = android.os.SystemClock.elapsedRealtime()
         if (nowMs - lastCacheCheck > 10 * 60_000L) {   // قياس حجم الكاش في خيط خلفي وبحدّ أقصى مرة كل 10 دقائق
             lastCacheCheck = nowMs
-            Thread({ runCatching { CacheCleaner.markIfLarge(applicationContext) } }, "nova-cache").start()
+            Work.disk { runCatching { CacheCleaner.markIfLarge(applicationContext) } }
         }
         if (pipReceiverOn) { runCatching { unregisterReceiver(pipReceiver) }; pipReceiverOn = false }
         // onPictureInPictureModeChanged(false) يسبق onStop دائماً، فـ inPip تكون false هنا؛ نعتمد على لحظة الخروج: إن أعقبه إيقاف بلا عودة = إغلاق ✕
@@ -576,7 +576,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
 
     fun clearCacheNow() {
         tabs.forEach { it.webView?.clearCache(true) }
-        Thread { runCatching { CacheCleaner.clean(activity.applicationContext) } }.start()
+        Work.disk { runCatching { CacheCleaner.clean(activity.applicationContext) } }
         toast(activity, L("تم مسح الذاكرة المؤقتة"))
     }
     // اللوحات (الإعدادات/التنزيلات/المكتبة) تعيش في نافذة مستقلة؛ هذا الجسر هو كل ما تطلبه من المتصفح

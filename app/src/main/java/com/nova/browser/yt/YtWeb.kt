@@ -106,6 +106,7 @@ object YtWeb {
         importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
         WebSupport.configure(this)               // أولوية العملية + مراقبة التجمّد + إزالة X-Requested-With
         YtHub.install(this, tab, h)              // جسر الوسائط + yt.js
+        Speculate.preconnect(this, "https://i.ytimg.com"); Speculate.preconnect(this, "https://yt3.ggpht.com")   // thumbnails + avatars: TLS ready before first paint
         CookieManager.getInstance().setAcceptCookie(true)
         // الدخول بحساب Google وموافقات يوتيوب تحتاج كوكيز بين نطاقات جوجل ويوتيوب؛ هذا الـ WebView لا يفتح إلا هذه النطاقات
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)

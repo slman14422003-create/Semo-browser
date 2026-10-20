@@ -176,6 +176,15 @@ object Perf {
         if (docStartSupported) runCatching { WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*")) }
     }
 
+    // Brave-style cosmetic filtering: hides empty ad containers that network blocking leaves behind (assets/cosmetic.js)
+    private val cosmeticJs: String? by lazy { runCatching { asset("cosmetic.js") }.getOrNull() }
+
+    fun installCosmetic(wv: WebView) {
+        if (!Prefs.blockAds || !docStartSupported) return
+        val js = cosmeticJs ?: return
+        runCatching { WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*")) }
+    }
+
     /** احتياطي للأجهزة التي لا تدعم الحقن المبكر: يُنفَّذ عند بدء الصفحة. */
     fun onPageStart(wv: WebView) {
         if (Prefs.antiFingerprint && !docStartSupported) fpScript()?.let { wv.evaluateJavascript(it, null) }
@@ -186,6 +195,7 @@ object Perf {
     fun warmUp(ctx: Context) {
         runCatching { WebView.startSafeBrowsing(ctx.applicationContext, null) }
         runCatching { defaultUa(ctx) }
+        Work.disk { cosmeticJs; smoothJs }   // read the script assets off the main thread
     }
 }
 

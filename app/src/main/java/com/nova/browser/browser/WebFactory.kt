@@ -54,6 +54,7 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
     Perf.installPrivacy(this)
     Shield.install(this)
     Perf.installSmooth(this)
+    Perf.installCosmetic(this)
     WebSupport.configure(this)
     WebSupport.installScrollGuard(this)
     WebCompat.install(this)
