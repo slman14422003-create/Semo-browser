@@ -4,7 +4,7 @@
  *   2) PLAY  : استئناف الفيديو + تذكّر السرعة + ضغط مطوّل ×2
  *   3) MEDIA : حالة التشغيل لإشعار الوسائط + حماية التشغيل في الخلفية/النافذة المنبثقة + أوامر الإشعار
  * كل قسم في IIFE مستقل بحارس خاص فخطأ في قسم لا يوقف البقية. لا يلمس الإعلانات ولا يستخرج روابط البث.
- * العلامات التي تستبدلها YtHub.kt: __CC__ و __UI__ و __PLAY__ و __BG__.
+ * العلامات التي تستبدلها YtHub.kt: __CC__ و __UI__ و __PLAY__ و __BG__ و __RULES__.
  */
 
 /* ═════════ 1) FIX ═════════ */
@@ -54,9 +54,8 @@ try {
       // «الإضاءة السينمائية/المحيطية»: طبقة كانفس ضبابية خلف المشغّل لا تُعاد رسمها بعد الدوران فتظهر ضبابية ثم سوداء
       '#cinematics canvas,.ytp-cinematic-container canvas,ytm-cinematic-container-renderer canvas{display:none!important}';
     // إخفاء شورتس (اختياري). القاعدة التي تستعمل :has منفصلة كي لا تُسقط القواعد الأخرى في المحركات القديمة
-    var SHORTS = UI.shorts
-      ? 'ytm-reel-shelf-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2{display:none!important}' : '';
-    var SHORTS2 = UI.shorts ? 'ytm-rich-section-renderer:has(ytm-shorts-lockup-view-model),ytm-rich-section-renderer:has(ytm-reel-shelf-renderer){display:none!important}' : '';
+    // إخفاء Shorts صار في القسم 4 (OPTS) ويعتمد قواعد yt_rules.json ويتبدّل مباشرة من شاشة خيارات التطبيق
+    var SHORTS = '', SHORTS2 = '';
 
     function addStyle(id, css) {
       if (!css) return;
@@ -681,6 +680,67 @@ try {
       window.addEventListener(n, function () { check(); setTimeout(fire, 60); }, true);
     });
     setInterval(check, 120);
+  } catch (e) {}
+})();
+} catch (e) {}
+
+/* ═════════ 4) OPTS — خيارات تتغيّر أثناء التشغيل من شاشة «خيارات التطبيق»: إخفاء Shorts، وضع التركيز، سقف الجودة ═════════
+ * المحدّدات تأتي من yt_rules.json (__RULES__) فتُحدَّث دون إصدار جديد. كل محدّد قاعدة مستقلة كي لا يُسقط محدّد غير مدعوم بقية القواعد.
+ * التحكم: window.__novaOpts({shorts:bool, focus:bool, q:'auto'|'360'|'480'|'720'|'1080'}) — يستدعيه التطبيق عند فتح الصفحة وعند تغيير الخيار أو الشبكة. */
+try {
+(function () {
+  'use strict';
+  try {
+    if (window.__novaYtOpts || window.top !== window || location.hostname === 'music.youtube.com') return;
+    window.__novaYtOpts = 1;
+    var R = __RULES__, UI4 = __UI__;
+    var O = { shorts: !!UI4.shorts, focus: false, q: 'auto' };
+    var Q = { '144': 'tiny', '240': 'small', '360': 'medium', '480': 'large', '720': 'hd720', '1080': 'hd1080' };
+    var capped = false;
+
+    function rules(list) {
+      var out = '';
+      for (var i = 0; list && i < list.length; i++) out += list[i] + '{display:none!important}';
+      return out;
+    }
+    function sty(id, css) {
+      var s = document.getElementById(id);
+      if (!css) { if (s && s.parentNode) s.parentNode.removeChild(s); return; }
+      var par = document.head || document.documentElement;
+      if (!par) { setTimeout(function () { sty(id, css); }, 30); return; }
+      if (!s) { s = document.createElement('style'); s.id = id; par.appendChild(s); }
+      if (s.textContent !== css) s.textContent = css;
+    }
+    function applyCss() {
+      sty('nova-yt-shorts-rt', O.shorts ? rules(R.shorts) + rules(R.shortsHas) : '');
+      sty('nova-yt-focus-rt', O.focus ? rules(R.focus) : '');
+    }
+
+    // سقف الجودة: يُطبَّق بأسلوب «من الأدنى حتى السقف» فيبقى التكيّف التلقائي ضمن المدى. الواجهة غير موثّقة وقد لا تتوفر في كل إصدار؛ الفشل صامت.
+    var qT = 0;
+    function applyQ() {
+      var p = document.getElementById('movie_player'); if (!p) return;
+      var q = Q[O.q];
+      try {
+        if (q) { capped = true; if (p.setPlaybackQualityRange) p.setPlaybackQualityRange('tiny', q); if (p.setPlaybackQuality) p.setPlaybackQuality(q); }
+        else if (capped) { capped = false; if (p.setPlaybackQualityRange) p.setPlaybackQualityRange('tiny', 'highres'); }
+      } catch (e) {}
+    }
+    function qSoon() { clearTimeout(qT); qT = setTimeout(applyQ, 400); }
+
+    window.__novaOpts = function (o) {
+      try {
+        if (o && typeof o.shorts === 'boolean') O.shorts = o.shorts;
+        if (o && typeof o.focus === 'boolean') O.focus = o.focus;
+        if (o && typeof o.q === 'string') O.q = o.q;
+        applyCss(); qSoon();
+      } catch (e) {}
+    };
+    applyCss();
+    ['loadedmetadata', 'playing'].forEach(function (n) {
+      document.addEventListener(n, function (e) { if (e.target && e.target.tagName === 'VIDEO') qSoon(); }, true);
+    });
+    window.addEventListener('yt-navigate-finish', qSoon, true);
   } catch (e) {}
 })();
 } catch (e) {}

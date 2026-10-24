@@ -10,6 +10,23 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.app.PendingIntent
+import android.app.RemoteAction
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.graphics.drawable.Icon
+import android.media.AudioManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.view.MotionEvent
+import android.view.ViewConfiguration
+import androidx.compose.runtime.mutableLongStateOf
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import android.os.Bundle
 import android.util.Rational
 import android.view.View
@@ -76,6 +93,10 @@ import kotlinx.coroutines.delay
 class AppActivity : ComponentActivity() {
     companion object {
         private var seq = 9000
+        private const val ACT_PLAY = "nova.apppip.play"
+        private const val ACT_PAUSE = "nova.apppip.pause"
+        private const val ACT_BACK = "nova.apppip.back"
+        private const val ACT_FWD = "nova.apppip.fwd"
 
         fun intentFor(ctx: Context, home: String): Intent =
             Intent(Intent.ACTION_VIEW, Uri.parse(home), ctx, AppActivity::class.java)
@@ -96,6 +117,28 @@ class AppActivity : ComponentActivity() {
     private var optImmersive by mutableStateOf(false)
     private var optPull by mutableStateOf(true)
     private var optSheet by mutableStateOf(false)
+    private var optMode by mutableIntStateOf(0)
+    private var optShorts by mutableStateOf(false)
+    private var optFocus by mutableStateOf(false)
+    private var optQMobile by mutableIntStateOf(0)
+    private var optQWifi by mutableIntStateOf(0)
+    private var optDim by mutableStateOf(false)
+    private var optGestures by mutableStateOf(true)
+    private var sleepMin by mutableIntStateOf(0)
+    private var sleepEnd by mutableLongStateOf(0L)
+    private var sleepLeft by mutableIntStateOf(0)
+    private val mainH = Handler(Looper.getMainLooper())
+    private val sleepRun = Runnable { sleepFire() }
+    private val hudHide = Runnable { hud = null }
+    private var hud by mutableStateOf<Pair<Int, Float>?>(null)   // (1 = صوت، 2 = سطوع) + النسبة
+    private var gMode = 0
+    private var gActive = false
+    private var gDownX = 0f
+    private var gDownY = 0f
+    private var gBase = 0f
+    private var pipReceiverOn = false
+    private var netCb: ConnectivityManager.NetworkCallback? = null
+    private var lastMetered: Boolean? = null
     private val netRetry by lazy { NetRetry(this) { listOf(tab) } }
     private var wasPip = false
     private val permQueue = ArrayDeque<Pair<List<String>, () -> Unit>>()
@@ -187,6 +230,255 @@ class AppActivity : ComponentActivity() {
         else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
+    // ───────── خيارات إضافية للتطبيق (الأوضاع، الجودة، مؤقّت النوم، المشاركة، الإيماءات) ─────────
+
+    /** أي تعديل يدوي بعد اختيار وضع يُلغي تمييز الوضع (يصير «مخصّصاً»). */
+    private fun manual() {
+        if (optMode != AppModes.CUSTOM) {
+            optMode = AppModes.CUSTOM
+            AppPrefs.setMode(this, hostKey, AppModes.CUSTOM)
+        }
+    }
+
+    private fun setImmersive(v: Boolean) { optImmersive = v; AppPrefs.setImmersive(this, hostKey, v) }
+    private fun setPull(v: Boolean) { optPull = v; AppPrefs.setPull(this, hostKey, v) }
+    private fun setShorts(v: Boolean) { optShorts = v; AppPrefs.setShorts(this, hostKey, v); pushOpts() }
+    private fun setFocus(v: Boolean) { optFocus = v; AppPrefs.setFocus(this, hostKey, v); pushOpts() }
+    private fun setQuality(mobile: Int, wifi: Int) {
+        optQMobile = mobile; optQWifi = wifi
+        AppPrefs.setQuality(this, hostKey, mobile, wifi)
+        pushOpts()
+    }
+    private fun setDim(v: Boolean) { optDim = v; AppPrefs.setDim(this, hostKey, v); applyDim() }
+    private fun setGestures(v: Boolean) { optGestures = v; AppPrefs.setGestures(this, hostKey, v) }
+
+    private fun applyDim() {
+        window.attributes = window.attributes.apply {
+            screenBrightness = if (optDim) 0.18f else android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        }
+    }
+
+    private fun applyMode(m: Int) {
+        val b = AppModes.bundle(m, Prefs.ytNoShorts)
+        setOrient(b.orient); setAwake(b.awake); setImmersive(b.immersive); setPull(b.pull)
+        setDim(b.dim); setGestures(b.gestures)
+        if (tab.yt) { optShorts = b.shorts; AppPrefs.setShorts(this, hostKey, b.shorts); optFocus = b.focus; AppPrefs.setFocus(this, hostKey, b.focus); setQuality(b.qMobile, b.qWifi) }
+        optMode = m
+        AppPrefs.setMode(this, hostKey, m)
+    }
+
+    private fun qualityJs(i: Int) = when (i) { 1 -> "360"; 2 -> "480"; 3 -> "720"; 4 -> "1080"; else -> "auto" }
+
+    /** يدفع الخيارات الحالية (Shorts/التركيز/الجودة بحسب الشبكة) إلى صفحة يوتيوب؛ آمن إن لم تكن الصفحة جاهزة. */
+    private fun pushOpts() {
+        val w = tab.webView ?: return
+        if (!tab.yt || !YtWeb.owns(w)) return
+        val metered = getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered ?: false
+        val q = qualityJs(if (metered) optQMobile else optQWifi)
+        w.evaluateJavascript("window.__novaOpts&&window.__novaOpts({shorts:$optShorts,focus:$optFocus,q:'$q'})", null)
+    }
+
+    private fun registerNetCb() {
+        val cm = getSystemService(ConnectivityManager::class.java) ?: return
+        if (netCb != null) return
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                val m = !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+                if (m != lastMetered) { lastMetered = m; runOnUiThread { pushOpts() } }
+            }
+        }
+        runCatching { cm.registerDefaultNetworkCallback(cb); netCb = cb }
+    }
+
+    private fun unregisterNetCb() {
+        val cb = netCb ?: return
+        runCatching { getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(cb) }
+        netCb = null
+        lastMetered = null
+    }
+
+    private fun cycleSleep() {
+        val next = when (sleepMin) { 0 -> 15; 15 -> 30; 30 -> 60; else -> 0 }
+        mainH.removeCallbacks(sleepRun)
+        sleepMin = next
+        if (next == 0) {
+            sleepEnd = 0L; sleepLeft = 0
+        } else {
+            sleepEnd = SystemClock.elapsedRealtime() + next * 60_000L
+            sleepLeft = next * 60
+            mainH.postDelayed(sleepRun, next * 60_000L)
+            toast(this, L("سيتوقف التشغيل بعد ") + next + " " + L("دقيقة"))
+        }
+    }
+
+    private fun sleepFire() {
+        sleepMin = 0; sleepEnd = 0L; sleepLeft = 0
+        if (YtAudio.active) YtAudio.control("pause")
+        else if (YtMedia.owner === tab) YtMedia.control("pause")
+        tab.webView?.evaluateJavascript("document.querySelectorAll('video,audio').forEach(function(m){try{m.pause()}catch(e){}})", null)
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        toast(this, L("انتهى مؤقّت النوم وأُوقف التشغيل"))
+    }
+
+    private fun currentPosSec(): Int = when {
+        YtAudio.active -> (YtAudio.posMs / 1000L).toInt()
+        YtMedia.owner === tab -> (YtMedia.pos / 1000L).toInt()
+        else -> 0
+    }
+
+    private fun ytVideoId(u: String): String? {
+        val p = runCatching { Uri.parse(u) }.getOrNull() ?: return null
+        val h = (p.host ?: return null).removePrefix("www.")
+        val seg = p.pathSegments
+        val id = when {
+            h == "youtu.be" -> seg.firstOrNull()
+            seg.size >= 2 && (seg[0] == "shorts" || seg[0] == "live") -> seg[1]
+            else -> p.getQueryParameter("v")
+        }
+        return id?.takeIf { Regex("[A-Za-z0-9_-]{11}").matches(it) }
+    }
+
+    /** رابط المشاركة: لفيديو يوتيوب رابط قصير نظيف (بدل m.youtube.com وملحقاته) مع اختيار إضافة الوقت الحالي. */
+    private fun shareLink(withTime: Boolean): String {
+        val cur = tab.url.ifBlank { startUrl }
+        val id = if (isYtVideo(cur)) ytVideoId(cur) else null
+        if (id == null) return cur
+        val t = if (withTime) currentPosSec() else 0
+        return "https://youtu.be/$id" + (if (t > 5) "?t=$t" else "")
+    }
+
+    private fun ytAppInstalled() = runCatching { packageManager.getPackageInfo("com.google.android.youtube", 0); true }.getOrDefault(false)
+
+    private fun openYtApp() {
+        val u = shareLink(true)
+        YtMedia.control("pause")
+        val ok = runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)).setPackage("com.google.android.youtube").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }.isSuccess
+        if (!ok) toast(this, L("تعذّر فتح تطبيق يوتيوب"))
+    }
+
+    private fun startAudioOnly() {
+        val u = tab.url; val p = YtMedia.pos
+        YtMedia.control("pause")
+        YtAudio.start(this, u, p, YtMedia.title, YtMedia.artist)
+        tab.webView?.loadUrl("https://m.youtube.com/")   // leave the video page; the mini player takes over
+    }
+
+    // ───────── إيماءات الحواف في ملء الشاشة: يسار = سطوع، يمين = صوت ─────────
+    private fun audioMgr() = getSystemService(AudioManager::class.java)
+
+    private fun volFrac(): Float {
+        val a = audioMgr() ?: return 0f
+        val m = a.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        return if (m > 0) a.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / m else 0f
+    }
+
+    private fun setVolFrac(f: Float) {
+        val a = audioMgr() ?: return
+        val m = a.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        a.setStreamVolume(AudioManager.STREAM_MUSIC, (f * m).roundToInt().coerceIn(0, m), 0)
+    }
+
+    private fun brightFrac(): Float {
+        val b = window.attributes.screenBrightness
+        if (b >= 0f) return b
+        return runCatching {
+            android.provider.Settings.System.getInt(contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS) / 255f
+        }.getOrDefault(0.5f)
+    }
+
+    private fun setBrightFrac(f: Float) {
+        window.attributes = window.attributes.apply { screenBrightness = f.coerceIn(0.02f, 1f) }
+    }
+
+    /** 0 = مرّر الحدث كما هو، 1 = بدأت إيماءة الآن (نُلغي اللمسة عند الصفحة ونستهلك)، 2 = استهلك. */
+    private fun edgeGesture(ev: MotionEvent): Int {
+        val v = window.decorView
+        val w = v.width.toFloat()
+        val h = v.height.toFloat()
+        if (w <= 0f || h <= 0f) return 0
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                gActive = false
+                gDownX = ev.x; gDownY = ev.y
+                gMode = when { ev.x < w * 0.16f -> 2; ev.x > w * 0.84f -> 1; else -> 0 }
+                if (gMode != 0) gBase = if (gMode == 1) volFrac() else brightFrac()
+                return 0
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (gMode == 0) return 0
+                if (ev.pointerCount > 1) return if (gActive) 2 else 0
+                val dy = gDownY - ev.y
+                val dx = ev.x - gDownX
+                var first = false
+                if (!gActive) {
+                    val slop = ViewConfiguration.get(this).scaledTouchSlop * 2f
+                    if (abs(dy) < slop || abs(dy) < abs(dx) * 1.5f) return 0
+                    gActive = true
+                    first = true
+                }
+                val f = (gBase + dy / (h * 0.7f)).coerceIn(0f, 1f)
+                if (gMode == 1) setVolFrac(f) else setBrightFrac(f)
+                hud = gMode to f
+                mainH.removeCallbacks(hudHide)
+                return if (first) 1 else 2
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                val was = gActive
+                gActive = false
+                gMode = 0
+                if (was) { mainH.removeCallbacks(hudHide); mainH.postDelayed(hudHide, 700L) }
+                return if (was) 2 else 0
+            }
+        }
+        return 0
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (optGestures && custom != null && !inPip && tab.yt) {
+            when (edgeGesture(ev)) {
+                1 -> {
+                    val c = MotionEvent.obtain(ev)
+                    c.action = MotionEvent.ACTION_CANCEL
+                    super.dispatchTouchEvent(c)
+                    c.recycle()
+                    return true
+                }
+                2 -> return true
+            }
+        } else if (gActive || gMode != 0) {
+            gActive = false
+            gMode = 0
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    // ───────── أزرار النافذة المنبثقة (رجوع/تشغيل-إيقاف/تقديم) ─────────
+    private val pipReceiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context?, i: Intent?) {
+            when (i?.action) {
+                ACT_PLAY -> YtMedia.control("play")
+                ACT_PAUSE -> YtMedia.control("pause")
+                ACT_BACK -> YtMedia.control("back")
+                ACT_FWD -> YtMedia.control("fwd")
+            }
+            window.decorView.postDelayed({ refreshPip() }, 350)   // تبديل أيقونة التشغيل/الإيقاف بعد استجابة الصفحة
+        }
+    }
+
+    private fun pipAction(icon: Int, label: String, act: String, code: Int): RemoteAction {
+        val pi = PendingIntent.getBroadcast(this, code, Intent(act).setPackage(packageName), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        return RemoteAction(Icon.createWithResource(this, icon), label, label, pi)
+    }
+
+    private fun pipActions(): List<RemoteAction> = listOf(
+        pipAction(android.R.drawable.ic_media_rew, L("رجوع 10 ثوانٍ"), ACT_BACK, 31),
+        if (YtMedia.playing) pipAction(android.R.drawable.ic_media_pause, L("إيقاف مؤقت"), ACT_PAUSE, 32)
+        else pipAction(android.R.drawable.ic_media_play, L("تشغيل"), ACT_PLAY, 33),
+        pipAction(android.R.drawable.ic_media_ff, L("تقديم 10 ثوانٍ"), ACT_FWD, 34)
+    )
+
     private fun canPip() = tab.yt && YtMedia.owner === tab && YtMedia.playing && isYtVideo(tab.url)
 
     private fun pipParams(): PictureInPictureParams {
@@ -197,6 +489,7 @@ class AppActivity : ComponentActivity() {
         val ratio = if (f > 2.39f) Rational(239, 100) else if (f < 0.4184f) Rational(100, 239) else raw
         val b = PictureInPictureParams.Builder().setAspectRatio(ratio)
         b.setAutoEnterEnabled(Prefs.autoPip && canPip()).setSeamlessResizeEnabled(false)
+        if (tab.yt && YtMedia.owner === tab) runCatching { b.setActions(pipActions()) }
         return b.build()
     }
 
@@ -252,6 +545,7 @@ class AppActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         netRetry.start()
+        registerNetCb()
         val w = tab.webView
         w?.onResume()
         w?.resumeTimers()
@@ -277,6 +571,7 @@ class AppActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         netRetry.stop()
+        unregisterNetCb()
         Perf.flushCookies(true)
         val w = tab.webView
         if (wasPip && !isInPictureInPictureMode && !isFinishing) {
@@ -292,6 +587,9 @@ class AppActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        mainH.removeCallbacks(sleepRun)
+        mainH.removeCallbacks(hudHide)
+        if (pipReceiverOn) { runCatching { unregisterReceiver(pipReceiver) }; pipReceiverOn = false }
         if (YtMedia.owner === tab) YtMedia.killPlayback()
         custom = null
         runCatching { customCb?.onCustomViewHidden() }
@@ -323,12 +621,25 @@ class AppActivity : ComponentActivity() {
         }
         startUrl = data.toString()
         val host = hostOf(startUrl)
-        appName = Pwa.nameFor(host) ?: host
+        appName = prettyAppName(host, Pwa.nameFor(host))
         hostKey = host.removePrefix("www.")
         optOrient = AppPrefs.orient(this, hostKey)
         optAwake = AppPrefs.keepAwake(this, hostKey)
         optImmersive = AppPrefs.immersive(this, hostKey)
         optPull = AppPrefs.pull(this, hostKey)
+        optMode = AppPrefs.mode(this, hostKey)
+        optShorts = AppPrefs.shorts(this, hostKey)
+        optFocus = AppPrefs.focus(this, hostKey)
+        optQMobile = AppPrefs.qMobile(this, hostKey)
+        optQWifi = AppPrefs.qWifi(this, hostKey)
+        optDim = AppPrefs.dim(this, hostKey)
+        optGestures = AppPrefs.gestures(this, hostKey)
+        if (optDim) applyDim()
+        if (YtWeb.isYtUrl(startUrl)) YtRules.refresh(applicationContext)
+        pipReceiverOn = runCatching {
+            val f = IntentFilter().apply { addAction(ACT_PLAY); addAction(ACT_PAUSE); addAction(ACT_BACK); addAction(ACT_FWD) }
+            ContextCompat.registerReceiver(this, pipReceiver, f, ContextCompat.RECEIVER_NOT_EXPORTED)
+        }.isSuccess
         requestedOrientation = AppPrefs.orientFlag(optOrient)
         if (optAwake) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         // حركة فتح/إغلاق ناعمة للتطبيق المثبّت بدل قفزة النظام الافتراضية
@@ -434,6 +745,16 @@ class AppActivity : ComponentActivity() {
             delay(6000)
             splash = false
         }
+        // العدّ التنازلي لمؤقّت النوم يُحدَّث فقط والورقة مفتوحة
+        LaunchedEffect(optSheet, sleepEnd) {
+            while (optSheet && sleepEnd > 0L) {
+                sleepLeft = ((sleepEnd - SystemClock.elapsedRealtime()) / 1000L).toInt().coerceAtLeast(0)
+                delay(1000)
+            }
+        }
+        // خيارات يوتيوب الحية (Shorts/التركيز/الجودة) تُدفع عند اكتمال التحميل وعند التنقل
+        LaunchedEffect(tab.loading, tab.url, tab.epoch) { if (tab.yt) pushOpts() }
+        val ytAppOk = remember { ytAppInstalled() }
         LaunchedEffect(Unit) {
             snapshotFlow { tab.topColor }.collect { c ->
                 val color = (c ?: android.graphics.Color.BLACK) or (0xFF shl 24)
@@ -564,6 +885,24 @@ class AppActivity : ComponentActivity() {
                 )
             }
 
+            // مؤشّر السطوع/الصوت أثناء إيماءات الحواف
+            hud?.let { (kind, frac) ->
+                if (fullscreen) {
+                    Box(
+                        Modifier.align(Alignment.TopCenter).padding(top = 28.dp).clip(RoundedCornerShape(50))
+                            .background(Color.Black.copy(alpha = 0.62f)).padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
+                        androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                            OptIcon(if (kind == 1) OptGlyph.Volume else OptGlyph.Sun, Color.White, 20.dp)
+                            androidx.compose.foundation.layout.Spacer(Modifier.width(10.dp))
+                            Box(Modifier.width(120.dp).height(5.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.3f))) {
+                                Box(Modifier.fillMaxWidth(frac.coerceIn(0.03f, 1f)).height(5.dp).background(Color.White))
+                            }
+                        }
+                    }
+                }
+            }
+
             AnimatedVisibility(visible = splash && !inPip, exit = fadeOut(androidx.compose.animation.core.tween(Adaptive.ms(220))) + androidx.compose.animation.scaleOut(androidx.compose.animation.core.tween(Adaptive.ms(260), easing = NovaMotion.emphasized), targetScale = 1.04f), modifier = Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxSize().background(cs.background), contentAlignment = Alignment.Center) {
                     androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -596,23 +935,39 @@ class AppActivity : ComponentActivity() {
                 if (hintA > 0.01f) Box(Modifier.padding(top = 3.dp).width(30.dp).height(4.dp).clip(RoundedCornerShape(50)).background(cs.onBackground.copy(alpha = 0.3f * hintA)))
             }
         }
+        val onVideo = tab.yt && isYtVideo(tab.url)
         AppOptionsSheet(
-            visible = optSheet && !inPip && !fullscreen, name = appName, orient = optOrient, keepAwake = optAwake,
-            immersive = optImmersive, pull = optPull,
-            onOrient = { setOrient(it) }, onKeepAwake = { setAwake(it) },
-            onImmersive = { optImmersive = it; AppPrefs.setImmersive(this@AppActivity, hostKey, it) },
-            onPull = { optPull = it; AppPrefs.setPull(this@AppActivity, hostKey, it) },
-            onReload = { tab.webView?.reload() },
-            onShare = { shareText(this@AppActivity, tab.url.ifBlank { startUrl }) },
-            onOpenNova = { openExternal(tab.url.ifBlank { startUrl }) },
-            onRemove = { Pwa.togglePin(this@AppActivity, startUrl, appName); finishAndRemoveTask() },
-            onDismiss = { optSheet = false },
-            onAudioOnly = if (tab.yt && isYtVideo(tab.url)) ({
-                val u = tab.url; val p = YtMedia.pos
-                YtMedia.control("pause")
-                YtAudio.start(this@AppActivity, u, p, YtMedia.title, YtMedia.artist)
-                tab.webView?.loadUrl("https://m.youtube.com/")   // leave the video page; the mini player takes over
-            }) else null
+            visible = optSheet && !inPip && !fullscreen,
+            o = AppOpts(
+                name = appName, host = hostKey, icon = icon,
+                isYt = tab.yt, canAudio = onVideo, canShareAt = onVideo, shareAtLabel = fmtTime(currentPosSec()), canYtApp = tab.yt && ytAppOk,
+                orient = optOrient, awake = optAwake, immersive = optImmersive, pull = optPull,
+                mode = optMode, shorts = optShorts, focus = optFocus, qMobile = optQMobile, qWifi = optQWifi,
+                dim = optDim, gestures = optGestures, sleepMin = sleepMin, sleepLeftSec = sleepLeft
+            ),
+            a = AppOptActions(
+                onOrient = { manual(); setOrient((optOrient + 1) % 3) },
+                onAwake = { manual(); setAwake(it) },
+                onImmersive = { manual(); setImmersive(it) },
+                onPull = { manual(); setPull(it) },
+                onMode = { applyMode(it) },
+                onShorts = { manual(); setShorts(it) },
+                onFocus = { manual(); setFocus(it) },
+                onQMobile = { manual(); setQuality((optQMobile + 1) % 5, optQWifi) },
+                onQWifi = { manual(); setQuality(optQMobile, (optQWifi + 1) % 5) },
+                onDim = { manual(); setDim(it) },
+                onGestures = { manual(); setGestures(it) },
+                onSleep = { cycleSleep() },
+                onReload = { tab.webView?.reload() },
+                onShare = { shareText(this@AppActivity, shareLink(false)) },
+                onCopy = { copyText(this@AppActivity, shareLink(false)) },
+                onOpenNova = { openExternal(tab.url.ifBlank { startUrl }) },
+                onShareAt = { shareText(this@AppActivity, shareLink(true)) },
+                onOpenYtApp = { openYtApp() },
+                onAudioOnly = { startAudioOnly() },
+                onRemove = { Pwa.togglePin(this@AppActivity, startUrl, appName); finishAndRemoveTask() }
+            ),
+            onDismiss = { optSheet = false }
         )
         }
     }

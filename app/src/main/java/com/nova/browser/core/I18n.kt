@@ -500,7 +500,27 @@ object I18n {
         "ملء الشاشة" to "Full screen",
         "السحب للتحديث" to "Pull to refresh",
         "إزالة التطبيق" to "Remove app",
-        "متتبعات تم منعها من تتبعك" to "Trackers prevented from profiling you"
+        "متتبعات تم منعها من تتبعك" to "Trackers prevented from profiling you",
+        "الأوضاع" to "Modes",
+        "تركيز" to "Focus",
+        "سينما" to "Cinema",
+        "ليلي" to "Night",
+        "وضع التركيز" to "Focus mode",
+        "يخفي التعليقات والمقترحات في صفحة الفيديو" to "Hides comments and suggestions on the video page",
+        "مشاركة من الوقت الحالي" to "Share from current time",
+        "افتح في تطبيق يوتيوب" to "Open in YouTube app",
+        "جودة بيانات الجوال" to "Quality on mobile data",
+        "جودة Wi-Fi" to "Quality on Wi-Fi",
+        "مؤقّت النوم" to "Sleep timer",
+        "دقيقة" to "min",
+        "سيتوقف التشغيل بعد " to "Playback will stop in ",
+        "انتهى مؤقّت النوم وأُوقف التشغيل" to "Sleep timer ended — playback stopped",
+        "تعتيم الشاشة" to "Dim screen",
+        "إيماءات الحواف" to "Edge gestures",
+        "السطوع يسار والصوت يمين في ملء الشاشة" to "Brightness on the left, volume on the right in full screen",
+        "تعذّر فتح تطبيق يوتيوب" to "Couldn't open the YouTube app",
+        "اشتراكات يوتيوب" to "YouTube Subscriptions",
+        "سجل يوتيوب" to "YouTube History"
     )
 }
 

@@ -19,6 +19,7 @@
         <intent><action android:name="android.support.customtabs.action.CustomTabsService" /></intent>
         <package android:name="com.samsung.android.samsungpassautofill" />
         <package android:name="com.samsung.android.samsungpass" />
+        <package android:name="com.google.android.youtube" />
     </queries>
     <application
         android:label="Semo brawser"

@@ -29,13 +29,14 @@ object YtHub {
 
     fun ready() = raw != null
 
-    private fun script(): String? {
+    private fun script(c: android.content.Context): String? {
         val r = raw ?: return null
-        val key = "${Prefs.ytBg}|${Prefs.ytResume}|${Prefs.ytKeepRate}|${Prefs.ytHold2x}|${Prefs.ytCcSize}|${Prefs.ytCcBg}|${Prefs.ytCcPos}|${Prefs.ytNoShorts}|${Prefs.smoothAnim}|${Adaptive.level == 0}"
+        val key = "${Prefs.ytBg}|${Prefs.ytResume}|${Prefs.ytKeepRate}|${Prefs.ytHold2x}|${Prefs.ytCcSize}|${Prefs.ytCcBg}|${Prefs.ytCcPos}|${Prefs.ytNoShorts}|${Prefs.smoothAnim}|${Adaptive.level == 0}|${YtRules.version(c)}"
         if (built == null || builtKey != key) {
             built = r.replace("__BG__", Prefs.ytBg.toString())
                 .replace("__PLAY__", "{\"resume\":${Prefs.ytResume},\"keep\":${Prefs.ytKeepRate},\"hold\":${Prefs.ytHold2x}}")
                 .replace("__CC__", "{\"size\":\"${ccSize[Prefs.ytCcSize.coerceIn(0, 3)]}\",\"bg\":\"${ccBg[Prefs.ytCcBg.coerceIn(0, 2)]}\",\"pos\":\"${ccPos[Prefs.ytCcPos.coerceIn(0, 2)]}\",\"off\":0}")
+                .replace("__RULES__", YtRules.json(c))
                 .replace("__UI__", "{\"shorts\":${Prefs.ytNoShorts},\"anim\":${Prefs.smoothAnim && Adaptive.level == 0}}")
             builtKey = key
         }
@@ -51,13 +52,13 @@ object YtHub {
     /** يُستدعى عند إنشاء الـ WebView المخصّص: مستمع الرسائل ثم حقن السكربت قبل أي سكربت للصفحة. */
     fun install(wv: WebView, tab: BrowserTab, h: Handlers) {
         YtBridge.listen(wv, tab, h)
-        val js = script() ?: return
+        val js = script(wv.context.applicationContext) ?: return
         if (docStart) runCatching { WebViewCompat.addDocumentStartJavaScript(wv, js, origins) }
     }
 
     /** احتياطي للأجهزة بلا حقن مبكر. */
     fun onPageStart(wv: WebView, url: String) {
         if (docStart || !isYt(url)) return
-        script()?.let { wv.evaluateJavascript(it, null) }
+        script(wv.context.applicationContext)?.let { wv.evaluateJavascript(it, null) }
     }
 }

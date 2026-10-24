@@ -65,15 +65,27 @@ object Pwa {
         publishShortcuts(c)
     }
 
-    /** اختصارات ديناميكية: الضغط المطوّل على أيقونة Nova يعرض التطبيقات المثبّتة (أحدث 4) لفتحها مباشرة. */
+    /** اختصارات ديناميكية: الضغط المطوّل على أيقونة Nova يعرض التطبيقات المثبّتة (وعند وجود يوتيوب: الاشتراكات والسجل) لفتحها مباشرة. */
     fun publishShortcuts(c: Context) {
         runCatching {
-            val list = apps.entries.toList().takeLast(4).map { (host, name) ->
+            // إن كان يوتيوب مثبّتاً كتطبيق: اختصاران مباشران (الاشتراكات والسجل) ثم أحدث 3 تطبيقات؛ وإلا أحدث 4 تطبيقات كما كان
+            val ytHost = apps.keys.firstOrNull { YtWeb.isYtHost(it) }
+            val appList = apps.entries.toList().takeLast(if (ytHost != null) 3 else 4).map { (host, name) ->
                 ShortcutInfoCompat.Builder(c, "dyn_$host").setShortLabel(name).setLongLabel(name)
                     .setIcon(IconCompat.createWithBitmap((PwaManifest.cachedIcon(c, host) ?: Favicons.get(host))?.let { Bitmap.createScaledBitmap(it, 192, 192, true) } ?: letterIcon(host, name)))
                     .setIntent(AppActivity.intentFor(c, homeFor("https://$host/"))).build()
             }
-            ShortcutManagerCompat.setDynamicShortcuts(c, list)
+            val ytList = if (ytHost == null) emptyList<ShortcutInfoCompat>() else {
+                val ico = IconCompat.createWithBitmap((PwaManifest.cachedIcon(c, ytHost) ?: Favicons.get(ytHost))?.let { Bitmap.createScaledBitmap(it, 192, 192, true) } ?: letterIcon(ytHost, "YouTube"))
+                listOf(
+                    "yt_subs" to ("https://m.youtube.com/feed/subscriptions" to L("اشتراكات يوتيوب")),
+                    "yt_history" to ("https://m.youtube.com/feed/history" to L("سجل يوتيوب"))
+                ).map { (id, v) ->
+                    ShortcutInfoCompat.Builder(c, id).setShortLabel(v.second).setLongLabel(v.second).setIcon(ico)
+                        .setIntent(AppActivity.intentFor(c, v.first)).build()
+                }
+            }
+            ShortcutManagerCompat.setDynamicShortcuts(c, ytList + appList)
         }
     }
 
