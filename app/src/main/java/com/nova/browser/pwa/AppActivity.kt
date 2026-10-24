@@ -117,6 +117,7 @@ class AppActivity : ComponentActivity() {
     private var optImmersive by mutableStateOf(false)
     private var optPull by mutableStateOf(true)
     private var optSheet by mutableStateOf(false)
+    private var ytDlUrl by mutableStateOf<String?>(null)
     private var optMode by mutableIntStateOf(0)
     private var optShorts by mutableStateOf(false)
     private var optFocus by mutableStateOf(false)
@@ -868,7 +869,7 @@ class AppActivity : ComponentActivity() {
             }
 
             if (miniOn) {
-                YtMiniBar(Modifier.align(Alignment.BottomCenter).padding(bottom = if (gestureNav) navDp else 0.dp)) {
+                YtMiniBar(Modifier.align(Alignment.BottomCenter), bottomInset = if (gestureNav) navDp else 0.dp) {
                     val u = YtAudio.watchUrl()
                     YtAudio.close()
                     tab.webView?.loadUrl(u)
@@ -940,7 +941,7 @@ class AppActivity : ComponentActivity() {
             visible = optSheet && !inPip && !fullscreen,
             o = AppOpts(
                 name = appName, host = hostKey, icon = icon,
-                isYt = tab.yt, canAudio = onVideo, canShareAt = onVideo, shareAtLabel = fmtTime(currentPosSec()), canYtApp = tab.yt && ytAppOk,
+                isYt = tab.yt, canAudio = onVideo, canDownload = onVideo, canShareAt = onVideo, shareAtLabel = fmtTime(currentPosSec()), canYtApp = tab.yt && ytAppOk,
                 orient = optOrient, awake = optAwake, immersive = optImmersive, pull = optPull,
                 mode = optMode, shorts = optShorts, focus = optFocus, qMobile = optQMobile, qWifi = optQWifi,
                 dim = optDim, gestures = optGestures, sleepMin = sleepMin, sleepLeftSec = sleepLeft
@@ -965,10 +966,12 @@ class AppActivity : ComponentActivity() {
                 onShareAt = { shareText(this@AppActivity, shareLink(true)) },
                 onOpenYtApp = { openYtApp() },
                 onAudioOnly = { startAudioOnly() },
+                onDownload = { ytDlUrl = tab.url },
                 onRemove = { Pwa.togglePin(this@AppActivity, startUrl, appName); finishAndRemoveTask() }
             ),
             onDismiss = { optSheet = false }
         )
+        ytDlUrl?.let { u -> YtDownloadSheet(u, onDismiss = { ytDlUrl = null }, onStarted = { }) }
         }
     }
 }

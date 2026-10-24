@@ -188,7 +188,8 @@ class AppOpts(
     val isYt: Boolean, val canAudio: Boolean, val canShareAt: Boolean, val shareAtLabel: String, val canYtApp: Boolean,
     val orient: Int, val awake: Boolean, val immersive: Boolean, val pull: Boolean,
     val mode: Int, val shorts: Boolean, val focus: Boolean, val qMobile: Int, val qWifi: Int,
-    val dim: Boolean, val gestures: Boolean, val sleepMin: Int, val sleepLeftSec: Int
+    val dim: Boolean, val gestures: Boolean, val sleepMin: Int, val sleepLeftSec: Int,
+    val canDownload: Boolean = false
 )
 
 class AppOptActions(
@@ -197,7 +198,8 @@ class AppOptActions(
     val onQMobile: () -> Unit, val onQWifi: () -> Unit, val onDim: (Boolean) -> Unit, val onGestures: (Boolean) -> Unit,
     val onSleep: () -> Unit,
     val onReload: () -> Unit, val onShare: () -> Unit, val onCopy: () -> Unit, val onOpenNova: () -> Unit,
-    val onShareAt: () -> Unit, val onOpenYtApp: () -> Unit, val onAudioOnly: () -> Unit, val onRemove: () -> Unit
+    val onShareAt: () -> Unit, val onOpenYtApp: () -> Unit, val onAudioOnly: () -> Unit, val onRemove: () -> Unit,
+    val onDownload: () -> Unit = {}
 )
 
 // ───────────────────────── أيقونات مرسومة (لكل خيار أيقونته الخاصة) ─────────────────────────
@@ -464,6 +466,10 @@ fun AppOptionsSheet(visible: Boolean, o: AppOpts, a: AppOptActions, onDismiss: (
                     if (o.isYt) {
                         SectionLabel("YouTube")
                         IosGroup {
+                            if (o.canDownload) IosCell(
+                                L("تنزيل"), { onDismiss(); a.onDownload() },
+                                leading = { IosTile(ios.green) { OptIcon(OptGlyph.Down, Color.White, 18.dp) } }, chevron = true
+                            )
                             if (o.canAudio) IosCell(
                                 L("صوت فقط"), { onDismiss(); a.onAudioOnly() },
                                 leading = { IosTile(ios.indigo) { IosIcon(IosGlyph.Play, Color.White, 16.dp) } }, chevron = true
