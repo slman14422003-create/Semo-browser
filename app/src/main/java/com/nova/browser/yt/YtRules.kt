@@ -15,6 +15,8 @@ import java.net.URL
  */
 object YtRules {
     private const val FILE = "yt_rules.json"
+    private const val SIG = "yt_rules.sig"
+    private const val MAX = 32 * 1024
     private const val KEY_T = "ytrules_t"
     private const val EVERY = 12 * 3600_000L
     private val keys = listOf("shorts", "shortsHas", "focus")
@@ -43,7 +45,11 @@ object YtRules {
     private fun load(c: Context): JSONObject {
         val bundled = runCatching { sanitize(JSONObject(Perf.asset(FILE))) }.getOrNull() ?: sanitize(JSONObject())
         val f = File(c.filesDir, FILE)
-        val local = if (f.exists()) runCatching { sanitize(JSONObject(f.readText())) }.getOrNull() else null
+        val sf = File(c.filesDir, SIG)
+        val local = if (f.exists() && sf.exists()) runCatching {
+            val body = f.readBytes()
+            if (PageBrain.verify(body, sf.readText().trim())) sanitize(JSONObject(String(body, Charsets.UTF_8))) else null
+        }.getOrNull() else null
         val use = if (local != null && local.optInt("v") > bundled.optInt("v")) {
             // مفتاح فارغ في الملف المحدَّث يرجع إلى المضمَّن بدل أن يلغي القاعدة كلها
             for (k in keys) if (local.optJSONArray(k)?.length() == 0) local.put(k, bundled.optJSONArray(k))
@@ -60,6 +66,18 @@ object YtRules {
 
     fun version(c: Context): Int = current(c).optInt("v", 0)
 
+    private fun fetch(u: String): ByteArray? {
+        val cn = URL(u).openConnection() as HttpURLConnection
+        cn.connectTimeout = 8000
+        cn.readTimeout = 8000
+        return try {
+            if (cn.responseCode != 200) null
+            else cn.inputStream.use { it.readNBytes(MAX + 1) }.takeIf { it.size <= MAX }
+        } finally {
+            cn.disconnect()
+        }
+    }
+
     /** يجلب نسخة أحدث إن وُجدت (مرة كل 12 ساعة). لا يعمل إن لم يُعرَّف مستودع التحديث. */
     fun refresh(c: Context) {
         val repo = BuildConfig.UPDATE_REPO
@@ -72,23 +90,20 @@ object YtRules {
         val app = c.applicationContext
         Work.net {
             runCatching {
-                val cn = URL("https://raw.githubusercontent.com/$repo/main/app/src/main/assets/$FILE").openConnection() as HttpURLConnection
-                cn.connectTimeout = 8000
-                cn.readTimeout = 8000
-                try {
-                    if (cn.responseCode == 200) {
-                        val txt = cn.inputStream.use { String(it.readNBytes(32 * 1024), Charsets.UTF_8) }
-                        val fresh = sanitize(JSONObject(txt))
-                        if (fresh.optInt("v") > version(app)) {
-                            val tmp = File(app.filesDir, "$FILE.tmp")
-                            tmp.writeText(fresh.toString())
-                            if (!tmp.renameTo(File(app.filesDir, FILE))) tmp.delete()
-                            cached = null
-                        }
-                    }
-                } finally {
-                    cn.disconnect()
-                }
+                val base = "https://github.com/$repo/releases/download/brain/"
+                val body = fetch(base + FILE) ?: return@runCatching
+                val sig = fetch(base + FILE + ".sig")?.toString(Charsets.UTF_8)?.trim() ?: return@runCatching
+                if (!PageBrain.verify(body, sig)) return@runCatching
+                val fresh = sanitize(JSONObject(String(body, Charsets.UTF_8)))
+                if (fresh.optInt("v") <= version(app)) return@runCatching
+                val tmp = File(app.filesDir, "$FILE.tmp")
+                val stmp = File(app.filesDir, "$SIG.tmp")
+                tmp.writeBytes(body)
+                stmp.writeText(sig)
+                val okSig = stmp.renameTo(File(app.filesDir, SIG))
+                val okBody = tmp.renameTo(File(app.filesDir, FILE))
+                if (!okSig || !okBody) { tmp.delete(); stmp.delete(); return@runCatching }
+                cached = null
             }
         }
     }

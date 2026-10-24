@@ -180,6 +180,23 @@ class AppActivity : ComponentActivity() {
         }
     }
 
+    private val siteDecisions = HashMap<String, Boolean>()
+
+    private fun askSite(origin: String, what: String, result: (Boolean) -> Unit) {
+        val host = runCatching { Uri.parse(origin).host }.getOrNull()
+        val secure = origin.startsWith("https://") || host == "localhost"
+        if (!secure || host.isNullOrEmpty()) { result(false); return }
+        val key = "$origin|$what"
+        siteDecisions[key]?.let { result(it); return }
+        runCatching {
+            novaDialog(this).setTitle(host).setMessage("Allow this site to use your $what?")
+                .setPositiveButton("Allow") { _, _ -> siteDecisions[key] = true; result(true) }
+                .setNegativeButton("Deny") { _, _ -> siteDecisions[key] = false; result(false) }
+                .setOnCancelListener { result(false) }
+                .show()
+        }.onFailure { result(false) }
+    }
+
     private fun askPerms(perms: List<String>, done: () -> Unit) {
         permQueue.addLast(perms to done)
         pumpPerms()
@@ -676,11 +693,15 @@ class AppActivity : ComponentActivity() {
                         val perms = av.map {
                             if (it == PermissionRequest.RESOURCE_VIDEO_CAPTURE) Manifest.permission.CAMERA else Manifest.permission.RECORD_AUDIO
                         }
-                        askPerms(perms) {
-                            val ok = av.filter {
-                                granted(if (it == PermissionRequest.RESOURCE_VIDEO_CAPTURE) Manifest.permission.CAMERA else Manifest.permission.RECORD_AUDIO)
-                            }.toTypedArray()
-                            if (ok.isEmpty() && prot.isEmpty()) req.deny() else req.grant(ok + prot)
+                        val what = av.joinToString(" and ") { if (it == PermissionRequest.RESOURCE_VIDEO_CAPTURE) "camera" else "microphone" }
+                        askSite(req.origin.toString(), what) { allow ->
+                            if (!allow) req.deny()
+                            else askPerms(perms) {
+                                val ok = av.filter {
+                                    granted(if (it == PermissionRequest.RESOURCE_VIDEO_CAPTURE) Manifest.permission.CAMERA else Manifest.permission.RECORD_AUDIO)
+                                }.toTypedArray()
+                                if (ok.isEmpty() && prot.isEmpty()) req.deny() else req.grant(ok + prot)
+                            }
                         }
                     }
                 }
@@ -688,7 +709,10 @@ class AppActivity : ComponentActivity() {
             geo = { origin, cb ->
                 runOnUiThread {
                     val perms = listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-                    askPerms(perms) { cb.invoke(origin, perms.any { granted(it) }, false) }
+                    askSite(origin, "location") { allow ->
+                        if (!allow) cb.invoke(origin, false, false)
+                        else askPerms(perms) { cb.invoke(origin, perms.any { granted(it) }, false) }
+                    }
                 }
             },
             openTab = { openExternal(it) },

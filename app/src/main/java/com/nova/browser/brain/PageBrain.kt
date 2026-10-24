@@ -121,7 +121,7 @@ object PageBrain {
         return true
     }
 
-    private fun verify(body: ByteArray, sig: String): Boolean {
+    fun verify(body: ByteArray, sig: String): Boolean {
         val k = pub ?: return false
         return listOf("EC" to "SHA256withECDSA", "RSA" to "SHA256withRSA").any { (alg, sa) ->
             runCatching {

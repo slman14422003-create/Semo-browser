@@ -66,6 +66,8 @@ object PasswordBridge {
     }
 
     fun fill(wv: WebView, c: Cred) {
+        val cur = runCatching { android.net.Uri.parse(wv.url ?: "") }.getOrNull() ?: return
+        if (cur.scheme != "https" && cur.host != "localhost") return
         if (Vault.norm(hostOf(wv.url ?: "")) != c.host) return   // لا نعبّئ إلا في نفس الموقع
         wv.evaluateJavascript("window.__novaFill&&window.__novaFill(${JSONObject.quote(c.user)},${JSONObject.quote(c.pass)})", null)
     }

@@ -207,7 +207,8 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
                         if (t != u || relang) { v.loadUrl(t.toString(), Perf.privacyHeaders); true } else false
                     }
                 }
-                null, "about", "data", "blob" -> false
+                null, "about", "blob" -> false
+                "data" -> r.isForMainFrame
                 "intent" -> {
                     // الوجهة http(s) فقط (رابط بديل أو بيانات الرابط نفسه): كان الرابط يُبتلع فتبقى الخريطة معلّقة
                     // إن كانت الوجهة هي الصفحة الحالية نفسها (زر «افتح في التطبيق» في الخرائط) نتجاهلها: تحميلها ثانية يصنع حلقة تحديث
@@ -218,7 +219,7 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
                     true
                 }
                 "tel", "mailto", "sms", "geo" -> {
-                    runCatching { v.context.startActivity(Intent(Intent.ACTION_VIEW, u)) }
+                    if (r.hasGesture()) runCatching { v.context.startActivity(Intent(Intent.ACTION_VIEW, u)) }
                     true
                 }
                 else -> {

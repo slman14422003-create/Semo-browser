@@ -3,7 +3,7 @@ name: Brain rules
 on:
   push:
     branches: [main]
-    paths: ['brain/rules.json']
+    paths: ['brain/rules.json', 'app/src/main/assets/yt_rules.json']
   workflow_dispatch:
 
 permissions:
@@ -40,7 +40,10 @@ jobs:
           cp brain/rules.json dist/rules.json
           openssl dgst -sha256 -sign "$RUNNER_TEMP/brain.pem" -out "$RUNNER_TEMP/brain.bin" dist/rules.json
           base64 -w0 "$RUNNER_TEMP/brain.bin" > dist/rules.json.sig
-          rm -f "$RUNNER_TEMP/brain.p12" "$RUNNER_TEMP/brain.pem" "$RUNNER_TEMP/brain.bin"
+          cp app/src/main/assets/yt_rules.json dist/yt_rules.json
+          openssl dgst -sha256 -sign "$RUNNER_TEMP/brain.pem" -out "$RUNNER_TEMP/yt.bin" dist/yt_rules.json
+          base64 -w0 "$RUNNER_TEMP/yt.bin" > dist/yt_rules.json.sig
+          rm -f "$RUNNER_TEMP/brain.p12" "$RUNNER_TEMP/brain.pem" "$RUNNER_TEMP/brain.bin" "$RUNNER_TEMP/yt.bin"
 
       - uses: softprops/action-gh-release@v2
         with:
@@ -51,6 +54,8 @@ jobs:
           files: |
             dist/rules.json
             dist/rules.json.sig
+            dist/yt_rules.json
+            dist/yt_rules.json.sig
 
       - name: Cleanup keystore
         if: always()

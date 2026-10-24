@@ -171,7 +171,8 @@ object YtWeb {
                         true
                     }
                 }
-                null, "about", "data", "blob" -> false
+                null, "about", "blob" -> false
+                "data" -> r.isForMainFrame
                 else -> true   // intent: / vnd.youtube: / market: … لا نفتح تطبيقات أخرى من هنا
             }
         }
