@@ -65,6 +65,8 @@ object Security {
 
     // ---------- التنزيلات ----------
     private val risky = Regex("""\.(apk|xapk|apks|exe|msi|bat|cmd|scr|jar|vbs|ps1|sh)\b""")
+    fun isRiskyName(name: String): Boolean = risky.containsMatchIn(name.lowercase())
+
     fun isRiskyFile(url: String, contentDisposition: String?): Boolean =
         risky.containsMatchIn((url.substringBefore('?') + " " + (contentDisposition ?: "")).lowercase())
 

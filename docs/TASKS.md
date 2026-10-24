@@ -1,5 +1,26 @@
 # سجل المهام والتعديلات
 
+## 2026-10-24 (4) - back to the previous tab, visible Close all
+- BrowserTab.parentId: tabs opened from a page (Handlers.openTab, Ask AI, summarize links) remember the tab they came from (MainActivity.openChild).
+- MainActivity: visit history (last 30 tab ids). Back order: page history, then tab back (close a child tab and return to its parent, otherwise switch to the previously visited tab without closing), then the old start-page reset, then the app. Closed child tabs go to the reopen list.
+- browser/Tabs.kt: red "Close all" button in the bottom bar of the tab switcher (pinned tabs are kept, as before). The menu item stays.
+- Not compiled in the session; run a Gradle build first.
+
+## 2026-10-24 (3) - smoothness: script bundling, quieter download UI
+- perf/ScriptBundle.kt (new): document-start scripts of a tab are queued and registered as ONE script per segment (each wrapped in its own try/IIFE so one runtime error does not stop the rest). createWebView: begin, install everything up to WebCompat, flush, Pwa (own origin list, registered directly), begin, PageBrain and Passwords, flush. Without begin(), add() registers immediately, so other callers behave as before. SafariMode (needs a removable handler), Pwa and YtHub keep direct registration.
+- Downloader.updateProgress: the segment snapshot is rebuilt only when the Downloads screen is open (Downloader.uiVisible, set by DownloadsScreen) and only assigned when it really changed, so a running download no longer recomposes the segment bar every 400 ms in the background. Speed, byte count and notification data are unchanged.
+- project_check.py: runs node --check on every injected script (needed now that one syntax error would disable a whole bundle).
+- Already present and left alone: R8 with resource shrinking, profileinstaller, a wildcard baseline-prof.txt.
+- Not compiled in the session; run a Gradle build first.
+
+## 2026-10-24 (2) - downloads: real file type instead of .bin
+- download/FileKind.kt (new, pure Kotlin): Content-Disposition parser (filename*, quoted, plain, path stripping), file name from the URL (response-content-disposition, file/filename/name query keys, path segment with a real extension), magic-byte sniffing (pdf, png, jpg, gif, webp, mp4/mov/m4a/heic, mp3, ogg, flac, wav, avi, mkv/webm, 7z, rar, gz, bz2, xz, tar, exe, dex, sqlite, rtf, html, xml) and ZIP classification from the central directory (apk, aab, xapk, apks, apkm, docx, xlsx, pptx, jar, epub, zip).
+- Downloader.smartName uses the new parsers before URLUtil; names without a real extension get one from the MIME type when it is specific.
+- Downloader.finalizeName (called from markDone before IS_PENDING=0): when the final name is .bin, has no extension or a script extension, the first 64 KB and last 1 MB are sniffed, the MediaStore display name and MIME type are updated, and a second name-only update fixes the name if MediaStore appended an extension.
+- Downloader.repairOld runs once at init on the disk lane and renames already finished .bin downloads that can be identified.
+- Security.isRiskyName + MainActivity: the risky-file warning now also checks the resolved name (an apk served from an extensionless URL used to skip the warning).
+- Tests: FileKindTest.java. Not compiled in the session; run a Gradle build first.
+
 ## 2026-10-24 - site compatibility pass (Firebase, Cloudflare, scripts, languages, YouTube Studio)
 - browser/SiteRules.kt (new): trusted host list (Firebase, Cloudflare, GitHub, Vercel, Netlify, Supabase, Stripe, PayPal, login providers, Google) plus auth/CAPTCHA host list, per-host SSL exception (session only, asked once per host) and a per-site "fix" flag. Relaxed hosts skip fingerprint spoofing, injected CSS, cosmetic filter, brain CSS, generic tracker path and label rules, and get third-party cookies.
 - SiteStore: new `f` field (fix). Page menu: "Fix this site" row. The flag is mirrored to the page as localStorage `__novaFix` so document-start scripts can skip themselves; WebFactory.onPageFinished re-sets it after site data is cleared.

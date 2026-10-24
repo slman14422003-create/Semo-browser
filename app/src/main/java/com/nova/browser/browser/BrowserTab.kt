@@ -44,6 +44,7 @@ class BrowserTab(val id: Int, startUrl: String = "") {
     var challenge = false                // الصفحة الحالية صفحة تحقق (Cloudflare وغيره): تسامح أكبر في الحماية
     var holdLoad = false                 // أعد الإنشاء بصفحة خطأ بدل تحميل الرابط (بعد انهيارات متكررة)
     @Volatile var shieldHost: String = ""   // نطاق الصفحة الحالية (يقرؤه فحص الطلبات من خيط الشبكة)
+    var parentId = -1
     var popup = false
     var app = false
     var siteCustom = false

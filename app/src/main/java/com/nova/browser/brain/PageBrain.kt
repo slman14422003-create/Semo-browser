@@ -201,7 +201,7 @@ object PageBrain {
                 learn(host, Profile(kind, fw, ver, heavy, origins, System.currentTimeMillis()))
                 apply(view, host, kind, fw, ver, heavy)
             })
-            if (docStart) WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*"))
+            if (docStart) ScriptBundle.add(wv, js)
         }
     }
 

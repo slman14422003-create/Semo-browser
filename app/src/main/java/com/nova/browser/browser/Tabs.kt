@@ -229,6 +229,7 @@ fun TabSwitcher(
                     }
                 }
             }
+            IosTextButton(L("إغلاق الكل"), onCloseAll, color = ios.red, enabled = tabs.any { !it.pinned })
             IosTextButton(L("تم"), onBack, bold = true)
         }
     }

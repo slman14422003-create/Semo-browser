@@ -392,6 +392,14 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
     var customView by remember { mutableStateOf<View?>(null) }
     var customCb by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
     val tab = tabs[current.coerceIn(0, tabs.lastIndex)]
+    val visit = remember { mutableStateListOf<Int>() }
+    var lastTabId by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(tab.id) {
+        if (lastTabId != -1 && lastTabId != tab.id) { visit.remove(lastTabId); visit.add(lastTabId) }
+        visit.remove(tab.id)
+        while (visit.size > 30) visit.removeAt(0)
+        lastTabId = tab.id
+    }
 
     LaunchedEffect(Unit) {
         snapshotFlow { Triple(tabs.joinToString("\n") { it.url.ifBlank { "-" } }, current, tabs.joinToString(",") { it.tag.toString() + ":" + (if (it.pinned) "1" else "0") }) }
@@ -488,6 +496,30 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
         t.webView?.let { w -> (w.parent as? ViewGroup)?.removeView(w); w.destroy() }
         t.webView = null
     }
+    fun openChild(u: String) {
+        val p = tabs.getOrNull(current)?.id ?: -1
+        tabs.add(BrowserTab(nextId++, u).also { it.parentId = p }); current = tabs.lastIndex
+    }
+    fun backTarget(): BrowserTab? {
+        val cur = tabs.getOrNull(current) ?: return null
+        tabs.firstOrNull { it.id == cur.parentId }?.let { return it }
+        for (i in visit.indices.reversed()) {
+            val t = tabs.firstOrNull { it.id == visit[i] }
+            if (t != null && t !== cur) return t
+        }
+        return null
+    }
+    fun goBackTab() {
+        val from = tabs.getOrNull(current) ?: return
+        val to = backTarget() ?: return
+        if (from.parentId == to.id) {
+            pushClosed(from); dispose(from); tabs.remove(from)
+            current = tabs.indexOf(to).coerceAtLeast(0)
+        } else {
+            snap(from)
+            current = tabs.indexOf(to).coerceAtLeast(0)
+        }
+    }
     fun discard(t: BrowserTab) {   // تحرير الذاكرة مع حفظ الحالة (السجل والتمرير) لاستعادتها لاحقاً
         if (YtWeb.isLive(t)) return   // يوتيوب يعمل (صوت/منبثقة): لا نقطع التشغيل ولا نفقد حالة المشغّل
         t.webView?.let { w -> val b = android.os.Bundle(); runCatching { w.saveState(b) }; t.saved = b }
@@ -545,7 +577,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
     fun askPage(t: BrowserTab) {
         if (t.url.isBlank()) return
         toast(activity, S(R.string.smart_sent_to_google))
-        openInNewTab(SmartAssist.aiUrl(SmartAssist.pagePrompt(t.title, t.url)))
+        openChild(SmartAssist.aiUrl(SmartAssist.pagePrompt(t.title, t.url)))
     }
     fun closeDuplicates() {
         val keep = HashMap<String, BrowserTab>()
@@ -717,7 +749,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
                     }
                 }
             },
-            openTab = { openInNewTab(it) },
+            openTab = { openChild(it) },
             showCustom = { v, cb ->
                 if (customView != null && customView !== v) {   // عرض ملء شاشة جديد فوق قديم: نُعلم القديم بإخفائه كي لا يتسرّب
                     customView?.let { (it.parent as? ViewGroup)?.removeView(it) }
@@ -760,7 +792,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
                         askNotif()
                         Unit
                     }
-                    if (Security.isRiskyFile(u, cd)) {
+                    if (Security.isRiskyFile(u, cd) || Security.isRiskyName(Downloader.smartName(u, cd, mime))) {
                         Security.log(L("تنزيل"), (L("تحذير ملف تنفيذي من ") + (hostOf(u))))
                         novaDialog(activity).setTitle(L("ملف قد يكون خطيراً"))
                             .setMessage((L("هذا النوع من الملفات (تطبيق/ملف تنفيذي) قد يضر بجهازك. نزّله فقط من مصدر تثق به.\n\n") + (hostOf(u))))
@@ -786,6 +818,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
 
     BackHandler(enabled = tab.canBack) { tab.webView?.let { WebSupport.goBackFast(it) } }
     BackHandler(enabled = tab.url.isNotBlank() && !tab.canBack) { home(tab) }   // آخر صفحة في السجل: العودة للرئيسية بدل إغلاق التطبيق
+    BackHandler(enabled = !tab.canBack && (tabs.any { it.id == tab.parentId } || visit.any { id -> id != tab.id && tabs.any { it.id == id } })) { goBackTab() }
     BackHandler(enabled = tab.finding) { tab.webView?.clearMatches(); tab.finding = false }
     BackHandler(enabled = editing) { editing = false }
     BackHandler(enabled = showTabs) { showTabs = false }
@@ -952,7 +985,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
                     onDesktop = { tab.desktop = !tab.desktop; tab.webView?.let { applyUa(it, tab.desktop, tab.safari); it.reload() } },
                     onShare = { shareText(activity, tab.url) }, onCopy = { copyText(activity, tab.url) },
                     onDownloads = { openPanel(activity, "downloads") }, onSettings = { openPanel(activity, "settings") }, onTranslate = { translatePage(tab) }, onPrint = { printPage(tab) }, onLibrary = { openPanel(activity, "library") }, onCloseCurrent = { closeTab(current) },
-                    onSummarize = { tab.webView?.let { w -> SmartAssist.summarize(activity, w) { u -> openInNewTab(u) } } }, onAskAi = { askPage(tab) },
+                    onSummarize = { tab.webView?.let { w -> SmartAssist.summarize(activity, w) { u -> openChild(u) } } }, onAskAi = { askPage(tab) },
                     onSwitch = { d -> snap(tab); current = (current + d).coerceIn(0, tabs.lastIndex) }
                 )
                 }

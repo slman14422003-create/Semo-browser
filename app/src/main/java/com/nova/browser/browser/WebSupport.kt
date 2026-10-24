@@ -169,7 +169,7 @@ object WebSupport {
             WebViewCompat.addWebMessageListener(wv, "NovaScroll", setOf("*"), WebViewCompat.WebMessageListener { view, message, _, _, _ ->
                 if (message.data == "1") innerScroll.add(view) else innerScroll.remove(view)
             })
-            WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*"))
+            ScriptBundle.add(wv, js)
         }
     }
 

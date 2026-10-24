@@ -86,7 +86,8 @@ object Downloader {
         if (inited) return
         inited = true
         app = c.applicationContext
-        load()   // قراءة القائمة فقط عند الإقلاع (تظهر في الصفحة الرئيسية)؛ المحرك يعمل عند أول تنزيل
+        load()
+        Work.disk { repairOld() }
     }
 
     @Volatile private var engineOn = false
@@ -121,9 +122,9 @@ object Downloader {
     private fun normMime(m: String?): String = m?.substringBefore(';')?.trim()?.lowercase().orEmpty()
 
     fun smartName(url: String, cd: String?, mime: String?): String {
-        val raw = URLUtil.guessFileName(url, cd, null)
+        val raw = FileKind.nameFromHeader(cd) ?: FileKind.nameFromUrl(url) ?: URLUtil.guessFileName(url, cd, null)
         val ext = raw.substringAfterLast('.', "").lowercase()
-        if (ext != "bin" && ext !in dynamicExt) return raw        // له امتداد حقيقي: الاسم أصدق من نوع المحتوى
+        if (FileKind.hasExt(raw) && ext != "bin" && ext !in dynamicExt) return raw        // له امتداد حقيقي: الاسم أصدق من نوع المحتوى
         val m = normMime(mime)
         if (m !in genericMimes && !m.startsWith("text/")) {
             val byMime = MimeTypeMap.getSingleton().getExtensionFromMimeType(m)
@@ -428,7 +429,61 @@ object Downloader {
         }
     }
 
+    private fun sniffUri(u: Uri): String? {
+        val pfd = app.contentResolver.openFileDescriptor(u, "r") ?: return null
+        return ParcelFileDescriptor.AutoCloseInputStream(pfd).channel.use { ch ->
+            val size = ch.size()
+            if (size < 4) return@use null
+            val head = ByteArray(minOf(size, 65536L).toInt())
+            ch.read(java.nio.ByteBuffer.wrap(head), 0)
+            val tail = if (size <= head.size) head else ByteArray(minOf(size, 1048576L).toInt()).also {
+                ch.read(java.nio.ByteBuffer.wrap(it), size - it.size)
+            }
+            FileKind.sniff(head, tail, size)
+        }
+    }
+
+    private fun applyName(u: Uri, want: String, mime: String): String? {
+        val cr = app.contentResolver
+        fun current(): String? = cr.query(u, arrayOf(MediaStore.Downloads.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
+        runCatching {
+            cr.update(u, ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, want)
+                if (mime.isNotBlank()) put(MediaStore.Downloads.MIME_TYPE, mime)
+            }, null, null)
+        }
+        var got = current()
+        if (got != null && got != want) {
+            runCatching { cr.update(u, ContentValues().apply { put(MediaStore.Downloads.DISPLAY_NAME, want) }, null, null) }
+            got = current()
+        }
+        return got
+    }
+
+    private fun finalizeName(t: DlTask) {
+        val u = t.uri ?: return
+        if (t.forcedName != null || !FileKind.needsSniff(t.name)) return
+        val ext = sniffUri(u) ?: return
+        val want = FileKind.withExt(t.name, ext)
+        if (want == t.name) return
+        val mime = smartMime(want, null).ifBlank { MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext).orEmpty() }
+        val got = applyName(u, want, mime) ?: return
+        t.name = got
+        if (mime.isNotBlank()) t.mime = mime
+    }
+
+    private fun repairOld() {
+        var changed = false
+        tasks.toList().filter { it.status == DONE && it.uri != null && FileKind.needsSniff(it.name) }.forEach { t ->
+            val before = t.name
+            runCatching { finalizeName(t) }
+            if (t.name != before) changed = true
+        }
+        if (changed) save()
+    }
+
     private fun markDone(t: DlTask) {
+        runCatching { finalizeName(t) }
         t.uri?.let { u ->
             runCatching {
                 app.contentResolver.update(u, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
@@ -485,12 +540,17 @@ object Downloader {
     fun downloadedOf(t: DlTask): Long =
         t.segs.sumOf { (minOf(it.pos, it.end + 1) - it.start).coerceAtLeast(0L) }
 
+    @Volatile var uiVisible = false
+
     private fun updateProgress(t: DlTask) {
         t.downloaded = downloadedOf(t)
-        t.segSnap = if (t.total > 0 && t.resumable)
+        t.conns = t.segs.count { it.busy && it.remaining > 0 }
+        if (!uiVisible && t.status == DOWNLOADING) return
+        val next = if (t.total > 0 && t.resumable)
             t.segs.map { longArrayOf(it.start, minOf(it.end, t.total - 1), minOf(it.pos, it.end + 1)) }
         else emptyList()
-        t.conns = t.segs.count { it.busy && it.remaining > 0 }
+        val cur = t.segSnap
+        if (cur.size != next.size || cur.indices.any { !cur[it].contentEquals(next[it]) }) t.segSnap = next
     }
 
     private fun tick() {

@@ -307,7 +307,7 @@ object Shield {
     /** يحقن shield.js قبل أي سكربت للصفحة (كل الإطارات). */
     fun install(wv: WebView) {
         val js = script ?: return
-        if (Prefs.shield && docStart) runCatching { WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*")) }
+        if (Prefs.shield && docStart) ScriptBundle.add(wv, js)
     }
 
     /** احتياطي للأجهزة بلا حقن مبكر. */

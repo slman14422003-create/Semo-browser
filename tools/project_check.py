@@ -78,14 +78,29 @@ if "__LANG__" not in (AS / "privacy.js").read_text(encoding="utf-8"): errors.app
 
 
 # 2.95) site compatibility layer
-for need in ("browser/SiteRules.kt",):
+for need in ("browser/SiteRules.kt", "download/FileKind.kt"):
     if not (SRC / need).exists(): errors.append(f"{need} missing")
 for js in ("privacy.js", "smooth.js", "cosmetic.js"):
     t = (AS / js).read_text(encoding="utf-8")
     if "__TRUSTED__" not in t: errors.append(f"{js}: __TRUSTED__ marker missing")
 if "__STRICT__" not in (AS / "privacy.js").read_text(encoding="utf-8"): errors.append("privacy.js: __STRICT__ marker missing")
-if (SRC / "browser/SiteRules.kt").exists() and re.search(r"[\u0600-\u06FF]", (SRC / "browser/SiteRules.kt").read_text(encoding="utf-8")):
-    errors.append("SiteRules.kt: Arabic text in code")
+for rel in ("browser/SiteRules.kt", "download/FileKind.kt"):
+    if (SRC / rel).exists() and re.search(r"[\u0600-\u06FF]", (SRC / rel).read_text(encoding="utf-8")):
+        errors.append(rel + ": Arabic text in code")
+
+
+# 2.96) injected scripts are bundled: one syntax error would disable the whole bundle
+import shutil, subprocess, tempfile
+if shutil.which("node"):
+    for js in sorted(AS.glob("*.js")):
+        src = js.read_text(encoding="utf-8")
+        src = re.sub(r"__(SEED|LANG|STRICT|TRUSTED|FIT|LAZY|BOOST|POP|EXTRAS|CFG)__", "0", src)
+        with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as tf:
+            tf.write(src)
+        r = subprocess.run(["node", "--check", tf.name], capture_output=True, text=True)
+        if r.returncode != 0:
+            first = r.stderr.strip().splitlines()[0][:100] if r.stderr.strip() else ""
+            errors.append(f"{js.name}: JavaScript syntax error: {first}")
 
 # 2.9) أسرار وملفات GitHub
 for pat in ("*.jks", "*.keystore", "keystore.properties"):

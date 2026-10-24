@@ -162,7 +162,7 @@ object Perf {
     fun installPrivacy(wv: WebView) {
         val js = fpScript() ?: return
         if (Prefs.antiFingerprint && docStartSupported)
-            runCatching { WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*")) }
+            ScriptBundle.add(wv, js)
     }
 
     /** قراءة ملف نصي من assets. */
@@ -185,7 +185,7 @@ object Perf {
     /** يحقن smooth.js قبل سكربتات الصفحة (مرة واحدة بدل سكربتين وتحميل كسول ثالث). */
     fun installSmooth(wv: WebView) {
         val js = smoothSrc() ?: return
-        if (docStartSupported) runCatching { WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*")) }
+        if (docStartSupported) ScriptBundle.add(wv, js)
     }
 
     // Brave-style cosmetic filtering: hides empty ad containers that network blocking leaves behind (assets/cosmetic.js)
@@ -194,7 +194,7 @@ object Perf {
     fun installCosmetic(wv: WebView) {
         if (!Prefs.blockAds || !docStartSupported) return
         val js = cosmeticJs?.replace("__TRUSTED__", SiteRules.json()) ?: return
-        runCatching { WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*")) }
+        ScriptBundle.add(wv, js)
     }
 
     /** احتياطي للأجهزة التي لا تدعم الحقن المبكر: يُنفَّذ عند بدء الصفحة. */

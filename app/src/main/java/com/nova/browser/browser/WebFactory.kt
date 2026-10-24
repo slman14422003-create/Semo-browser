@@ -50,6 +50,7 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
     tab.safari = SiteStore.globalSafari
     applyUa(this, tab.desktop, tab.safari)
     SafariMode.sync(this, tab.safari)
+    ScriptBundle.begin(this)
     Perf.tune(this)
     Perf.installPrivacy(this)
     Shield.install(this)
@@ -58,10 +59,13 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
     WebSupport.configure(this)
     WebSupport.installScrollGuard(this)
     WebCompat.install(this)
+    ScriptBundle.flush(this)
     Pwa.install(this)
+    ScriptBundle.begin(this)
     PageBrain.install(this)
     Speculate.warmStart(this)
     PasswordBridge.install(this, tab, h)
+    ScriptBundle.flush(this)
     importantForAutofill = if (Prefs.pwMode == 1) View.IMPORTANT_FOR_AUTOFILL_YES else View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
     CookieManager.getInstance().setAcceptCookie(true)
     CookieManager.getInstance().setAcceptThirdPartyCookies(this, !Prefs.blockThirdCookies)

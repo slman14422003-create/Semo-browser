@@ -209,6 +209,10 @@ private fun ActiveSummary(running: List<DlTask>) {
 @Composable
 fun DownloadsScreen(onBack: () -> Unit) {
     val ios = LocalIos.current
+    DisposableEffect(Unit) {
+        Downloader.uiVisible = true
+        onDispose { Downloader.uiVisible = false }
+    }
     var filter by remember { mutableIntStateOf(0) }
     var sort by remember { mutableIntStateOf(0) }
     var query by remember { mutableStateOf("") }

@@ -56,7 +56,7 @@ object PasswordBridge {
                     "save" -> h.onCredential(Vault.norm(host), o.optString("u"), o.optString("p"))
                 }
             })
-            if (docStart) WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*"))
+            if (docStart) ScriptBundle.add(wv, js)
         }
     }
 

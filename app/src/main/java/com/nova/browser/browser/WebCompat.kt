@@ -201,8 +201,6 @@ object WebCompat {
     fun install(wv: WebView) {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return
         // polyfills أولاً كي تجدها بقية السكربتات جاهزة
-        listOfNotNull(polyfills, js, langfix, enhance, perfboost, extras()).forEach { s ->
-            runCatching { WebViewCompat.addDocumentStartJavaScript(wv, s, setOf("*")) }
-        }
+        listOfNotNull(polyfills, js, langfix, enhance, perfboost, extras()).forEach { s -> ScriptBundle.add(wv, s) }
     }
 }
