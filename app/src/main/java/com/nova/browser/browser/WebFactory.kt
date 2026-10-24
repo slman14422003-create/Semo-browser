@@ -87,6 +87,7 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
         override fun onPageStarted(v: WebView, u: String, f: Bitmap?) {
             if (YtWeb.isYtUrl(u)) { v.post { YtWeb.swapIfNeeded(tab, u) }; return }   // وصلنا ليوتيوب (تحويل من الخادم): يُكمل في الـ WebView المخصّص
             tab.clearFailedIfNew()
+            tab.thirdOn = false
             SiteStore.apply(tab, v, hostOf(u))
             WebSupport.resetInnerScroll(v)
             WebBoost.onPageStart(v)
@@ -109,11 +110,17 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
             WebCompat.onPageDone(tab)
             Perf.flushCookies()   // حفظ جلسات تسجيل الدخول (بحدّ أقصى كل 15 ثانية)
             PasswordBridge.onPageDone(v)
+            SiteRules.ensureFlag(v, hostOf(u))
             PageTint.sample(v, tab)
             if (!tab.popup) Library.visit(u, v.title)   // سجل التصفح
         }
-        override fun shouldInterceptRequest(v: WebView, r: WebResourceRequest): WebResourceResponse? =
-            Shield.intercept(tab.shieldHost, r.url, r.isForMainFrame) ?: Perf.intercept(r.url, r.isForMainFrame)
+        override fun shouldInterceptRequest(v: WebView, r: WebResourceRequest): WebResourceResponse? {
+            if (!r.isForMainFrame && !tab.thirdOn && SiteRules.authHost(r.url.host)) {
+                tab.thirdOn = true
+                v.post { runCatching { CookieManager.getInstance().setAcceptThirdPartyCookies(v, true) } }
+            }
+            return Shield.intercept(tab.shieldHost, r.url, r.isForMainFrame) ?: Perf.intercept(r.url, r.isForMainFrame, tab.shieldHost)
+        }
         override fun onRenderProcessGone(v: WebView, d: RenderProcessGoneDetail): Boolean {
             if (tab.popup) { Popups.close(v); return true }
             // منع انهيار التطبيق: نُسقط الـ WebView ونعيد إنشاءه بنفس العنوان
@@ -137,10 +144,20 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
             PageExtras.httpAuth(ctx, handler, host, realm)
         }
         override fun onReceivedSslError(v: WebView, h: SslErrorHandler, e: SslError) {
-            h.cancel()   // لا نتجاوز أخطاء الشهادات أبداً
-            Security.log(L("شهادة"), (L("رُفض اتصال غير موثوق: ") + (e.url?.let { hostOf(it) })))
             val u = e.url ?: v.url ?: ""
+            val host = hostOf(u)
+            if (SiteRules.sslAllowed(host)) { h.proceed(); return }
+            h.cancel()
+            Security.log(L("شهادة"), (L("رُفض اتصال غير موثوق: ") + host))
+            val main = u == v.url || u == tab.url
+            if (!main) return
             v.loadDataWithBaseURL(u, errorHtml(u, L("شهادة أمان الموقع غير صالحة — تم حظر الاتصال لحمايتك")), "text/html", "UTF-8", u)
+            if (!SiteRules.shouldAskSsl(host)) return
+            runCatching {
+                novaDialog(ctx).setTitle(host).setMessage(S(R.string.ssl_warn))
+                    .setPositiveButton(S(R.string.ssl_proceed)) { _, _ -> SiteRules.allowSsl(host); v.loadUrl(u) }
+                    .setNegativeButton(S(R.string.ssl_back), null).show()
+            }
         }
         override fun onSafeBrowsingHit(v: WebView, r: WebResourceRequest, threatType: Int, cb: SafeBrowsingResponse) {
             cb.backToSafety(true)
@@ -182,7 +199,8 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
                                 Security.log("HTTPS", (L("رُقّي ") + host))
                             }
                         }
-                        if (t != u) { v.loadUrl(t.toString(), Perf.privacyHeaders); true } else false
+                        val relang = Prefs.siteLangCode().isNotEmpty() && r.hasGesture() && r.method == "GET" && !r.isRedirect
+                        if (t != u || relang) { v.loadUrl(t.toString(), Perf.privacyHeaders); true } else false
                     }
                 }
                 null, "about", "data", "blob" -> false

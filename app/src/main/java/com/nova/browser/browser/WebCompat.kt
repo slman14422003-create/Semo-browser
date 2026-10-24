@@ -95,11 +95,21 @@ object WebCompat {
     private val challengeRe = Regex("(?i)^(just a moment|checking your browser|attention required|verifying|verify you are human|one more step|security check|please wait|ddos-guard|checking if the site connection is secure|لحظة|جارٍ التحقق)|\\| cloudflare$")
 
     /** عنوان صفحة التحقق (Cloudflare…): نسمح بكوكيز الطرف الثالث ونمهل الصفحة وقتاً أطول طالما التحقق جارٍ، ثم نعيد الإعدادات. */
+    private val cookieMode = WeakHashMap<WebView, Boolean>()
+
+    fun applyCookies(v: WebView, tab: BrowserTab, url: String?) {
+        val host = runCatching { Uri.parse(url ?: "").host }.getOrNull()
+        val want = isMaps(url) || !Prefs.blockThirdCookies || tab.challenge || tab.thirdOn || SiteRules.thirdPartyCookies(host)
+        if (cookieMode[v] == want) return
+        cookieMode[v] = want
+        runCatching { CookieManager.getInstance().setAcceptThirdPartyCookies(v, want) }
+    }
+
     fun challengeTitle(v: WebView, tab: BrowserTab, t: String?) {
         val on = !t.isNullOrBlank() && challengeRe.containsMatchIn(t)
         if (on == tab.challenge) return
         tab.challenge = on
-        runCatching { CookieManager.getInstance().setAcceptThirdPartyCookies(v, on || isMaps(v.url) || !Prefs.blockThirdCookies) }
+        applyCookies(v, tab, v.url)
         WebSupport.patient(v, on || appLike((runCatching { Uri.parse(v.url ?: "") }.getOrNull()?.host ?: "").lowercase()))
     }
 
@@ -109,13 +119,13 @@ object WebCompat {
         if (mapMode[v] != maps) {
             mapMode[v] = maps
             runCatching {
-                CookieManager.getInstance().setAcceptThirdPartyCookies(v, maps || !Prefs.blockThirdCookies)
                 v.settings.setGeolocationEnabled(true)
                 if (maps && WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING))
                     androidx.webkit.WebSettingsCompat.setAlgorithmicDarkeningAllowed(v.settings, false)
                 else Perf.applyDark(v)
             }
         }
+        applyCookies(v, tab, url)
         WebSupport.patient(v, tab.challenge || appLike((runCatching { Uri.parse(url) }.getOrNull()?.host ?: "").lowercase()))
         arm(v, tab)
     }

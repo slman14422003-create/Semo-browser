@@ -1,3 +1,13 @@
+Object.defineProperty(window, '__novaTr', {
+  value: function () {
+    try {
+      var T = __TRUSTED__, h = String(location.hostname).toLowerCase();
+      for (var i = 0; i < T.length; i++) if (h === T[i] || h.slice(-T[i].length - 1) === '.' + T[i]) return true;
+      return localStorage.getItem('__novaFix') === '1';
+    } catch (e) { return false; }
+  },
+  configurable: true
+});
 /* Nova smooth.js — سكربت السلاسة الموحّد (كان render.js + boost.js + تحميل كسول مكرر في Perf.kt). يُحقن مرة واحدة قبل سكربتات الصفحة.
  * العلامات: __FIT__ تحسين العرض • __LAZY__ تحميل كسول للصور • __BOOST__ جلب مسبق + إيقاف فيديو صامت • __POP__ لافتات الكوكيز.
  * سياسة الصور واحدة فقط: فك ترميز غير متزامن، وتأجيل ما يبعد أكثر من شاشتين تحت الصفحة (كان الكود القديم يؤجّل كل الصور حتى العلوية).
@@ -13,11 +23,9 @@
     if (/(^|\.)(youtube\.com|google\.[a-z.]+|googlevideo\.com)$/.test(location.hostname)) return;
 
     var css =
-      'img,video{max-width:100%}' +                                   // صور/فيديو لا تتجاوز عرض الشاشة
       'html{-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-tap-highlight-color:transparent}' + // منع تضخيم الخط + إزالة وميض اللمس
       // لا optimizeLegibility ولا text-wrap:pretty: كلاهما يزيد كلفة تخطيط النص في كل الصفحة (تقطيع على الصفحات الطويلة والأجهزة المتوسطة)
       'a,button,summary,label,input,select,[role=button]{touch-action:manipulation}' + // إلغاء تأخير اللمس المزدوج
-      'h1,h2,h3{text-wrap:balance}' +                                                 // عناوين متوازنة (محدودة بعدة أسطر فكلفتها ضئيلة)
       'img{image-orientation:from-image}' +
       ':focus-visible{outline:2px solid #4c8dff;outline-offset:2px;border-radius:4px}' +
       '::selection{background:rgba(76,141,255,.35)}' +
@@ -25,7 +33,7 @@
       '@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}';
 
     // ورقة أنماط مبنية برمجياً: لا تتأثر بسياسات CSP التي تمنع <style> المضمّن، وتعمل قبل وجود <head>
-    if (__FIT__) try {
+    if (__FIT__ && !window.__novaTr()) try {
       var sh = new CSSStyleSheet();
       sh.replaceSync(css);
       document.adoptedStyleSheets = document.adoptedStyleSheets.concat([sh]);
@@ -40,7 +48,7 @@
         if (de.scrollWidth > window.innerWidth * 1.02) de.style.setProperty('overflow-x', 'hidden');
       } catch (e) { }
     }
-    if (__FIT__) window.addEventListener('load', function () { setTimeout(guard, 400); });
+    if (__FIT__ && !window.__novaTr()) window.addEventListener('load', function () { setTimeout(guard, 400); });
 
     // الصور: فك الترميز بعيداً عن خيط الواجهة، وتأجيل ما هو بعيد أسفل الصفحة (مرة واحدة وبحدّ أعلى)
     function imgs() {
@@ -146,7 +154,7 @@
       window.addEventListener('load', function () { setTimeout(watch, 400); setTimeout(watch, 3000); });
     }
     // ---------- 3) تنظيف لافتات الموافقة على الكوكيز وقفل التمرير (يُطفأ من الإعدادات) ----------
-    if (__POP__) {
+    if (__POP__ && !window.__novaTr()) {
       var CONSENT = '#onetrust-consent-sdk,#onetrust-banner-sdk,#CybotCookiebotDialog,#CybotCookiebotDialogBodyUnderlay,.cc-window,.cc-banner,' +
         '#cookie-law-info-bar,#cookieconsent,.cookie-consent,#cookie-consent,.cookie-banner,#cookie-banner,#gdpr-cookie-notice,.qc-cmp2-container,' +
         '#didomi-host,.fc-consent-root,#usercentrics-root,.osano-cm-window,#cmpbox,#cmpbox2,#iubenda-cs-banner,.klaro,.truste_overlay,' +
@@ -178,7 +186,7 @@
   try {
     if (window.__novaHeavy || window.top !== window) return;
     var host = String(location.hostname);
-    if (/(^|\.)(youtube\.com|youtu\.be|google\.[a-z.]+)$/.test(host)) return;
+    if (/(^|\.)(youtube\.com|youtu\.be|google\.[a-z.]+)$/.test(host) || window.__novaTr()) return;
     window.__novaHeavy = 1;
     var applied = false;
     function check() {

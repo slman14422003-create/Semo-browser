@@ -1,5 +1,21 @@
 # سجل المهام والتعديلات
 
+## 2026-10-24 - site compatibility pass (Firebase, Cloudflare, scripts, languages, YouTube Studio)
+- browser/SiteRules.kt (new): trusted host list (Firebase, Cloudflare, GitHub, Vercel, Netlify, Supabase, Stripe, PayPal, login providers, Google) plus auth/CAPTCHA host list, per-host SSL exception (session only, asked once per host) and a per-site "fix" flag. Relaxed hosts skip fingerprint spoofing, injected CSS, cosmetic filter, brain CSS, generic tracker path and label rules, and get third-party cookies.
+- SiteStore: new `f` field (fix). Page menu: "Fix this site" row. The flag is mirrored to the page as localStorage `__novaFix` so document-start scripts can skip themselves; WebFactory.onPageFinished re-sets it after site data is cleared.
+- privacy.js: canvas/WebGL/audio/font spoofing is now opt-in (`Prefs.fpStrict`, Settings row, default off); navigator-level protection stays on. Trusted hosts return early.
+- Cookies: WebCompat.applyCookies replaces the scattered toggles. Third-party cookies are allowed for relaxed hosts, challenge pages, maps, and for any tab whose sub-request hits an auth/CAPTCHA host (BrowserTab.thirdOn, reset on page start).
+- Popups: polyfills.js gives window.open calls to known OAuth endpoints popup features so WebView creates a dialog that keeps window.opener.
+- Shield/Perf: removed generic /collect /track /telemetry /pixel path rules; the first-label heuristic (ads., tracking., ...) now applies only to third-party requests on non-relaxed pages; per-site fix disables blocking.
+- SSL: main-frame certificate errors show a continue-anyway dialog once per host; allowed hosts proceed for the session. Safe Browsing hits unchanged.
+- Language: link navigations with a gesture reload with the site Accept-Language header; langfix.js detects 20 more scripts and splits Cyrillic into uk/be/kk/sr/bg/ru.
+- polyfills.js: Notification stub (permission denied), showOpenFilePicker via a file input.
+- smooth.js: removed global img/video max-width and text-wrap rules; fit CSS, popup hiding and heavy mode skip trusted hosts. brain-rules v2: fluid/heavy CSS reduced.
+- YtWeb: studio.youtube.com gets the file chooser and camera/mic permission handler.
+- Tests/tools: SiteRulesTest.java, docs/COMPAT_SITES.md manual checklist, project_check.py markers.
+- Not changed: YouTube rotation/fullscreen timers and yt.js selectors (need on-device testing first); GeckoView option not started.
+- Not compiled in the session; run a Gradle build first. tools/project_check.py passes.
+
 ## 2026-10-20 (2) - in-app mini player, audio-only, next/prev, YouTube status bar
 - yt/YtAudio.kt (new): audio-only engine (NewPipe audio stream + MediaPlayer, runs on Work.media), autoplays the first related video when a track ends. Feeds YtMedia so the notification/lock screen work.
 - yt/YtMiniBar.kt (new): in-app mini player bar (thumbnail, title, play/pause, next, close, progress). AppActivity reserves space for it (WebView is padded up) and tapping it reopens the video at the same second.

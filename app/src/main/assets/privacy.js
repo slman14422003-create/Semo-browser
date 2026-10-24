@@ -4,9 +4,16 @@
   try { Object.defineProperty(window, '__nv', { value: 1 }); } catch (e) {}
   var seed = __SEED__;
   var SITE_LANG = '__LANG__';
+  var STRICT = __STRICT__;
+  var TRUSTED = __TRUSTED__;
   function safe(f) { try { f(); } catch (e) {} }
   // مواقع التحقق (Cloudflare Turnstile وhCaptcha وreCAPTCHA وDataDome…): أي تعديل في بصمة المتصفح يجعل التحقق يفشل أو يدور بلا نهاية.
   if (/(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net|captcha-delivery\.com|datadome\.co|arkoselabs\.com|funcaptcha\.com|geetest\.com|perimeterx\.net|px-cdn\.net|px-client\.net|friendlycaptcha\.com|mtcaptcha\.com)$/.test(String(location.hostname))) return;
+  try {
+    var h0 = String(location.hostname).toLowerCase();
+    for (var ti = 0; ti < TRUSTED.length; ti++) if (h0 === TRUSTED[ti] || h0.slice(-TRUSTED[ti].length - 1) === '.' + TRUSTED[ti]) return;
+    if (localStorage.getItem('__novaFix') === '1') return;
+  } catch (e) {}
   function hash(s) { var x = 2166136261; for (var i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; }
   var rv = 0;
   safe(function () { var a = new Uint32Array(2); crypto.getRandomValues(a); rv = a[0] ^ a[1]; });
@@ -104,7 +111,7 @@
     }
   });
 
-  if (LIGHT) return;
+  if (LIGHT || !STRICT) return;
 
   // ---------- الشاشة: قيم موحّدة شائعة بدل أبعاد الجهاز الفريدة ----------
   safe(function () {

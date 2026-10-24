@@ -12,6 +12,7 @@ import android.webkit.PermissionRequest
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.SafeBrowsingResponse
 import android.webkit.SslErrorHandler
+import android.webkit.ValueCallback
 import android.webkit.GeolocationPermissions
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -69,6 +70,9 @@ object YtWeb {
     }
 
     private fun stays(u: Uri): Boolean = isYtHost(u.host) || (u.host?.lowercase() in authHosts)
+
+    fun isStudio(url: String?): Boolean =
+        runCatching { Uri.parse(url ?: "").host?.lowercase() == "studio.youtube.com" }.getOrDefault(false)
 
     fun owns(v: WebView?): Boolean = v != null && views.contains(v)
 
@@ -214,7 +218,10 @@ object YtWeb {
         override fun onShowCustomView(view: View, cb: CustomViewCallback) = h.showCustom(view, cb)
         override fun onHideCustomView() = h.hideCustom()
         // يوتيوب لا يحتاج كاميرا/ميكروفون/موقع. الوحيد المسموح: معرّف الوسائط المحمية (DRM) لأفلام يوتيوب
+        override fun onShowFileChooser(v: WebView, cb: ValueCallback<Array<Uri>>, p: FileChooserParams): Boolean =
+            if (isStudio(v.url)) h.chooser(cb, p) else false
         override fun onPermissionRequest(req: PermissionRequest) {
+            if (req.origin.host?.lowercase() == "studio.youtube.com") { h.permission(req); return }
             val drm = req.resources.filter { it == PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID }
             if (drm.isNotEmpty() && isYtUrl(req.origin.toString())) req.grant(drm.toTypedArray()) else req.deny()
         }

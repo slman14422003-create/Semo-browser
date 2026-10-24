@@ -112,4 +112,57 @@
   def(window, 'cancelIdleCallback', function (id) { clearTimeout(id); });
   try { def(Element.prototype, 'replaceChildren', function () { while (this.firstChild) this.removeChild(this.firstChild); this.append.apply(this, arguments); }); } catch (e) {}
   try { def(Element.prototype, 'checkVisibility', function () { var r = this.getClientRects(); return !!(r && r.length) && getComputedStyle(this).visibility !== 'hidden'; }); } catch (e) {}
+
+  try {
+    if (typeof window.Notification === 'undefined') {
+      var Nf = function Notification(title, opts) { this.title = String(title); this.body = (opts && opts.body) || ''; };
+      Nf.permission = 'denied';
+      Nf.maxActions = 0;
+      Nf.requestPermission = function (cb) { var p = Promise.resolve('denied'); if (typeof cb === 'function') p.then(cb); return p; };
+      Nf.prototype.close = function () {};
+      Nf.prototype.addEventListener = function () {};
+      Nf.prototype.removeEventListener = function () {};
+      Object.defineProperty(window, 'Notification', { value: Nf, writable: true, configurable: true });
+    }
+  } catch (e) {}
+  try {
+    def(window, 'showOpenFilePicker', function (opts) {
+      return new Promise(function (res, rej) {
+        var i = document.createElement('input');
+        i.type = 'file';
+        i.multiple = !!(opts && opts.multiple);
+        try {
+          var acc = [];
+          ((opts && opts.types) || []).forEach(function (t) {
+            var a = t.accept || {};
+            Object.keys(a).forEach(function (m) { acc.push(m); (a[m] || []).forEach(function (x) { acc.push(x); }); });
+          });
+          if (acc.length) i.accept = acc.join(',');
+        } catch (e) {}
+        i.style.display = 'none';
+        function abort() { try { i.remove(); } catch (e) {} rej(new DOMException('The user aborted a request.', 'AbortError')); }
+        i.addEventListener('change', function () {
+          var fs = Array.prototype.slice.call(i.files || []);
+          try { i.remove(); } catch (e) {}
+          if (!fs.length) { abort(); return; }
+          res(fs.map(function (f) {
+            return { kind: 'file', name: f.name, getFile: function () { return Promise.resolve(f); }, isSameEntry: function (o) { return o === this; } };
+          }));
+        });
+        i.addEventListener('cancel', abort);
+        (document.body || document.documentElement).appendChild(i);
+        i.click();
+      });
+    });
+  } catch (e) {}
+  try {
+    var wo = window.open;
+    if (typeof wo === 'function') {
+      var AUTH = /^https:\/\/(accounts\.google\.com|[^\/]*\.firebaseapp\.com\/__\/auth|login\.microsoftonline\.com|login\.live\.com|appleid\.apple\.com|github\.com\/login\/oauth|[^\/]*\.facebook\.com\/(v[\d.]+\/)?dialog|www\.linkedin\.com\/oauth|api\.twitter\.com\/oauth|twitter\.com\/i\/oauth2|x\.com\/i\/oauth2|discord\.com\/oauth2|[^\/]*\.auth0\.com|[^\/]*\.okta\.com|[^\/]*\.cloudflareaccess\.com|www\.paypal\.com|js\.stripe\.com)/i;
+      window.open = function open(u, n, f) {
+        try { if (!f && u && AUTH.test(String(u))) f = 'popup=yes,width=500,height=650'; } catch (e) {}
+        return wo.call(this, u, n, f);
+      };
+    }
+  } catch (e) {}
 })();

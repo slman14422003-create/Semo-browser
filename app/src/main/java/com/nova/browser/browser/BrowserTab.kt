@@ -40,6 +40,7 @@ class BrowserTab(val id: Int, startUrl: String = "") {
     var webView: WebView? = null
     var crashes = 0                      // انهيارات عملية العرض المتتابعة (قاطع الحلقة في WebCompat)
     var lastCrash = 0L
+    @Volatile var thirdOn = false
     var challenge = false                // الصفحة الحالية صفحة تحقق (Cloudflare وغيره): تسامح أكبر في الحماية
     var holdLoad = false                 // أعد الإنشاء بصفحة خطأ بدل تحميل الرابط (بعد انهيارات متكررة)
     @Volatile var shieldHost: String = ""   // نطاق الصفحة الحالية (يقرؤه فحص الطلبات من خيط الشبكة)

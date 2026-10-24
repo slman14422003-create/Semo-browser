@@ -233,6 +233,10 @@ fun PageMenu(
                         { act { val z = SiteStore.nextZoom(sh); SiteStore.refresh(tab, tab.webView, sh); toast(ctx, "$z%") } }
                     )
                     IosCell(
+                        S(R.string.site_fix),
+                        { act { val on = SiteStore.toggleFix(sh); SiteRules.setFlag(tab.webView, on); val w = tab.webView; w?.postDelayed({ SiteStore.refresh(tab, w, sh) }, 150); toast(ctx, if (on) S(R.string.site_fix_on) else S(R.string.site_fix_off)) } }
+                    )
+                    IosCell(
                         "Site JavaScript",
                         { act { val on = SiteStore.toggleJs(sh); SiteStore.refresh(tab, tab.webView, sh); toast(ctx, if (on) "JavaScript on" else "JavaScript off") } }
                     )

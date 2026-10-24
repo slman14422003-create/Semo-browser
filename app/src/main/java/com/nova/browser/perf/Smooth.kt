@@ -86,6 +86,12 @@ object Perf {
         return r
     }
 
+    private fun labelTracker(host: String, pageHost: String): Boolean {
+        if (pageHost.isEmpty() || !host.contains('.')) return false
+        if (host.substringBefore('.') !in trackerLabels) return false
+        return !Shield.sameSite(pageHost, host) && !SiteRules.relaxed(pageHost)
+    }
+
     private var lastFlush = 0L
     /** حفظ الكوكيز على القرص بحدّ أقصى مرة كل 15 ثانية (الاستدعاء المتكرر يسبب تقطيعاً). */
     fun flushCookies(force: Boolean = false) {
@@ -95,7 +101,6 @@ object Perf {
 
     private fun computeBlocked(host: String?): Boolean {
         val h0 = host?.lowercase() ?: return false
-        if (h0.substringBefore('.') in trackerLabels && h0.contains('.')) return true
         var h = h0
         while (true) {
             if (h in blocked) return true
@@ -108,8 +113,13 @@ object Perf {
     private val empty get() = WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
 
     /** يُستدعى من shouldInterceptRequest؛ يعيد null للسماح بالطلب. */
-    fun intercept(url: Uri, isMainFrame: Boolean): WebResourceResponse? =
-        if (Prefs.blockAds && !isMainFrame && isBlocked(url.host)) { Security.countBlocked(); empty } else null
+    fun intercept(url: Uri, isMainFrame: Boolean, pageHost: String = ""): WebResourceResponse? {
+        if (!Prefs.blockAds || isMainFrame) return null
+        if (pageHost.isNotEmpty() && SiteRules.fixed(pageHost)) return null
+        val h = url.host?.lowercase() ?: return null
+        if (isBlocked(h) || labelTracker(h, pageHost)) { Security.countBlocked(); return empty }
+        return null
+    }
 
     /** يضبط إعدادات الأداء لكل WebView جديد. */
     fun tune(wv: WebView) {
@@ -135,6 +145,7 @@ object Perf {
         runCatching { app.assets.open("privacy.js").bufferedReader().use { it.readText() } }.getOrNull()
     }
     private fun fpScript(): String? = fpTemplate?.replace("__SEED__", seed.toString())?.replace("__LANG__", Prefs.siteLangCode())
+        ?.replace("__STRICT__", Prefs.fpStrict.toString())?.replace("__TRUSTED__", SiteRules.json())
 
     /** الوضع الداكن للمواقع (يتبع وضع النظام الداكن). */
     fun applyDark(wv: WebView) {
@@ -168,6 +179,7 @@ object Perf {
         if (!(Prefs.fitPages || Prefs.lazyMedia || Prefs.boost || Prefs.popups)) return null
         return smoothJs?.replace("__FIT__", Prefs.fitPages.toString())?.replace("__LAZY__", Prefs.lazyMedia.toString())
             ?.replace("__BOOST__", Prefs.boost.toString())?.replace("__POP__", Prefs.popups.toString())
+            ?.replace("__TRUSTED__", SiteRules.json())
     }
 
     /** يحقن smooth.js قبل سكربتات الصفحة (مرة واحدة بدل سكربتين وتحميل كسول ثالث). */
@@ -181,7 +193,7 @@ object Perf {
 
     fun installCosmetic(wv: WebView) {
         if (!Prefs.blockAds || !docStartSupported) return
-        val js = cosmeticJs ?: return
+        val js = cosmeticJs?.replace("__TRUSTED__", SiteRules.json()) ?: return
         runCatching { WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*")) }
     }
 

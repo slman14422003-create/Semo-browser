@@ -7,8 +7,8 @@ import android.webkit.WebView
 import java.util.concurrent.ConcurrentHashMap
 
 object SiteStore {
-    data class Site(val zoom: Int = 0, val js: Int = -1, val images: Int = -1, val desktop: Int = -1, val safari: Int = -1) {
-        val custom get() = zoom > 0 || js >= 0 || images >= 0 || desktop >= 0 || safari >= 0
+    data class Site(val zoom: Int = 0, val js: Int = -1, val images: Int = -1, val desktop: Int = -1, val safari: Int = -1, val fix: Int = -1) {
+        val custom get() = zoom > 0 || js >= 0 || images >= 0 || desktop >= 0 || safari >= 0 || fix >= 0
     }
 
     val zoomSteps = intArrayOf(85, 100, 115, 130, 150, 175)
@@ -28,10 +28,10 @@ object SiteStore {
             val i = it.indexOf('=')
             if (i > 0) it.substring(0, i) to (it.substring(i + 1).toIntOrNull() ?: return@mapNotNull null) else null
         }.toMap()
-        return Site(m["z"] ?: 0, m["j"] ?: -1, m["i"] ?: -1, m["d"] ?: -1, m["s"] ?: -1)
+        return Site(m["z"] ?: 0, m["j"] ?: -1, m["i"] ?: -1, m["d"] ?: -1, m["s"] ?: -1, m["f"] ?: -1)
     }
 
-    private fun encode(s: Site) = "z=${s.zoom};j=${s.js};i=${s.images};d=${s.desktop};s=${s.safari}"
+    private fun encode(s: Site) = "z=${s.zoom};j=${s.js};i=${s.images};d=${s.desktop};s=${s.safari};f=${s.fix}"
 
     fun get(host: String): Site {
         if (host.isBlank()) return Site()
@@ -83,6 +83,12 @@ object SiteStore {
     fun wantSafari(host: String): Boolean {
         val s = get(host)
         return if (s.safari >= 0) s.safari == 1 else globalSafari
+    }
+
+    fun toggleFix(host: String): Boolean {
+        val on = get(host).fix == 1
+        put(host, get(host).copy(fix = if (on) 0 else 1))
+        return !on
     }
 
     fun toggleSafari(host: String, current: Boolean): Boolean {

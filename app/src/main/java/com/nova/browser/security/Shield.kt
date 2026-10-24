@@ -166,6 +166,8 @@ object Shield {
 
     private fun isThirdParty(page: String, req: String): Boolean = site(page) != site(req)
 
+    fun sameSite(page: String, req: String): Boolean = !isThirdParty(page, req)
+
     // ───────────────────────── قوائم التهديد ─────────────────────────
     private val minerHosts = setOf(
         "coinhive.com", "coin-hive.com", "authedmine.com", "crypto-loot.com", "cryptoloot.pro", "webminepool.com",
@@ -178,8 +180,8 @@ object Shield {
 
     /** مسارات تتبع قوية فقط (بكسل/منارة/نقطة تجميع تحليلية) كي لا نكسر وظائف المواقع. تُطبَّق على طلبات الطرف الثالث فقط. */
     private val trackerPath = Regex(
-        "(?i)(/(pixel|beacon|1x1)(\\.(gif|png|jpg|php|js))?([/?#]|$)|/__utm\\.gif|/(ga|analytics|fbevents|gtm)\\.js([?#]|$)|/gtag/js([?#]|$)|" +
-            "/(j/|g/)?collect([?#]|$)|/track(ing)?([/?#]|$)|/telemetry([/?#]|$))"
+        "(?i)(/(pixel|beacon|1x1)\\.(gif|png)([?#]|$)|/__utm\\.gif|/(ga|analytics|fbevents|gtm)\\.js([?#]|$)|/gtag/js([?#]|$)|" +
+            "/(j|g)/collect([?#]|$))"
     )
 
     private val verdicts = ConcurrentHashMap<String, Int>()   // 0 مسموح، 1 محلي، 2 تعدين
@@ -212,6 +214,7 @@ object Shield {
      */
     fun intercept(pageHost: String, url: Uri, isMainFrame: Boolean): WebResourceResponse? {
         if (!Prefs.shield || isMainFrame) return null
+        if (pageHost.isNotEmpty() && SiteRules.fixed(pageHost)) return null
         return try {
             val host = url.host?.lowercase() ?: return null
             if (isChallengeHost(host) || (url.encodedPath ?: "").contains("/cdn-cgi/")) return null   // التحقق (Cloudflare وغيره) لا يُحجب
@@ -219,7 +222,7 @@ object Shield {
                 1 -> { hit(Kind.LOCAL_NET, pageHost + " → " + host); return blockedResponse(403) }
                 2 -> { hit(Kind.MINER, host); return blockedResponse(403) }
             }
-            if (pageHost.isNotEmpty() && !isYtLike(pageHost) && isThirdParty(pageHost, host)) {
+            if (pageHost.isNotEmpty() && !isYtLike(pageHost) && !SiteRules.relaxed(pageHost) && isThirdParty(pageHost, host)) {
                 val path = url.encodedPath ?: ""
                 if (path.length > 1 && trackerPath.containsMatchIn(path)) {
                     hit(Kind.TRACKER, host)

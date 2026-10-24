@@ -1,13 +1,72 @@
 {
-  "v": 1,
+  "v": 2,
   "rules": [
-    { "id": "text", "kinds": ["text", "xml"], "css": "body{margin:0}pre{white-space:pre-wrap;word-break:break-word;font:14px/1.5 ui-monospace,monospace;padding:12px;margin:0}" },
-    { "id": "json", "kinds": ["json"], "css": "body{margin:0}pre{white-space:pre-wrap;word-break:break-word;font:14px/1.5 ui-monospace,monospace;padding:12px;margin:0}", "js": "try{var p=document.querySelector('pre');if(p&&!p.dataset.novaJson){var o=JSON.parse(p.textContent);p.textContent=JSON.stringify(o,null,2);p.dataset.novaJson=1}}catch(e){}" },
-    { "id": "fluid", "kinds": ["news", "docs", "code", "forum", "generic"], "css": "img,video,iframe,table{max-width:100%}img{height:auto}pre{max-width:100%;overflow-x:auto}" },
-    { "id": "article", "kinds": ["news", "forum"], "css": "article,main{overflow-wrap:anywhere}" },
-    { "id": "code", "kinds": ["code", "docs"], "css": "pre,code{-webkit-text-size-adjust:100%}pre{overflow-x:auto;tab-size:2}" },
-    { "id": "feed", "kinds": ["social", "forum"], "css": "[role=article],article{content-visibility:auto;contain-intrinsic-size:auto 480px}" },
-    { "id": "grid", "kinds": ["shop", "search"], "css": "li[class*=product],div[class*=product-card],div[class*=result]{content-visibility:auto;contain-intrinsic-size:auto 320px}" },
-    { "id": "heavy", "kinds": ["*"], "heavy": true, "css": "section,article,li{content-visibility:auto;contain-intrinsic-size:auto 400px}" }
+    {
+      "id": "text",
+      "kinds": [
+        "text",
+        "xml"
+      ],
+      "css": "body{margin:0}pre{white-space:pre-wrap;word-break:break-word;font:14px/1.5 ui-monospace,monospace;padding:12px;margin:0}"
+    },
+    {
+      "id": "json",
+      "kinds": [
+        "json"
+      ],
+      "css": "body{margin:0}pre{white-space:pre-wrap;word-break:break-word;font:14px/1.5 ui-monospace,monospace;padding:12px;margin:0}",
+      "js": "try{var p=document.querySelector('pre');if(p&&!p.dataset.novaJson){var o=JSON.parse(p.textContent);p.textContent=JSON.stringify(o,null,2);p.dataset.novaJson=1}}catch(e){}"
+    },
+    {
+      "id": "fluid",
+      "kinds": [
+        "news",
+        "docs",
+        "code",
+        "forum",
+        "generic"
+      ],
+      "css": "pre{max-width:100%;overflow-x:auto}"
+    },
+    {
+      "id": "article",
+      "kinds": [
+        "news",
+        "forum"
+      ],
+      "css": "article,main{overflow-wrap:anywhere}"
+    },
+    {
+      "id": "code",
+      "kinds": [
+        "code",
+        "docs"
+      ],
+      "css": "pre,code{-webkit-text-size-adjust:100%}pre{overflow-x:auto;tab-size:2}"
+    },
+    {
+      "id": "feed",
+      "kinds": [
+        "social",
+        "forum"
+      ],
+      "css": "[role=article],article{content-visibility:auto;contain-intrinsic-size:auto 480px}"
+    },
+    {
+      "id": "grid",
+      "kinds": [
+        "shop",
+        "search"
+      ],
+      "css": "li[class*=product],div[class*=product-card],div[class*=result]{content-visibility:auto;contain-intrinsic-size:auto 320px}"
+    },
+    {
+      "id": "heavy",
+      "kinds": [
+        "*"
+      ],
+      "heavy": true,
+      "css": "article{content-visibility:auto;contain-intrinsic-size:auto 400px}"
+    }
   ]
 }

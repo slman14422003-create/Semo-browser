@@ -54,6 +54,8 @@ object PageBrain {
         "mail.google.com" to "app", "outlook.live.com" to "app", "docs.google.com" to "app", "notion.so" to "app"
     )
 
+    private val rawKinds = setOf("json", "xml", "text", "file")
+
     private val extKinds = mapOf(
         "json" to "json", "xml" to "xml", "rss" to "xml", "atom" to "xml", "txt" to "text", "md" to "text",
         "log" to "text", "csv" to "text", "pdf" to "file"
@@ -268,6 +270,7 @@ object PageBrain {
     }
 
     private fun apply(v: WebView, host: String, kind: String, fw: String, ver: String, heavy: Boolean) {
+        if (kind !in rawKinds && SiteRules.relaxed(host)) return
         val hit = rules.filter { r ->
             (r.kinds.isEmpty() || "*" in r.kinds || kind in r.kinds) &&
                 (r.hosts.isEmpty() || r.hosts.any { host == it || host.endsWith(".$it") }) &&
