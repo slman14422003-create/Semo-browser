@@ -240,7 +240,7 @@ class AppActivity : ComponentActivity() {
         }
     }
 
-    private fun setImmersive(v: Boolean) { optImmersive = v; AppPrefs.setImmersive(this, hostKey, v) }
+    private fun applyImmersive(v: Boolean) { optImmersive = v; AppPrefs.setImmersive(this, hostKey, v) }
     private fun setPull(v: Boolean) { optPull = v; AppPrefs.setPull(this, hostKey, v) }
     private fun setShorts(v: Boolean) { optShorts = v; AppPrefs.setShorts(this, hostKey, v); pushOpts() }
     private fun setFocus(v: Boolean) { optFocus = v; AppPrefs.setFocus(this, hostKey, v); pushOpts() }
@@ -260,7 +260,7 @@ class AppActivity : ComponentActivity() {
 
     private fun applyMode(m: Int) {
         val b = AppModes.bundle(m, Prefs.ytNoShorts)
-        setOrient(b.orient); setAwake(b.awake); setImmersive(b.immersive); setPull(b.pull)
+        setOrient(b.orient); setAwake(b.awake); applyImmersive(b.immersive); setPull(b.pull)
         setDim(b.dim); setGestures(b.gestures)
         if (tab.yt) { optShorts = b.shorts; AppPrefs.setShorts(this, hostKey, b.shorts); optFocus = b.focus; AppPrefs.setFocus(this, hostKey, b.focus); setQuality(b.qMobile, b.qWifi) }
         optMode = m
@@ -948,7 +948,7 @@ class AppActivity : ComponentActivity() {
             a = AppOptActions(
                 onOrient = { manual(); setOrient((optOrient + 1) % 3) },
                 onAwake = { manual(); setAwake(it) },
-                onImmersive = { manual(); setImmersive(it) },
+                onImmersive = { manual(); applyImmersive(it) },
                 onPull = { manual(); setPull(it) },
                 onMode = { applyMode(it) },
                 onShorts = { manual(); setShorts(it) },
