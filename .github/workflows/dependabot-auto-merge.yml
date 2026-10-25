@@ -22,7 +22,7 @@ jobs:
       # دمج تلقائي لتحديثات patch/minor فقط بعد نجاح فحوصات CI (build.yml)؛
       # تحديثات major (قد تكسر التوافق) تبقى تنتظر مراجعة يدوية
       - name: الموافقة والدمج التلقائي
-        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch'
         run: |
           gh pr review --approve "$PR_URL"
           gh pr merge --auto --squash "$PR_URL"

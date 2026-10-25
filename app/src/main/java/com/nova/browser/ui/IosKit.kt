@@ -186,13 +186,27 @@ fun IosIcon(kind: IosGlyph, tint: Color, size: Dp = 24.dp, modifier: Modifier = 
 @Composable
 fun IosSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)? = null, modifier: Modifier = Modifier) {
     val ios = LocalIos.current
-    val x by animateDpAsState(if (checked) 22.dp else 2.dp, tween(Adaptive.ms(200)), label = "sw")
-    val track by animateColorAsState(if (checked) ios.green else ios.fill2, tween(Adaptive.ms(200)), label = "swc")
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val src = remember { MutableInteractionSource() }
+    val down by src.collectIsPressedAsState()
+    val thumbW by animateDpAsState(
+        if (down && onCheckedChange != null) 33.dp else 27.dp,
+        androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 700f), label = "swt"
+    )
+    val moveSpec: androidx.compose.animation.core.AnimationSpec<Dp> =
+        if (Adaptive.level == 0) androidx.compose.animation.core.spring(dampingRatio = 0.78f, stiffness = 420f) else tween(Adaptive.ms(200))
+    val x by animateDpAsState(if (checked) 49.dp - thumbW else 2.dp, moveSpec, label = "sw")
+    val track by animateColorAsState(if (checked) ios.green else ios.fill2, tween(Adaptive.ms(250)), label = "swc")
     Box(
         modifier.size(width = 51.dp, height = 31.dp).clip(CircleShape).background(track)
-            .then(if (onCheckedChange != null) Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onCheckedChange(!checked) } else Modifier)
+            .then(
+                if (onCheckedChange != null) Modifier.clickable(interactionSource = src, indication = null) {
+                    runCatching { haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove) }
+                    onCheckedChange(!checked)
+                } else Modifier
+            )
     ) {
-        Box(Modifier.offset(x = x, y = 2.dp).size(27.dp).shadow(2.dp, CircleShape).background(Color.White, CircleShape))
+        Box(Modifier.offset(x = x, y = 2.dp).size(width = thumbW, height = 27.dp).shadow(3.dp, CircleShape).background(Color.White, CircleShape))
     }
 }
 

@@ -500,7 +500,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
         "conns" -> ChoiceDialog(L("الحد الأقصى للاتصالات"), connNames, connOpts.indexOf(Prefs.maxConns).coerceAtLeast(0), { Prefs.pickMaxConns(connOpts[it]) }) { dialog = null }
         "crash" -> NovaDialog(
             title = L("سجل الأعطال"), icon = Icons.Default.Warning, onDismiss = { dialog = null },
-            confirmText = L("نسخ"), onConfirm = { copyText(ctx, CrashLog.text()) },
+            confirmText = L("مشاركة"), onConfirm = { shareText(ctx, CrashLog.text()) },
             extraAction = { TextButton(onClick = { CrashLog.clear(); dialog = null }) { Text(L("مسح السجل")) } }
         ) {
             Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {

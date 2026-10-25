@@ -130,6 +130,29 @@ object WebCompat {
         arm(v, tab)
     }
 
+    private val sorryShown = WeakHashMap<BrowserTab, String>()
+
+    fun sorry(v: WebView, tab: BrowserTab, h: Handlers, url: String) {
+        val u = runCatching { Uri.parse(url) }.getOrNull() ?: return
+        val host = (u.host ?: "").lowercase()
+        if (!(host == "google.com" || host.startsWith("www.google.") || host.startsWith("google.")) || !(u.path ?: "").startsWith("/sorry")) return
+        if (sorryShown[tab] == url) return
+        sorryShown[tab] = url
+        val q = runCatching { Uri.parse(u.getQueryParameter("continue") ?: "").getQueryParameter("q") }.getOrNull() ?: ""
+        v.post {
+            runCatching {
+                val items = Prefs.engines.mapIndexedNotNull { i, e ->
+                    if (e.first == "Google") null
+                    else (L("البحث عبر ") + e.first) to {
+                        Prefs.pickEngine(i)
+                        v.loadUrl(if (q.isEmpty()) e.second.substringBefore("search").substringBefore("?") else e.second + Uri.encode(q), Perf.privacyHeaders)
+                    }
+                }
+                choose(h.activity, items)
+            }
+        }
+    }
+
     // ---------- 2) حارس التحميل ----------
     fun onProgress(tab: BrowserTab, p: Int) { if (p >= 100) tab.loading = false }
 

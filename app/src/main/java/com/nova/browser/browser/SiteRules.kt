@@ -20,7 +20,7 @@ object SiteRules {
     val authSuffixes = arrayOf(
         "firebaseapp.com", "accounts.google.com", "apis.google.com", "challenges.cloudflare.com", "hcaptcha.com", "recaptcha.net",
         "login.microsoftonline.com", "login.live.com", "appleid.apple.com", "auth0.com", "okta.com", "cloudflareaccess.com",
-        "js.stripe.com", "paypal.com", "arkoselabs.com", "geetest.com", "friendlycaptcha.com", "mtcaptcha.com"
+        "js.stripe.com", "checkout.stripe.com", "paypal.com", "paypalobjects.com", "pay.google.com", "payments.google.com", "consent.google.com", "accounts.youtube.com", "login.yahoo.com", "braintreegateway.com", "adyen.com", "login.facebook.com", "arkoselabs.com", "geetest.com", "friendlycaptcha.com", "mtcaptcha.com"
     )
 
     private val trusted = HostMatcher(emptyArray(), trustedSuffixes)
@@ -35,6 +35,19 @@ object SiteRules {
     fun thirdPartyCookies(host: String?): Boolean = relaxed(host)
 
     fun authHost(host: String?): Boolean = !host.isNullOrBlank() && auth.matches(host)
+
+    fun authRequest(u: android.net.Uri): Boolean {
+        val h = u.host?.lowercase() ?: return false
+        if (authHost(h)) return true
+        val p = u.encodedPath ?: return false
+        return p.startsWith("/recaptcha/") && (h == "google.com" || h.endsWith(".google.com") || h == "gstatic.com" || h.endsWith(".gstatic.com"))
+    }
+
+    fun noSafari(host: String?): Boolean {
+        val h = host?.lowercase()?.removePrefix("www.") ?: return false
+        return h == "google.com" || h.startsWith("google.") || h.endsWith(".google.com") || h == "gstatic.com" || h.endsWith(".gstatic.com") ||
+            h == "recaptcha.net" || h.endsWith(".recaptcha.net") || h == "youtube.com" || h.endsWith(".youtube.com")
+    }
 
     fun allowSsl(host: String) { sslOk.add(host.lowercase()) }
 

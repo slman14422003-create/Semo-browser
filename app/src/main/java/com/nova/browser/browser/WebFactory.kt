@@ -97,7 +97,7 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
             WebBoost.onPageStart(v)
             PageBrain.onStart(v, u)
             PageTint.onStart(tab, u)
-            tab.loading = true; tab.url = u; tab.shieldHost = Shield.hostFor(u); Shield.onPageStart(v); Perf.onPageStart(v); Pwa.onPageStart(v, u); if (WebCompat.loopTrip(v, tab, u)) return; WebCompat.onPageStart(v, tab, u)
+            tab.loading = true; tab.url = u; tab.shieldHost = Shield.hostFor(u); Shield.onPageStart(v); Perf.onPageStart(v); Pwa.onPageStart(v, u); if (WebCompat.loopTrip(v, tab, u)) return; WebCompat.onPageStart(v, tab, u); WebCompat.sorry(v, tab, h, u)
         }
         override fun doUpdateVisitedHistory(v: WebView, u: String, isReload: Boolean) {
             // تنقّلات الصفحات أحادية الصفحة لا تستدعي onPageStarted
@@ -119,7 +119,7 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
             if (!tab.popup) Library.visit(u, v.title)   // سجل التصفح
         }
         override fun shouldInterceptRequest(v: WebView, r: WebResourceRequest): WebResourceResponse? {
-            if (!r.isForMainFrame && !tab.thirdOn && SiteRules.authHost(r.url.host)) {
+            if (!r.isForMainFrame && !tab.thirdOn && SiteRules.authRequest(r.url)) {
                 tab.thirdOn = true
                 v.post { runCatching { CookieManager.getInstance().setAcceptThirdPartyCookies(v, true) } }
             }
@@ -140,8 +140,8 @@ fun createWebView(ctx: Context, tab: BrowserTab, h: Handlers): WebView = NovaWeb
             PageBrain.onCommit(v, u)
             if (Prefs.smoothAnim && Adaptive.level == 0 && v.alpha > 0.9f) {
                 v.animate().cancel()
-                v.alpha = 0.86f
-                v.animate().alpha(1f).setDuration(240L).withLayer().setInterpolator(android.view.animation.PathInterpolator(0.32f, 0.72f, 0f, 1f)).start()
+                v.alpha = 0.94f
+                v.animate().alpha(1f).setDuration(140L).withLayer().setInterpolator(android.view.animation.PathInterpolator(0.32f, 0.72f, 0f, 1f)).start()
             }
         }
         override fun onReceivedHttpAuthRequest(v: WebView, handler: HttpAuthHandler, host: String?, realm: String?) {

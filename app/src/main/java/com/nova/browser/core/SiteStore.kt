@@ -82,6 +82,7 @@ object SiteStore {
 
     fun wantSafari(host: String): Boolean {
         val s = get(host)
+        if (SiteRules.noSafari(host) && s.safari < 0) return false
         return if (s.safari >= 0) s.safari == 1 else globalSafari
     }
 
@@ -127,7 +128,7 @@ object SiteStore {
 
     fun apply(tab: BrowserTab, wv: WebView, host: String) {
         val s = get(host)
-        if (!s.custom && !tab.siteCustom && tab.safari == globalSafari) return
+        if (!s.custom && !tab.siteCustom && tab.safari == globalSafari && !SiteRules.noSafari(host)) return
         if (sync(tab, wv, host)) wv.reload()
     }
 

@@ -371,6 +371,7 @@ object I18n {
         "مسح بيانات التصفح" to "Clear browsing data",
         "مسح بيانات التصفح؟" to "Clear browsing data?",
         "مشاركة" to "Share",
+        "البحث عبر " to "Search with ",
         "مشاركة الرابط" to "Share link",
         "مصحّح أخطاء (Debugger) متصل بالتطبيق" to "A debugger is attached to the app",
         "مكان الحفظ" to "Save location",

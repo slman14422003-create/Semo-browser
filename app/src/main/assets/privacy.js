@@ -47,7 +47,7 @@
     try {
       var t = document.title || '';
       if (window._cf_chl_opt || window._cf_chl_ctx || /^(just a moment|checking your browser|attention required|verifying|verify you are human|one more step|security check|ddos-guard|لحظة|جارٍ التحقق)/i.test(t) ||
-          document.querySelector('script[src*="challenge-platform"],script[src*="challenges.cloudflare.com"],iframe[src*="challenges.cloudflare.com"],script[src*="hcaptcha.com"],iframe[src*="hcaptcha.com"],script[src*="captcha-delivery.com"],iframe[src*="captcha-delivery.com"]')) chl = true;
+          document.querySelector('script[src*="challenge-platform"],script[src*="challenges.cloudflare.com"],iframe[src*="challenges.cloudflare.com"],script[src*="hcaptcha.com"],iframe[src*="hcaptcha.com"],script[src*="captcha-delivery.com"],iframe[src*="captcha-delivery.com"],script[src*="google.com/recaptcha"],iframe[src*="google.com/recaptcha"],script[src*="recaptcha.net"],iframe[src*="recaptcha.net"],.g-recaptcha,.grecaptcha-badge,script[src*="gstatic.com/recaptcha"]')) chl = true;
     } catch (e) {}
     return chl;
   }

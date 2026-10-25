@@ -32,6 +32,15 @@ public class SiteRulesTest {
     }
 
     @Test
+    public void noSafariForGoogleHosts() {
+        assertTrue(SiteRules.INSTANCE.noSafari("www.google.com"));
+        assertTrue(SiteRules.INSTANCE.noSafari("google.com.sy"));
+        assertTrue(SiteRules.INSTANCE.noSafari("www.recaptcha.net"));
+        assertFalse(SiteRules.INSTANCE.noSafari("example.org"));
+        assertFalse(SiteRules.INSTANCE.noSafari(null));
+    }
+
+    @Test
     public void sslExceptionIsPerHostAndAskedOnce() {
         assertFalse(SiteRules.INSTANCE.sslAllowed("intranet.test"));
         assertTrue(SiteRules.INSTANCE.shouldAskSsl("intranet.test"));
