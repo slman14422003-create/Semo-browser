@@ -265,6 +265,10 @@ fun PageMenu(
                         { act { SiteStore.reset(sh); SiteStore.refresh(tab, tab.webView, sh); toast(ctx, "Site settings reset") } }
                     )
                 }
+                if (tab.url.startsWith("http")) IosCell(
+                    L("ترجمة الصفحة"),
+                    { act { tab.webView?.loadUrl("https://translate.google.com/translate?sl=auto&tl=" + (if (I18n.isEnglish()) "en" else "ar") + "&u=" + android.net.Uri.encode(tab.url)) } }
+                )
                 IosCell(L("الأعلى"), { act { tab.webView?.let { WebSupport.scroll(it, true) } } })
                 IosCell(L("الأسفل"), { act { tab.webView?.let { WebSupport.scroll(it, false) } } })
                 IosCell(L("تحديث تصميم الصفحة"), { act { tab.webView?.let { WebSupport.refreshDesign(it) } } })

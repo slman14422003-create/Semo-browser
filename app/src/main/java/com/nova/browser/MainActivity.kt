@@ -648,7 +648,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
     // حدّ أقصى لعدد الـ WebView الحيّة حسب ذاكرة الجهاز؛ الأقدم استخداماً يُحرَّر ويُستعاد عند الرجوع
     val maxLive = remember {
         val am = activity.getSystemService(android.app.ActivityManager::class.java)
-        if (am.isLowRamDevice) 2 else if (am.memoryClass >= 256) 5 else 3
+        if (am.isLowRamDevice) 2 else if (am.memoryClass >= 512) 5 else if (am.memoryClass >= 256) 4 else 3
     }
     LaunchedEffect(current, tabs.size, Adaptive.level) {
         val cap = Adaptive.liveCap(maxLive)
