@@ -32,6 +32,13 @@ object YtHub {
 
     fun ready() = raw != null
 
+    /** يدفع إعدادات الترجمة الحالية للصفحة المفتوحة (السكربت المبكر يحمل القيم القديمة من لحظة إنشاء الـ WebView). */
+    fun pushCc(wv: WebView?) {
+        wv ?: return
+        val js = "window.__novaCc&&window.__novaCc({size:'${ccSize[Prefs.ytCcSize.coerceIn(0, 3)]}',bg:'${ccBg[Prefs.ytCcBg.coerceIn(0, 2)]}',pos:'${ccPos[Prefs.ytCcPos.coerceIn(0, 2)]}'})"
+        runCatching { wv.evaluateJavascript(js, null) }
+    }
+
     private fun script(c: android.content.Context): String? {
         val r = raw ?: return null
         val key = "${Prefs.ytBg}|${Prefs.ytResume}|${Prefs.ytKeepRate}|${Prefs.ytHold2x}|${Prefs.ytCcSize}|${Prefs.ytCcBg}|${Prefs.ytCcPos}|${Prefs.ytNoShorts}|${Prefs.smoothAnim}|${Adaptive.level == 0}|${YtRules.version(c)}"

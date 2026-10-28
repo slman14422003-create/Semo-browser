@@ -139,7 +139,12 @@ object PwaManifest {
             if (bytes != null) {
                 val raw = runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull()
                 if (raw != null && raw.width >= 48) {
-                    icon = Bitmap.createScaledBitmap(raw, 192, 192, true)
+                    // أيقونة غير مربّعة كانت تُمطّ إلى 192×192 فتتشوّه: نحافظ على النسبة ونوسّطها على لوحة مربّعة شفافة
+                    val k = 192f / maxOf(raw.width, raw.height)
+                    val sw = (raw.width * k).toInt().coerceAtLeast(1); val sh = (raw.height * k).toInt().coerceAtLeast(1)
+                    val sq = Bitmap.createBitmap(192, 192, Bitmap.Config.ARGB_8888)
+                    android.graphics.Canvas(sq).drawBitmap(Bitmap.createScaledBitmap(raw, sw, sh, true), (192 - sw) / 2f, (192 - sh) / 2f, null)
+                    icon = sq
                     runCatching {
                         val f = iconFile(app, host); f.parentFile?.mkdirs()
                         f.outputStream().use { icon!!.compress(Bitmap.CompressFormat.PNG, 100, it) }

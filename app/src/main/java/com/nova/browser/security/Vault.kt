@@ -79,6 +79,10 @@ object Vault {
                 val o = arr.getJSONObject(i)
                 items.add(Cred(o.getString("id"), o.getString("h"), o.getString("u"), o.getString("p"), o.optLong("t")))
             }
+        }.onFailure {
+            // فشل فك التشفير (خلل مؤقت في Keystore مثلاً): نحتفظ بنسخة من الملف المشفّر كي لا يمحوها أول حفظ جديد
+            items.clear()
+            if (!sp.contains("data_bak")) sp.edit().putString("data_bak", s).apply()
         }
     }
 

@@ -152,7 +152,11 @@ object YtFetch {
 }
 
 object YtDownload {
-    private fun safeName(s: String) = s.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_").trim().take(80).ifBlank { "video" }
+    private fun safeName(s: String): String {
+        var t = s.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_").trim()
+        if (t.length > 80) { t = t.substring(0, 80); if (Character.isHighSurrogate(t.last())) t = t.dropLast(1) }
+        return t.trimEnd('.', ' ').ifBlank { "video" }
+    }
 
     fun start(ctx: Context, info: YtInfo, o: YtOpt) {
         val base = safeName(info.title)
@@ -200,7 +204,7 @@ object YtDownload {
             Mux.mux(app, v.uri ?: throw IOException("no video"), a.uri ?: throw IOException("no audio"), dst)
             r.update(dst, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
             val size = r.openFileDescriptor(dst, "r")?.use { it.statSize } ?: -1L
-            Downloader.addFinished("$base.mp4", dst, "video/mp4", size)
+            Downloader.addFinished(Downloader.displayName(app, dst, "$base.mp4"), dst, "video/mp4", size)
             Downloader.removeOnMain(v, true); Downloader.removeOnMain(a, true)
         } catch (e: Throwable) {
             out?.let { runCatching { r.delete(it, null, null) } }
@@ -230,13 +234,15 @@ object Mux {
                         mx = m
                         val vi = m.addTrack(ve.getTrackFormat(vt)); val ai = m.addTrack(ae.getTrackFormat(at))
                         m.start(); started = true
-                        val buf = ByteBuffer.allocate(4 * 1024 * 1024)
+                        var buf = ByteBuffer.allocate(4 * 1024 * 1024)
                         val bi = MediaCodec.BufferInfo()
                         while (true) {
                             val vtm = ve.sampleTime; val atm = ae.sampleTime
                             if (vtm < 0 && atm < 0) break
                             val useV = atm < 0 || (vtm in 0L..atm)    // تداخل المسارين حسب الزمن
                             val ex = if (useV) ve else ae
+                            val need = ex.sampleSize
+                            if (need > buf.capacity()) buf = ByteBuffer.allocate((need * 3 / 2).toInt())   // إطار مفتاحي أكبر من المخزن: لا نُفشل الدمج
                             buf.clear()
                             val n = ex.readSampleData(buf, 0)
                             if (n < 0) break

@@ -520,6 +520,10 @@ class AppActivity : ComponentActivity() {
         inPip = isInPictureInPictureMode
         wasPip = wasPip || isInPictureInPictureMode
         YtWeb.pip = isInPictureInPictureMode
+        // عودة المستخدم للواجهة (توسيع المنبثقة): لا يُعدّ أي إيقاف لاحق إغلاقاً للمنبثقة، وإلا يتوقف الصوت عند الخروج العادي
+        if (!isInPictureInPictureMode) window.decorView.postDelayed({
+            if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) wasPip = false
+        }, 500)
         val w = tab.webView
         if (YtWeb.owns(w)) YtWeb.onPip(w, isInPictureInPictureMode, custom != null)
     }
@@ -578,6 +582,7 @@ class AppActivity : ComponentActivity() {
         tab.webView?.let {
             it.onResume()
             it.resumeTimers()
+            if (YtWeb.owns(it)) YtHub.pushCc(it)
         }
     }
 
@@ -736,7 +741,7 @@ class AppActivity : ComponentActivity() {
             },
             onDownload = { u, ua, cd, mime, ref ->
                 if (!Shield.downloadAllowed(hostOf(ref ?: u))) toast(this, "Download blocked")
-                else if (u.startsWith("blob:") || u.startsWith("data:")) toast(this, "Download not supported")
+                else if (u.startsWith("blob:", true) || u.startsWith("data:", true)) BlobDownload.start(this, tab.webView, u, cd, mime)
                 else {
                     Downloader.start(this, u, ua, cd, mime, ref)
                     toast(this, "Download started")
