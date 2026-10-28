@@ -930,17 +930,7 @@ class AppActivity : ComponentActivity() {
 
             AnimatedVisibility(visible = splash && !inPip, exit = fadeOut(androidx.compose.animation.core.tween(Adaptive.ms(220))) + androidx.compose.animation.scaleOut(androidx.compose.animation.core.tween(Adaptive.ms(260), easing = NovaMotion.emphasized), targetScale = 1.04f), modifier = Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxSize().background(cs.background), contentAlignment = Alignment.Center) {
-                    androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (icon != null) {
-                            Image(
-                                bitmap = icon.asImageBitmap(),
-                                contentDescription = null,
-                                modifier = Modifier.size(84.dp).clip(RoundedCornerShape(20.dp))
-                            )
-                        }
-                        androidx.compose.foundation.layout.Spacer(Modifier.height(16.dp))
-                        Text(appName, style = MaterialTheme.typography.titleMedium, color = cs.onBackground)
-                    }
+                    SplashMark(icon, appName)
                 }
             }
         }
