@@ -183,6 +183,16 @@ try {
     window.addEventListener('orientationchange', function () { setTimeout(window.__novaFit, 120); setTimeout(window.__novaFit, 700); });
     try { if (screen.orientation) screen.orientation.addEventListener('change', function () { setTimeout(window.__novaFit, 150); }); } catch (e) {}
     window.__novaRefit = function (deep) { lastShown = null; refit(); if (deep) nudge(); window.__novaFit(); setTimeout(tick, 80); };
+    // تغيير حجم/خلفية/موضع الترجمة من الإعدادات يُطبَّق فوراً وعلى كل صفحة (السكربت المبكر يُحقن مرة واحدة فقط لكل WebView)
+    window.__novaCc = function (o) {
+      try {
+        var r = root(); if (!r || !o) return;
+        if (o.size) r.setAttribute('data-nova-ccsize', o.size);
+        if (o.bg) r.setAttribute('data-nova-ccbg', o.bg);
+        if (o.pos) r.setAttribute('data-nova-ccpos', o.pos);
+        lastShown = null; setTimeout(tick, 50);
+      } catch (e) {}
+    };
     ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (n) {
       document.addEventListener(n, function () { setTimeout(function () { window.__novaRefit(false); }, 250); setTimeout(function () { window.__novaRefit(true); }, 900); }, true);
     });
@@ -458,6 +468,7 @@ try {
     } catch (x) { info.err = String(x); }
     return info;
   }
+  var blackSeen = 0;
   window.__novaHeal = function (stage) {
     try {
       if (location.pathname !== '/watch') return 'skip';
@@ -468,7 +479,10 @@ try {
       if (ok) {
         var lay = fixLayout(e, p); log('heal diag stage=' + stage + ' ' + JSON.stringify(lay) + ' black=' + blackFrame(e) + ' rs=' + e.readyState + ' vw=' + e.videoWidth + ' t=' + Math.round(e.currentTime));
         // يعمل (صوت وترجمة) لكن قد لا تُرسم الصورة: نقرأ إطاراً صغيراً من الفيديو؛ إن كان أسود كلياً نعيد إنشاء المشغّل
-        if (stage >= 1 && blackFrame(e)) {
+        // مشهد مظلم حقيقي (تلاشٍ إلى الأسود) يبدو كإطار أسود: لا نعيد المشغّل إلا إن تكرر السواد في فحصين متتاليين
+        var blk = stage >= 1 && blackFrame(e);
+        if (!blk) blackSeen = 0; else blackSeen++;
+        if (blk && blackSeen >= 2) {
           var id0 = '', t1 = Math.floor(e.currentTime || 0);
           try { var d0 = p && p.getVideoData && p.getVideoData(); id0 = d0 && d0.video_id || ''; } catch (x) {}
           if (!id0) { var m0 = /[?&]v=([^&]+)/.exec(location.search); id0 = m0 ? m0[1] : ''; }
@@ -563,6 +577,11 @@ try {
   var PIP_CSS =
     'html,body{background:#000!important;overflow:hidden!important;margin:0!important;padding:0!important}' +
     'body *{visibility:hidden!important}' +
+    // الترجمة تبقى ظاهرة فوق الفيديو داخل النافذة المنبثقة (كانت تختفي لأن كل ما عدا الفيديو يُخفى)
+    'html:not(#nova) .ytp-caption-window-container,html:not(#nova) .ytp-caption-window-container *{visibility:visible!important}' +
+    'html:not(#nova) .ytp-caption-window-container{position:fixed!important;left:0!important;right:0!important;top:0!important;bottom:6%!important;z-index:2147483647!important;' +
+    'display:flex!important;flex-direction:column!important;justify-content:flex-end!important;align-items:center!important}' +
+    'html:not(#nova) .ytp-caption-segment{font-size:clamp(11px,4.2vw,20px)!important}' +
     'video[data-nova-v]{visibility:visible!important;display:block!important;position:fixed!important;left:0!important;top:0!important;right:auto!important;bottom:auto!important;' +
     'width:100vw!important;height:100vh!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;' +
     'margin:0!important;padding:0!important;border:0!important;opacity:1!important;z-index:2147483647!important;object-fit:contain!important;background:#000!important;transform:none!important}';
