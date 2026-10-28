@@ -73,17 +73,17 @@ kotlin {
 }
 
 dependencies {
-    val bom = platform("androidx.compose:compose-bom:2025.06.01")
+    val bom = platform("androidx.compose:compose-bom:2026.09.00")
     implementation(bom)
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.core:core-ktx:1.19.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.startup:startup-runtime:1.2.0")
-    implementation("androidx.tracing:tracing-ktx:1.2.0")
+    implementation("androidx.tracing:tracing-ktx:2.0.5")
     implementation("androidx.concurrent:concurrent-futures-ktx:1.2.0")
     implementation("androidx.window:window:1.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.3.8")
@@ -91,9 +91,9 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.core:core-splashscreen:1.2.0")   // 1.0.1 كان يُسقط أحياناً عند الخروج (NPE داخلي في مزامنة حركة الأيقونة)
-    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
-    implementation("androidx.webkit:webkit:1.17.0")             // حقن سكربت الحماية قبل الصفحة (1.16: أحدث مستقر، يدعم ميزات المحرك الجديدة)
-    implementation("androidx.browser:browser:1.8.0")              // Chrome Custom Tabs لصفحات تسجيل الدخول الحساسة
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.2.0")
+    implementation("androidx.webkit:webkit:1.18.0")             // حقن سكربت الحماية قبل الصفحة (1.16: أحدث مستقر، يدعم ميزات المحرك الجديدة)
+    implementation("androidx.browser:browser:1.10.0")              // Chrome Custom Tabs لصفحات تسجيل الدخول الحساسة
     implementation("com.squareup.okhttp3:okhttp:4.12.0")           // شبكة HTTP/2 مع كاش وإعادة استخدام الاتصالات (اقتراحات البحث)
     implementation("androidx.profileinstaller:profileinstaller:1.4.1") // ملفات Baseline لتسريع بدء التشغيل وتقليل التقطيع
     implementation("com.moizhassan.ffmpeg:ffmpeg-kit-16kb:6.1.1")   // تحويل الصوت إلى MP3 وغيره (FFmpeg)
