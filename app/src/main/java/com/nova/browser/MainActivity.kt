@@ -192,7 +192,7 @@ class MainActivity : ComponentActivity() {
         pipExitAt = 0L
         inPip = isInPictureInPictureMode   // لا نترك الحالة عالقة إن فاتنا إشعار الخروج من المنبثقة
         YtWeb.pip = inPip
-        if (!inPip) { val w = wvProvider(); YtWeb.background(w, false); if (YtWeb.owns(w)) YtWeb.recover(w) }   // تنظيف أنماط المنبثقة إن بقيت
+        if (!inPip) { val w = wvProvider(); YtWeb.background(w, false); if (YtWeb.owns(w)) { YtWeb.recover(w); YtHub.pushCc(w) } }   // تنظيف أنماط المنبثقة إن بقيت
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
@@ -798,7 +798,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
             },
             onDownload = { u, ua, cd, mime, ref ->
                 if (!Shield.downloadAllowed(hostOf(ref ?: u))) toast(activity, L("تم حظر تنزيلات تلقائية متتابعة من الصفحة"))
-                else if (u.startsWith("blob:") || u.startsWith("data:")) toast(activity, L("هذا النوع من التنزيل غير مدعوم بعد"))
+                else if (u.startsWith("blob:", true) || u.startsWith("data:", true)) BlobDownload.start(activity, (tabs.firstOrNull { it.webView != null && it.url == ref } ?: tabs.getOrNull(current))?.webView, u, cd, mime)
                 else {
                     val start = {
                         Downloader.start(activity, u, ua, cd, mime, ref)

@@ -146,7 +146,7 @@ class DownloadService : Service() {
 
     private fun build(act: List<DlTask>): Notification {
         val total = act.sumOf { maxOf(it.total, 0L) }
-        val done = act.sumOf { it.downloaded }
+        val done = act.sumOf { if (it.total > 0) minOf(it.downloaded, it.total) else 0L }
         val speed = act.sumOf { it.speed }
         val n = act.size
         val b = Notification.Builder(this, Notif.CH_DL).setSmallIcon(android.R.drawable.stat_sys_download)

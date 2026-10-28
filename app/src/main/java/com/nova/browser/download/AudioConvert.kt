@@ -60,7 +60,7 @@ object AudioConvert {
             r.update(dst, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
             val size = r.openFileDescriptor(dst, "r")?.use { it.statSize } ?: -1L
             if (size <= 0L) throw IOException("empty output")
-            Downloader.addFinished("$base.${fmt.ext}", dst, fmt.mime, size)
+            Downloader.addFinished(Downloader.displayName(app, dst, "$base.${fmt.ext}"), dst, fmt.mime, size)
             Downloader.removeOnMain(src, true)
         } catch (e: Throwable) {
             out?.let { runCatching { r.delete(it, null, null) } }

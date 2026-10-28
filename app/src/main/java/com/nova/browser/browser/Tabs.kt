@@ -103,6 +103,10 @@ fun TabSwitcher(
                 val pop by animateFloatAsState(if (vis) 1f else 0.82f, spring(dampingRatio = 0.68f, stiffness = Spring.StiffnessMediumLow), label = "tabPop")
                 var dx by remember { mutableFloatStateOf(0f) }
                 var dragging by remember { mutableStateOf(false) }
+                // pointerInput يبقى مفتوحاً بنفس المفتاح: الفهرس i يتغيّر عند إغلاق تبويب سابق، فبدون هذا كان السحب يغلق تبويباً خاطئاً
+                val curIdx by rememberUpdatedState(i)
+                var closeReq by remember { mutableIntStateOf(0) }
+                LaunchedEffect(closeReq) { if (closeReq > 0) { delay(400); dx = 0f } }   // لو لم يُغلق التبويب (مثبّت/أخير) تعود البطاقة لمكانها
                 val dxShown by animateFloatAsState(dx, if (dragging) snap() else spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow), label = "swipeClose")
                 val cardSrc = remember { MutableInteractionSource() }
                 Box(
@@ -115,7 +119,7 @@ fun TabSwitcher(
                         .pointerInput(t.id) {
                             detectHorizontalDragGestures(
                                 onDragStart = { dragging = true },
-                                onDragEnd = { dragging = false; if (kotlin.math.abs(dx) > size.width * 0.35f) { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onClose(i) } else dx = 0f },
+                                onDragEnd = { dragging = false; if (kotlin.math.abs(dx) > size.width * 0.35f) { haptic.performHapticFeedback(HapticFeedbackType.LongPress); closeReq++; onClose(curIdx) } else dx = 0f },
                                 onDragCancel = { dragging = false; dx = 0f },
                                 onHorizontalDrag = { c, d -> c.consume(); dx += d }
                             )

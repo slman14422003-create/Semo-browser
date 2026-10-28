@@ -157,7 +157,7 @@ fun SuggestionsPanel(query: String, onPick: (String) -> Unit, onFill: (String) -
         buildList {
             answer?.let { add(Sug("= " + it, null, 3)) }
             addAll(local)
-            remote.filter { it.isNotBlank() && !it.equals(q, true) }.take(5).forEach { add(Sug(it, null, 0)) }
+            remote.filter { it.isNotBlank() && !it.equals(q, true) }.distinct().take(5)   // مفاتيح LazyColumn يجب ألا تتكرر وإلا ينهار التطبيق.forEach { add(Sug(it, null, 0)) }
         }
     }
     if (rows.isEmpty()) return

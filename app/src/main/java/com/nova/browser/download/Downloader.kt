@@ -172,6 +172,12 @@ object Downloader {
         return t
     }
 
+    /** الاسم الفعلي الذي سجّله MediaStore (قد يضيف « (1)» عند التكرار) بدل الاسم المطلوب. */
+    fun displayName(c: Context, uri: Uri, fallback: String): String =
+        runCatching {
+            c.contentResolver.query(uri, arrayOf(MediaStore.Downloads.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: fallback
+
     /** إضافة ملف مكتمل (ناتج الدمج) إلى قائمة التنزيلات. */
     fun addFinished(name: String, uri: Uri, mime: String, size: Long) {
         val t = DlTask(UUID.randomUUID().toString(), uri.toString(), uri.toString(), "", "")
