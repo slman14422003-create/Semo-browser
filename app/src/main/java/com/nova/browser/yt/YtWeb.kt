@@ -150,7 +150,7 @@ object YtWeb {
             if (!u.startsWith("http")) return
             tab.url = u; tab.canBack = v.canGoBack(); tab.canForward = v.canGoForward(); YtMedia.pageChanged(tab, u)
         }
-        override fun onPageCommitVisible(v: WebView, u: String) { pushInset(v) }
+        override fun onPageCommitVisible(v: WebView, u: String) { pushInset(v); YtHub.pushCc(v) }
         override fun onPageFinished(v: WebView, u: String) {
             pushInset(v)
             tab.loading = false; tab.url = u
