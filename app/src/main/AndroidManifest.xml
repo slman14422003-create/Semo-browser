@@ -22,7 +22,7 @@
         <package android:name="com.google.android.youtube" />
     </queries>
     <application
-        android:label="Semo brawser"
+        android:label="Semo Browser"
         android:supportsRtl="true"
         android:localeConfig="@xml/locales_config"
         android:allowBackup="false"
