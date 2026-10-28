@@ -74,6 +74,7 @@ object Prefs {
     var ytCcSize by mutableIntStateOf(1); private set       // حجم الترجمة في يوتيوب: 0 صغير 1 عادي 2 كبير 3 كبير جداً
     var ytCcBg by mutableIntStateOf(0); private set         // خلفية الترجمة: 0 زجاجية 1 غامقة 2 بلا
     var ytCcPos by mutableIntStateOf(0); private set        // موضع الترجمة: 0 أسفل 1 وسط 2 أعلى
+    var ytAds by mutableStateOf(true); private set
     var ytNoShorts by mutableStateOf(false); private set    // إخفاء شورتس من صفحات يوتيوب
     var ytResume by mutableStateOf(true); private set       // استئناف فيديوهات يوتيوب من حيث توقفت
     var ytKeepRate by mutableStateOf(true); private set      // تذكّر سرعة التشغيل بين الفيديوهات
@@ -114,7 +115,7 @@ object Prefs {
         smoothAnim = p.getBoolean("anim", true); cap60 = p.getBoolean("cap60", true)
         fitPages = p.getBoolean("fitpages", true); forceZoom = p.getBoolean("fzoom", true); unlockCopy = p.getBoolean("ucopy", true); draftSave = p.getBoolean("draft", true); pwaMode = p.getBoolean("pwa", true); pwaHaptics = p.getBoolean("pwahap", true);
         ytCcSize = p.getInt("yccsize", 1).coerceIn(0, 3); ytCcBg = p.getInt("yccbg", 0).coerceIn(0, 2); ytCcPos = p.getInt("yccpos", 0).coerceIn(0, 2)
-        ytNoShorts = p.getBoolean("ytnoshorts", false)
+        ytNoShorts = p.getBoolean("ytnoshorts", false); ytAds = p.getBoolean("ytads", true)
         ytResume = p.getBoolean("ytresume", true); ytKeepRate = p.getBoolean("ytkeeprate", true); ytHold2x = p.getBoolean("ythold2x", true)
         boost = p.getBoolean("boost", true); suggest = p.getBoolean("suggest", true); smart = p.getBoolean("smart", true); brain = p.getBoolean("brain", true)
         notifDone = p.getBoolean("notifdone", true); notifUpdate = p.getBoolean("notifupd", true); notifAsked = p.getBoolean("notifasked", false)
@@ -177,6 +178,7 @@ object Prefs {
     fun pickYtCcSize(v: Int) { ytCcSize = v; sp?.putInt("yccsize", v) }
     fun pickYtCcBg(v: Int) { ytCcBg = v; sp?.putInt("yccbg", v) }
     fun pickYtCcPos(v: Int) { ytCcPos = v; sp?.putInt("yccpos", v) }
+    fun pickYtAds(v: Boolean) { ytAds = v; sp?.putBoolean("ytads", v) }
     fun pickYtNoShorts(v: Boolean) { ytNoShorts = v; sp?.putBoolean("ytnoshorts", v) }
     fun pickPwaHaptics(v: Boolean) { pwaHaptics = v; sp?.putBoolean("pwahap", v) }
     fun pickBoost(v: Boolean) { boost = v; sp?.putBoolean("boost", v) }
@@ -297,6 +299,8 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
             RowSpec(L("حجم الترجمة"), ccSizeNames[Prefs.ytCcSize.coerceIn(0, 3)], Icons.Default.Edit, { dialog = "yccsize" }),
             RowSpec(L("خلفية الترجمة"), ccBgNames[Prefs.ytCcBg.coerceIn(0, 2)], Icons.Default.Edit, { dialog = "yccbg" }),
             RowSpec(L("موضع الترجمة"), ccPosNames[Prefs.ytCcPos.coerceIn(0, 2)], Icons.Default.Edit, { dialog = "yccpos" }),
+            RowSpec(L("حظر إعلانات يوتيوب"), L("يزيل الإعلانات من الفيديو والصفحات داخل التطبيق نفسه، فيعمل مع VPN وبدونه. يُطبَّق عند فتح يوتيوب من جديد"), Icons.Default.Close, { Prefs.pickYtAds(!Prefs.ytAds) },
+                { IosSwitch(checked = Prefs.ytAds, onCheckedChange = null) }),
             RowSpec(L("إخفاء Shorts"), L("يخفي أرفف ومقاطع شورتس من قوائم يوتيوب. يُطبَّق على الصفحات الجديدة"), Icons.Default.Close, { Prefs.pickYtNoShorts(!Prefs.ytNoShorts) },
                 { IosSwitch(checked = Prefs.ytNoShorts, onCheckedChange = null) }),
             RowSpec(L("سجل التشخيص"), L("يساعد في معرفة سبب توقف الفيديو (انسخه وأرسله)"), Icons.Default.Info, { dialog = "ytlog" })

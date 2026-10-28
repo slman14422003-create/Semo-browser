@@ -168,9 +168,9 @@ fun TabSwitcher(
                             }
                         }
                     }
-                    DropdownMenu(
+                    IosMenu(
                         expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(14.dp),
-                        containerColor = ios.menu, tonalElevation = 0.dp, shadowElevation = 12.dp
+                        tonalElevation = 0.dp, shadowElevation = 12.dp
                     ) {
                         Column(Modifier.width(240.dp)) {
                             IosCell(if (t.pinned) L("إلغاء التثبيت") else L("تثبيت"), { t.pinned = !t.pinned; menu = false })
@@ -208,9 +208,9 @@ fun TabSwitcher(
                     Spacer(Modifier.width(4.dp))
                     IosIcon(IosGlyph.ChevronDown, ios.label2, 11.dp, weight = 1.3f)
                 }
-                DropdownMenu(
+                IosMenu(
                     expanded = filterMenu, onDismissRequest = { filterMenu = false }, shape = RoundedCornerShape(14.dp),
-                    containerColor = ios.menu, tonalElevation = 0.dp, shadowElevation = 12.dp
+                    tonalElevation = 0.dp, shadowElevation = 12.dp
                 ) {
                     Column(Modifier.width(240.dp)) {
                         IosCell(L("الكل"), { picked = -1; filterMenu = false }, trailing = if (filter == -1) ({ IosIcon(IosGlyph.Check, ios.blue, 20.dp) }) else null)

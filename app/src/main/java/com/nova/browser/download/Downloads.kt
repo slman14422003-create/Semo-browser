@@ -143,7 +143,7 @@ fun DownloadCard(t: DlTask, modifier: Modifier = Modifier) {
                 }
                 Box {
                     Box(Modifier.size(36.dp).clickable { menu = true }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.EllipsisCircle, ios.blue, 24.dp) }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(14.dp), containerColor = ios.menu, tonalElevation = 0.dp) {
+                    IosMenu(expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(14.dp), tonalElevation = 0.dp) {
                         DropdownMenuItem(text = { Text(L("نسخ الرابط")) }, leadingIcon = { IosIcon(IosGlyph.Copy, ios.label) }, onClick = { menu = false; copyText(ctx, t.origUrl) })
                         if (done) {
                             DropdownMenuItem(text = { Text(L("إزالة من القائمة")) }, leadingIcon = { IosIcon(IosGlyph.Close, ios.label) }, onClick = { menu = false; Downloader.remove(t, false) })

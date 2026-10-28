@@ -14,6 +14,8 @@ object I18n {
         "تحديث تصميم الصفحة" to "Refresh page design",
         "جارٍ جلب أحدث تصميم للصفحة…" to "Fetching the latest page design…",
         "المزيد" to "More",
+        "حظر إعلانات يوتيوب" to "Block YouTube ads",
+        "يزيل الإعلانات من الفيديو والصفحات داخل التطبيق نفسه، فيعمل مع VPN وبدونه. يُطبَّق عند فتح يوتيوب من جديد" to "Removes ads from videos and pages inside the app itself, so it works with or without a VPN. Applies the next time YouTube is opened",
         "استعادة المواقع الافتراضية" to "Restore default sites",
         "Page brain" to "Page brain",
         "Detects the page type and framework, applies matching fixes and speed tweaks, and updates its rules. Applies to new tabs" to "Detects the page type and framework, applies matching fixes and speed tweaks, and updates its rules. Applies to new tabs",

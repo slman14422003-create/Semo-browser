@@ -1,6 +1,8 @@
 package com.nova.browser
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.animation.animateColorAsState
 import android.Manifest
@@ -882,14 +884,14 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
     }
 
     Box(Modifier.fillMaxSize()) {
-        Surface(Modifier.fillMaxSize(), color = if (inPip) Color.Black else iosC.bg) {
+        Surface(Modifier.fillMaxSize().menuBlur(), color = if (inPip) Color.Black else iosC.bg) {
             // وضع التطبيق: الارتفاع يتبدّل فوراً (تحريك ارتفاع الـ WebView كل إطار يسبب تقطيعاً)، والشريط نفسه ينزلق على طبقة الرسم
             val site = if (Prefs.pwaMode && !inPip && customView == null) Pwa.info(tab.url) else null
             val barH = if (site != null) Pwa.BAR_H.dp else 0.dp
             val tintTarget = if (tab.url.isBlank()) iosC.groupedBg else (tab.topColor?.let { Color(it) } ?: iosC.bg)
             val stColor by animateColorAsState(if (site != null) iosC.chrome else tintTarget, tween(Adaptive.ms(220)), label = "statusTint")
             SideEffect {
-                WindowInsetsControllerCompat(activity.window, activity.window.decorView).isAppearanceLightStatusBars = stColor.luminance() > 0.5f
+                WindowInsetsControllerCompat(activity.window, activity.window.decorView).isAppearanceLightStatusBars = (if (site != null) iosC.chrome.compositeOver(iosC.bg) else stColor).luminance() > 0.5f
             }
             if (site == null && !inPip) Box(
                 Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(stColor)
@@ -897,7 +899,13 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
             )
             // لون شريط الحالة يتبع لون شريط الموقع (كان خلفية سادة بينما الشريط مائل للون الهوية)
             AnimatedVisibility(visible = site != null, enter = fadeIn(tween(Adaptive.ms(160))), exit = fadeOut(tween(Adaptive.ms(120)))) { StatusBarWash() }
-            Box(Modifier.fillMaxSize().statusBarsPadding().displayCutoutPadding()) {
+            val bandColor = iosC.chrome.compositeOver(iosC.bg)
+            val bandH = WindowInsets.statusBars.getTop(androidx.compose.ui.platform.LocalDensity.current).toFloat()
+            Box(
+                Modifier.fillMaxSize()
+                    .then(if (site != null) Modifier.drawBehind { drawRect(bandColor, size = androidx.compose.ui.geometry.Size(size.width, bandH)) } else Modifier)
+                    .statusBarsPadding().displayCutoutPadding()
+            ) {
                 Box(Modifier.fillMaxSize().padding(top = barH).pageInsets({ imeSettled.value }, navInsets, pageTyping, inPip).background(iosC.bg)) {
                     AnimatedContent(
                         targetState = tab.id to tab.url.isBlank(),
