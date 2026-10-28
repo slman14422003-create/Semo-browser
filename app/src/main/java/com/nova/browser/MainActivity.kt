@@ -234,14 +234,25 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         WebSupport.warmStart(applicationContext)
         val splash = installSplashScreen()
-        // نتولى حركة الخروج بأنفسنا بدل الاعتماد على سلوك المكتبة الافتراضي (كان يُسقط التطبيق أحياناً على بعض الأجهزة
-        // بخطأ NullPointerException داخلي عند مزامنة حركة الأيقونة). provider.view مضمونة غير فارغة دوماً هنا.
         splash.setOnExitAnimationListener { provider ->
             runCatching {
-                provider.view.animate().alpha(0f).setDuration(180L)
-                    .withEndAction { runCatching { provider.remove() } }
-                    .start()
-            }.onFailure { runCatching { provider.remove() } }
+                val view = provider.view
+                val icon = provider.iconView
+                val startAt = provider.iconAnimationStartMillis
+                val left = if (startAt > 0L) (startAt + provider.iconAnimationDurationMillis - System.currentTimeMillis()).coerceIn(0L, 800L) else 0L
+                val fadeMs = Adaptive.ms(320).toLong()
+                val iconMs = Adaptive.ms(280).toLong()
+                val finish = { runCatching { provider.remove() }; Unit }
+                view.postDelayed({
+                    SplashGate.reveal()
+                    if (fadeMs == 0L) { finish(); return@postDelayed }
+                    val ease = android.view.animation.PathInterpolator(0.32f, 0.72f, 0f, 1f)
+                    icon.animate().scaleX(1.16f).scaleY(1.16f).alpha(0f).setDuration(iconMs).setInterpolator(ease).start()
+                    view.animate().alpha(0f).setStartDelay(40L).setDuration(fadeMs)
+                        .setInterpolator(android.view.animation.LinearInterpolator())
+                        .withEndAction { finish() }.start()
+                }, left)
+            }.onFailure { runCatching { provider.remove() }; SplashGate.reveal() }
         }
         super.onCreate(savedInstanceState)
         CrashLog.install(this)
@@ -260,6 +271,7 @@ class MainActivity : ComponentActivity() {
             rotationAnimation = android.view.WindowManager.LayoutParams.ROTATION_ANIMATION_CROSSFADE
         }
         Prefs.init(this)
+        Prefs.syncNightMode(this)
         SiteStore.init(applicationContext)
         PageBrain.init(applicationContext)
         GoogleAccounts.init(this)

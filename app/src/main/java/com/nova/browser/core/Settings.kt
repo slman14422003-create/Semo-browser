@@ -30,6 +30,7 @@ object Prefs {
     private var sp: ConfStore? = null
     var engine by mutableIntStateOf(0); private set
     var theme by mutableIntStateOf(0); private set          // 0 نظام، 1 فاتح، 2 داكن
+    var hiddenFavs by mutableStateOf<Set<String>>(emptySet()); private set
     var desktop by mutableStateOf(false); private set
     var js by mutableStateOf(true); private set
     var restore by mutableStateOf(true); private set
@@ -97,6 +98,7 @@ object Prefs {
     fun init(c: Context) {
         val p = ConfStore.open(c); sp = p   // كل الإعدادات من ملف nova.conf دفعة واحدة إلى الرام
         engine = p.getInt("engine", 0).coerceIn(0, engines.lastIndex)
+        hiddenFavs = p.getString("hidefav", "").split(",").filter { it.isNotBlank() }.toSet()
         theme = p.getInt("theme", 0); desktop = p.getBoolean("desktop", false)
         js = p.getBoolean("js", true); restore = p.getBoolean("restore", true); maxConns = p.getInt("maxc", 0)
         autoClean = p.getBoolean("autoclean", false); blockAds = p.getBoolean("blockads", true)
@@ -124,7 +126,18 @@ object Prefs {
         if (am != null && am.isEnabled && am.hasEnabledAutofillServices()) 1 else 0
     }.getOrDefault(0)
     fun pickEngine(v: Int) { engine = v; sp?.putInt("engine", v) }
-    fun pickTheme(v: Int) { theme = v; sp?.putInt("theme", v) }
+    fun pickTheme(v: Int, c: Context? = null) { theme = v; sp?.putInt("theme", v); c?.let { syncNightMode(it) } }
+    fun hideFav(host: String) { hiddenFavs = hiddenFavs + host; sp?.putString("hidefav", hiddenFavs.joinToString(",")) }
+    fun restoreFavs() { hiddenFavs = emptySet(); sp?.putString("hidefav", "") }
+    fun syncNightMode(c: Context) {
+        val m = c.applicationContext.getSystemService(android.app.UiModeManager::class.java) ?: return
+        val want = when (theme) {
+            1 -> android.app.UiModeManager.MODE_NIGHT_NO
+            2 -> android.app.UiModeManager.MODE_NIGHT_YES
+            else -> android.app.UiModeManager.MODE_NIGHT_AUTO
+        }
+        runCatching { m.setApplicationNightMode(want) }
+    }
     fun pickDesktop(v: Boolean) { desktop = v; sp?.putBoolean("desktop", v) }
     fun pickJs(v: Boolean) { js = v; sp?.putBoolean("js", v) }
     fun pickRestore(v: Boolean) { restore = v; sp?.putBoolean("restore", v) }
@@ -496,7 +509,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
         "yccbg" -> ChoiceDialog(L("خلفية الترجمة"), ccBgNames, Prefs.ytCcBg.coerceIn(0, 2), { Prefs.pickYtCcBg(it) }) { dialog = null }
         "yccpos" -> ChoiceDialog(L("موضع الترجمة"), ccPosNames, Prefs.ytCcPos.coerceIn(0, 2), { Prefs.pickYtCcPos(it) }) { dialog = null }
         "engine" -> NovaChoiceDialog(L("محرك البحث"), Prefs.engines.map { it.first }, Prefs.engine, Icons.Default.Search, { Prefs.pickEngine(it) }) { dialog = null }
-        "theme" -> NovaChoiceDialog(L("المظهر"), themeNames, Prefs.theme, Icons.Default.Star, { Prefs.pickTheme(it) }) { dialog = null }
+        "theme" -> NovaChoiceDialog(L("المظهر"), themeNames, Prefs.theme, Icons.Default.Star, { Prefs.pickTheme(it, ctx) }) { dialog = null }
         "conns" -> ChoiceDialog(L("الحد الأقصى للاتصالات"), connNames, connOpts.indexOf(Prefs.maxConns).coerceAtLeast(0), { Prefs.pickMaxConns(connOpts[it]) }) { dialog = null }
         "crash" -> NovaDialog(
             title = L("سجل الأعطال"), icon = Icons.Default.Warning, onDismiss = { dialog = null },

@@ -14,6 +14,7 @@ object I18n {
         "تحديث تصميم الصفحة" to "Refresh page design",
         "جارٍ جلب أحدث تصميم للصفحة…" to "Fetching the latest page design…",
         "المزيد" to "More",
+        "استعادة المواقع الافتراضية" to "Restore default sites",
         "Page brain" to "Page brain",
         "Detects the page type and framework, applies matching fixes and speed tweaks, and updates its rules. Applies to new tabs" to "Detects the page type and framework, applies matching fixes and speed tweaks, and updates its rules. Applies to new tabs",
         "إضافة إلى صفحة البداية" to "Add to Start Page",
