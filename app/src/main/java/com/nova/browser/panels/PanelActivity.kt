@@ -76,7 +76,7 @@ private fun PanelHost(kind: String, close: () -> Unit) {
     BackHandler(enabled = passwords) { passwords = false; if (kind == "passwords") close() }
     BackHandler(enabled = libShow) { Library.show = false; library = false; if (kind == "library") close() }
 
-    Box(Modifier.fillMaxSize().imePadding()) {
+    Box(Modifier.fillMaxSize().imePadding().menuBlur()) {
         if (base == "downloads") DownloadsScreen(onBack = close)
         else if (kind == "settings") SettingsScreen(
             onBack = close,

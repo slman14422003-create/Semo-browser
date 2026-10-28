@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -67,9 +68,9 @@ fun SiteBar(
     val ios = LocalIos.current
     val haptic = LocalHapticFeedback.current
     fun tap(a: () -> Unit): () -> Unit = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); a() }
-    val wash = siteWash(ios.chrome)
+    val wash = siteWash(siteBarColor())
 
-    Column(modifier.fillMaxWidth().background(ios.chrome)) {
+    Column(modifier.fillMaxWidth().background(siteBarColor())) {
         Row(
             Modifier.fillMaxWidth().height(UiLayout.BAR_ROW_DP.dp).background(wash).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -122,11 +123,17 @@ fun SiteBar(
 /** تدرّج هوية الشريط العلوي (يُستخدم أيضاً خلف شريط حالة النظام كي يتطابق اللونان). */
 fun siteWash(base: Color): Brush = SolidColor(base)
 
+@Composable
+fun siteBarColor(): Color {
+    val ios = LocalIos.current
+    return ios.chrome.compositeOver(ios.bg)
+}
+
 /** امتداد خلفية الشريط خلف شريط حالة النظام: نفس الخلفية ونفس التدرّج بلا حدّ فاصل. */
 @Composable
 fun StatusBarWash(modifier: Modifier = Modifier) {
     val ios = LocalIos.current
-    Box(modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(siteWash(ios.chrome)))
+    Box(modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(siteWash(siteBarColor())))
 }
 
 @Composable

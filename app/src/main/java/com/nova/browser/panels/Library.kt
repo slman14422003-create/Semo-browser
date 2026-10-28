@@ -328,7 +328,7 @@ private fun ItemMenu(url: String, title: String, showFav: Boolean, onOpen: () ->
     var open by remember { mutableStateOf(false) }
     Box {
         Box(Modifier.size(36.dp).clickable { open = true }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.EllipsisCircle, LocalIos.current.blue, 24.dp) }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(14.dp), containerColor = LocalIos.current.menu, tonalElevation = 0.dp) {
+        IosMenu(expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(14.dp), tonalElevation = 0.dp) {
             DropdownMenuItem(text = { Text(L("فتح")) }, leadingIcon = { Icon(Icons.Default.ExitToApp, null) }, onClick = { open = false; onOpen() })
             DropdownMenuItem(text = { Text(L("نسخ الرابط")) }, leadingIcon = { Icon(Icons.Default.Edit, null) }, onClick = { open = false; copyText(ctx, url) })
             DropdownMenuItem(text = { Text(L("مشاركة")) }, leadingIcon = { Icon(Icons.Default.Share, null) }, onClick = { open = false; shareText(ctx, url) })

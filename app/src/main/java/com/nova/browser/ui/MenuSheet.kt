@@ -175,9 +175,9 @@ fun PageMenu(
     LaunchedEffect(expanded) { if (!expanded) sub = false }
     val zoomNames = listOf(L("صغير"), L("عادي"), L("كبير"), L("كبير جداً"))
     fun act(a: () -> Unit) { onDismiss(); a() }
-    DropdownMenu(
+    IosMenu(
         expanded = expanded, onDismissRequest = onDismiss, shape = RoundedCornerShape(14.dp),
-        containerColor = ios.menu, tonalElevation = 0.dp, shadowElevation = 12.dp
+        tonalElevation = 0.dp, shadowElevation = 12.dp
     ) {
         Column(Modifier.width(260.dp)) {
             if (!sub) {

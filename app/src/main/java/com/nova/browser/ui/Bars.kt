@@ -170,9 +170,9 @@ private fun RowScope.ToolbarBtn(
     ) {
         val tbTint by animateColorAsState(if (enabled) ios.blue else ios.label3, tween(Adaptive.ms(200)), label = "tbTint")
         IosIcon(kind, tbTint, 25.dp, Modifier.pressScale(src, 0.86f))
-        if (menu != null) DropdownMenu(
+        if (menu != null) IosMenu(
             expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(14.dp),
-            containerColor = ios.menu, tonalElevation = 0.dp, shadowElevation = 12.dp
+            tonalElevation = 0.dp, shadowElevation = 12.dp
         ) {
             Column(Modifier.width(260.dp)) { menu({ open = false }) }
         }

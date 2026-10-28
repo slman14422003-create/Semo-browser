@@ -47,9 +47,9 @@ fun PanelMenu(content: @Composable ColumnScope.(close: () -> Unit) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         RoundBtn(onClick = { open = true }) { IosIcon(IosGlyph.EllipsisCircle, ios.blue, 26.dp) }
-        DropdownMenu(
+        IosMenu(
             expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(14.dp),
-            containerColor = ios.menu, tonalElevation = 0.dp, shadowElevation = 12.dp
+            tonalElevation = 0.dp, shadowElevation = 12.dp
         ) {
             content({ open = false })
         }

@@ -18,6 +18,9 @@ object YtHub {
     private val origins get() = YtBridge.origins
 
     private val raw: String? by lazy { runCatching { Perf.asset("yt.js") }.getOrNull() }
+    private val adsRaw: String? by lazy { runCatching { Perf.asset("ytads.js") }.getOrNull() }
+
+    private fun adsScript(): String? = adsRaw?.replace("__ADS__", Prefs.ytAds.toString())
 
     // النص النهائي بعد استبدال الإعدادات؛ يُعاد حسابه فقط عند تغيّر إحداها
     private var built: String? = null
@@ -52,6 +55,7 @@ object YtHub {
     /** يُستدعى عند إنشاء الـ WebView المخصّص: مستمع الرسائل ثم حقن السكربت قبل أي سكربت للصفحة. */
     fun install(wv: WebView, tab: BrowserTab, h: Handlers) {
         YtBridge.listen(wv, tab, h)
+        adsScript()?.let { a -> if (docStart) runCatching { WebViewCompat.addDocumentStartJavaScript(wv, a, origins) } }
         val js = script(wv.context.applicationContext) ?: return
         if (docStart) runCatching { WebViewCompat.addDocumentStartJavaScript(wv, js, origins) }
     }
@@ -59,6 +63,7 @@ object YtHub {
     /** احتياطي للأجهزة بلا حقن مبكر. */
     fun onPageStart(wv: WebView, url: String) {
         if (docStart || !isYt(url)) return
+        adsScript()?.let { wv.evaluateJavascript(it, null) }
         script(wv.context.applicationContext)?.let { wv.evaluateJavascript(it, null) }
     }
 }
