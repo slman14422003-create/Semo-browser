@@ -250,9 +250,10 @@ object Downloader {
         c.instanceFollowRedirects = false
         c.connectTimeout = 15000; c.readTimeout = 20000; c.useCaches = false
         c.setRequestProperty("Accept-Encoding", "identity")
-        if (t.ua.isNotBlank()) c.setRequestProperty("User-Agent", t.ua)
+        val ua = t.ua.ifBlank { CookieBridge.userAgent }
+        if (ua.isNotBlank()) c.setRequestProperty("User-Agent", ua)
         if (t.referer.isNotBlank()) c.setRequestProperty("Referer", t.referer)
-        val ck = CookieManager.getInstance().getCookie(url)
+        val ck = CookieBridge.header(url) ?: CookieManager.getInstance().getCookie(url)
         if (!ck.isNullOrBlank()) c.setRequestProperty("Cookie", ck)
         if (range != null) c.setRequestProperty("Range", range)
         return c

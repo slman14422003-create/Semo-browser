@@ -117,8 +117,17 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
         fun header(name: String) = response.headers.entries.firstOrNull { it.key.equals(name, true) }?.value
         val cd = header("Content-Disposition")
         val mime = header("Content-Type")
+        val uri = response.uri
+        val ref = tab.url
+        if (uri.startsWith("blob:", true) || uri.startsWith("data:", true)) {
+            if (!Shield.downloadAllowed(hostOf(ref.ifBlank { uri }))) {
+                runCatching { response.body?.close() }
+                toast(ctx, L("Blocked repeated automatic downloads from this page"))
+            } else StreamDownload.start(ctx, response, cd, mime)
+            return
+        }
         runCatching { response.body?.close() }
-        h.onDownload(response.uri, null, cd, mime, tab.url)
+        h.onDownload(uri, null, cd, mime, ref)
     }
 
     override fun onCrash(tab: EngineTab) {

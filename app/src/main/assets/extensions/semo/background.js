@@ -43,3 +43,45 @@ browser.webRequest.onBeforeRequest.addListener(
   { urls: ["http://*/*", "https://*/*"] },
   ["blocking"]
 );
+
+let nativePort = null;
+let nativeRetry = 0;
+
+function nativeSchedule() {
+  nativeRetry = Math.min(nativeRetry + 1, 10);
+  setTimeout(nativeConnect, 500 * nativeRetry);
+}
+
+function nativeReply(p, msg) {
+  try {
+    p.postMessage(msg);
+  } catch (e) {}
+}
+
+function nativeConnect() {
+  let p;
+  try {
+    p = browser.runtime.connectNative("semo");
+  } catch (e) {
+    nativeSchedule();
+    return;
+  }
+  nativePort = p;
+  p.onDisconnect.addListener(() => {
+    if (nativePort === p) nativePort = null;
+    nativeSchedule();
+  });
+  p.onMessage.addListener(m => {
+    if (!m || typeof m !== "object") return;
+    if (m.type === "cookies") {
+      browser.cookies
+        .getAll({ url: m.url })
+        .then(list => nativeReply(p, { type: "cookies", id: m.id, header: list.map(c => c.name + "=" + c.value).join("; ") }))
+        .catch(() => nativeReply(p, { type: "cookies", id: m.id, header: "" }));
+    }
+  });
+  nativeRetry = 0;
+  nativeReply(p, { type: "hello", ua: navigator.userAgent });
+}
+
+nativeConnect();
