@@ -95,7 +95,7 @@ class GeckoUi(private val h: Handlers) : GeckoSession.PromptDelegate, GeckoSessi
             }
         }
         add(prompt.choices)
-        val labels = flat.map { it.label ?: "" }.toTypedArray()
+        val labels = flat.map { it.label }.toTypedArray()
         val b = AlertDialog.Builder(act)
         if (!prompt.title.isNullOrBlank()) b.setTitle(prompt.title)
         if (prompt.type == GeckoSession.PromptDelegate.ChoicePrompt.Type.MULTIPLE) {
