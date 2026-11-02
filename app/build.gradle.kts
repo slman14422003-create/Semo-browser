@@ -20,7 +20,9 @@ val hasReleaseSigning = ksPath != null && ksPass != null && ksAlias != null && r
 
 android {
     namespace = "com.nova.browser"
-    compileSdk = 35
+    compileSdk {
+        version = release(37) { minorApiLevel = 1 }
+    }
     defaultConfig {
         applicationId = "com.nova.browser"
         minSdk = 35
