@@ -51,6 +51,11 @@ object SmartAssist {
         }
     }
 
+    fun summarizeRaw(ctx: Context, result: String?, url: String, open: (String) -> Unit) {
+        val s = parse(if (result == null) null else org.json.JSONObject.quote(result))
+        if (s == null) toast(ctx, S(R.string.smart_no_summary)) else show(ctx, s, url, open)
+    }
+
     fun summarize(ctx: Context, wv: WebView, open: (String) -> Unit) {
         val src = script ?: return
         wv.evaluateJavascript(src) { raw ->

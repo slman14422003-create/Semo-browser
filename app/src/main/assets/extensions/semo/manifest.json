@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Semo Shield",
-  "version": "1.2",
+  "version": "1.4",
   "browser_specific_settings": {
     "gecko": {
       "id": "shield@semo.browser"
@@ -13,6 +13,7 @@
     "cookies",
     "nativeMessaging",
     "geckoViewAddons",
+    "scripting",
     "<all_urls>"
   ],
   "background": {
@@ -42,6 +43,32 @@
       ],
       "run_at": "document_end",
       "all_frames": false
+    },
+    {
+      "matches": [
+        "https://m.youtube.com/*",
+        "https://www.youtube.com/*",
+        "https://youtube.com/*"
+      ],
+      "js": [
+        "yt-relay.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "page.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": false
     }
+  ],
+  "web_accessible_resources": [
+    "yt-main.js"
   ]
 }

@@ -23,8 +23,13 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
 
     override fun onUrl(tab: EngineTab, url: String) {
         if (url.startsWith("http")) {
+            PageTint.onStart(this.tab, url)
             this.tab.url = url
             this.tab.shieldHost = Shield.hostFor(url)
+            val yt = GeckoYt.isYtUrl(url)
+            if (this.tab.yt && !yt) this.tab.ytPlaying = false
+            this.tab.yt = yt
+            YtMedia.pageChanged(this.tab, url)
         }
     }
 
@@ -42,6 +47,7 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
         if (loading) {
             this.tab.clearFailedIfNew()
             this.tab.thirdOn = false
+            if (this.tab.yt) GeckoYt.pushCfg(this.tab)
         } else {
             (this.tab.engineView as? SwipeRefreshLayout)?.isRefreshing = false
             if (!this.tab.popup && tab.url.startsWith("http")) Library.visit(tab.url, tab.title)
@@ -62,6 +68,21 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
                     toast(ctx, "Blocked spoofed link")
                     false
                 } else {
+                    if (current && gesture && this.tab.yt && !GeckoYt.staysInside(u)) {
+                        h.openTab(Security.cleanUrl(u).toString())
+                        return false
+                    }
+                    if (current && GoogleAccounts.isSignInUrl(u)) {
+                        val hinted = GoogleAccounts.withHint(u)
+                        if (GoogleAccounts.useChrome && GoogleAccounts.openInCustomTab(h.activity, hinted)) {
+                            toast(ctx, "Google sign-in opened in Chrome")
+                            return false
+                        }
+                        if (hinted != u) {
+                            main.post { tab.load(hinted.toString()) }
+                            return false
+                        }
+                    }
                     var c = Security.cleanUrl(u)
                     val host = c.host
                     if (current && Prefs.httpsFirst && c.scheme == "http" && host != null && host != this.tab.noUpgradeHost) {
@@ -109,8 +130,17 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
     }
 
     override fun onNewTab(tab: EngineTab, uri: String): EngineTab? {
-        h.openTab(uri)
-        return null
+        val t = h.newPopup(uri)
+        if (t == null) {
+            h.openTab(uri)
+            return null
+        }
+        val sel = GeckoSelection(h.activity) { id, text -> SmartAssist.onSelection(h.activity, id, text, h.openTab) }
+        return EngineTab(t.id, GeckoBridge(t, h), null, t.desktop, GeckoUi(h), sel, GeckoMedia(t), false).also { t.engine = it }
+    }
+
+    override fun onClose(tab: EngineTab) {
+        main.post { h.closePopup(this.tab) }
     }
 
     override fun onDownload(tab: EngineTab, response: WebResponse) {
@@ -131,18 +161,28 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
     }
 
     override fun onCrash(tab: EngineTab) {
+        val saved = this.tab.engine?.state
         main.post {
+            h.onGeckoFullScreen(false)
+            GeckoYt.fullscreen = false
+            if (this.tab.yt) {
+                YtMedia.tabClosed(this.tab)
+                GeckoYt.forget(this.tab)
+            }
+            GeckoPage.forget(this.tab)
             this.tab.engine?.close()
             this.tab.engine = null
             this.tab.engineView = null
             this.tab.loading = false
             this.tab.holdLoad = !WebCompat.rendererGone(this.tab)
+            if (!this.tab.holdLoad) this.tab.engineState = saved
             this.tab.epoch++
         }
     }
 
     override fun onFullScreen(tab: EngineTab, on: Boolean) {
         h.onGeckoFullScreen(on)
+        if (this.tab.yt) GeckoYt.onFullscreen(this.tab, on) else GeckoYt.fullscreen = on
         val w = h.activity.window
         val c = WindowCompat.getInsetsController(w, w.decorView)
         if (on) {
@@ -150,18 +190,24 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
             c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
             c.show(WindowInsetsCompat.Type.systemBars())
+            if (this.tab.yt) GeckoYt.afterFullscreen(this.tab)
         }
     }
 }
 
 fun geckoContainer(ctx: Context, tb: BrowserTab, h: Handlers, primary: Int, bg: Int, spinner: Int): View {
     val view = GeckoView(ctx)
+    tb.yt = GeckoYt.isYtUrl(tb.url)
     var fresh = false
     val e = tb.engine ?: run {
         fresh = true
+        if (tb.engineState == null && tb.url.startsWith("http")) {
+            val sd = SiteStore.get(hostOf(tb.url).removePrefix("www.")).desktop
+            if (sd >= 0) tb.desktop = sd == 1
+        }
         val st = tb.engineState
         tb.engineState = null
-        EngineTab(tb.id, GeckoBridge(tb, h), st, tb.desktop, GeckoUi(h), GeckoSelection(h.activity) { id, text -> SmartAssist.onSelection(h.activity, id, text, h.openTab) }).also { tb.engine = it }
+        EngineTab(tb.id, GeckoBridge(tb, h), st, tb.desktop, GeckoUi(h), GeckoSelection(h.activity) { id, text -> SmartAssist.onSelection(h.activity, id, text, h.openTab) }, GeckoMedia(tb)).also { tb.engine = it }
     }
     e.attach(view)
     if (fresh && !e.restored) {
@@ -178,7 +224,7 @@ fun geckoContainer(ctx: Context, tb: BrowserTab, h: Handlers, primary: Int, bg: 
         addView(view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         setOnRefreshListener { e.reload() }
         setOnChildScrollUpCallback { _, _ ->
-            if (e.scrollY > 0) true
+            if (e.scrollY > 0 || tb.noPull) true
             else {
                 val u = tb.url
                 if (u != judgedUrl) {

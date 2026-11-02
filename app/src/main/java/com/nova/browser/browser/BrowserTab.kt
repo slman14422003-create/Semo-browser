@@ -58,6 +58,7 @@ class BrowserTab(val id: Int, startUrl: String = "") {
     fun markFailed() { failedAt = android.os.SystemClock.elapsedRealtime(); failed = true }
     /** صفحة الخطأ نفسها تطلق onPageStarted بعد لحظة؛ أي بدء تحميل لاحق جديد يمسح العلامة. */
     fun clearFailedIfNew() { if (android.os.SystemClock.elapsedRealtime() - failedAt > 1500L) failed = false }
+    @Volatile var noPull = false
     var yt = false                       // هذا التبويب يعرض يوتيوب في الـ WebView المخصّص (YtWeb) لا العام
 }
 
@@ -76,5 +77,7 @@ class Handlers(
     val filePick: (Intent, ValueCallback<Array<Uri>>) -> Unit = { _, cb -> cb.onReceiveValue(null) },
     val androidPerm: (List<String>, () -> Unit) -> Unit = { _, c -> c() },
     val sitePerm: (String, String, List<String>, (Boolean) -> Unit) -> Unit = { _, _, _, d -> d(false) },
-    val onGeckoFullScreen: (Boolean) -> Unit = {}
+    val onGeckoFullScreen: (Boolean) -> Unit = {},
+    val newPopup: (String) -> BrowserTab? = { null },
+    val closePopup: (BrowserTab) -> Unit = {}
 )

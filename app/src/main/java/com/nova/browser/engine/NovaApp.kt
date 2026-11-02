@@ -29,6 +29,7 @@ class NovaApp : Application() {
                 .setAntiTracking(ContentBlocking.AntiTracking.DEFAULT)
                 .setSafeBrowsing(ContentBlocking.SafeBrowsing.DEFAULT)
                 .setCookieBehavior(ContentBlocking.CookieBehavior.ACCEPT_NON_TRACKERS)
+            GeckoSettings.update(created.settings)
             created.webExtensionController.ensureBuiltIn("resource://android/assets/extensions/semo/", "shield@semo.browser")
                 .accept { ext -> ext?.setMessageDelegate(CookieBridge, CookieBridge.APP) }
             rt = created

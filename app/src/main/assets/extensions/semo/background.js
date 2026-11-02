@@ -46,6 +46,7 @@ browser.webRequest.onBeforeRequest.addListener(
 
 let nativePort = null;
 let nativeRetry = 0;
+let ytCfg = null;
 
 function nativeSchedule() {
   nativeRetry = Math.min(nativeRetry + 1, 10);
@@ -80,6 +81,26 @@ function nativeConnect() {
         .catch(() => nativeReply(p, { type: "cookies", id: m.id, header: "" }));
     } else if (m.type === "fill") {
       browser.tabs.sendMessage(m.tab, { pwFill: true, host: m.host, u: m.u, p: m.p }, { frameId: 0 }).catch(() => {});
+    } else if (m.type === "ytcfg") {
+      ytCfg = m.cfg || null;
+      if (Array.isArray(m.tabs)) {
+        for (const id of m.tabs) {
+          browser.tabs.sendMessage(id, { ytcfg: ytCfg }, { frameId: 0 }).catch(() => {});
+        }
+      }
+    } else if (m.type === "exec") {
+      if (m.file !== "summarize.js" && m.file !== "reader.js") {
+        nativeReply(p, { type: "execres", id: m.id, result: null });
+      } else {
+        browser.tabs
+          .executeScript(m.tab, { file: m.file, runAt: "document_idle" })
+          .then(r => nativeReply(p, { type: "execres", id: m.id, result: r && r.length ? r[r.length - 1] : null }))
+          .catch(() => nativeReply(p, { type: "execres", id: m.id, result: null }));
+      }
+    } else if (m.type === "ytcall") {
+      browser.tabs
+        .sendMessage(m.tab, { ytcall: true, fn: m.fn, args: m.args }, { frameId: 0 })
+        .catch(() => {});
     }
   });
   nativeRetry = 0;
@@ -89,6 +110,39 @@ function nativeConnect() {
 nativeConnect();
 
 browser.runtime.onMessage.addListener((m, sender) => {
-  if (!m || !m.pw || !sender || !sender.tab || sender.frameId !== 0 || !nativePort) return;
-  nativeReply(nativePort, { type: "pw", tab: sender.tab.id, url: sender.url, o: m.pw });
+  if (!m || typeof m !== "object") return;
+  if (m.ytcfg) return Promise.resolve(ytCfg);
+  if (!sender || !sender.tab || sender.frameId !== 0 || !nativePort) return;
+  if (m.page && typeof m.page === "object") {
+    nativeReply(nativePort, { type: "page", tab: sender.tab.id, url: sender.url, o: m.page });
+  } else if (m.pw) {
+    nativeReply(nativePort, { type: "pw", tab: sender.tab.id, url: sender.url, o: m.pw });
+  } else if (typeof m.yt === "string" && m.yt.length <= 6000) {
+    nativeReply(nativePort, { type: "yt", tab: sender.tab.id, url: sender.url, s: m.yt });
+  }
 });
+
+const YT_MATCHES = ["https://m.youtube.com/*", "https://www.youtube.com/*", "https://youtube.com/*"];
+const YT_ID = "semo-yt-main";
+
+async function registerYtMain() {
+  try {
+    if (!browser.scripting || !browser.scripting.registerContentScripts) return;
+    try {
+      await browser.scripting.unregisterContentScripts({ ids: [YT_ID] });
+    } catch (e) {}
+    await browser.scripting.registerContentScripts([
+      {
+        id: YT_ID,
+        matches: YT_MATCHES,
+        js: ["yt-main.js"],
+        runAt: "document_start",
+        world: "MAIN",
+        allFrames: false,
+        persistAcrossSessions: false
+      }
+    ]);
+  } catch (e) {}
+}
+
+registerYtMain();

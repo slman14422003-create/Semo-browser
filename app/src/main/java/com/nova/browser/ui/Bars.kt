@@ -180,6 +180,16 @@ private fun RowScope.ToolbarBtn(
 }
 
 private fun historyItems(tab: BrowserTab, back: Boolean): List<Pair<String, Int>> {
+    val g = tab.engine
+    if (g != null) {
+        val cur = g.historyIndex
+        val hl = g.history
+        val rg = if (back) (cur - 1 downTo 0) else (cur + 1 until hl.size)
+        return rg.filter { it >= 0 && it < hl.size }.map { i ->
+            val e = hl[i]
+            (if (e.first.isNotBlank()) e.first else hostOf(e.second)) to (i - cur)
+        }.take(12)
+    }
     val wv = tab.webView ?: return emptyList()
     val l = wv.copyBackForwardList()
     val cur = l.currentIndex
@@ -344,14 +354,14 @@ fun BottomPill(
                                 IosGlyph.Back, tab.canBack || hasPage, { if (tab.canBack) { tab.engine?.back(); tab.webView?.let { WebSupport.goBackFast(it) } } else onHome() },
                                 menu = if (tab.canBack) ({ close ->
                                     val items = historyItems(tab, true)
-                                    items.forEachIndexed { n, p -> IosCell(p.first, { close(); tab.webView?.goBackOrForward(p.second) }, divider = n < items.lastIndex) }
+                                    items.forEachIndexed { n, p -> IosCell(p.first, { close(); val g = tab.engine; if (g != null) g.goRelative(p.second) else tab.webView?.goBackOrForward(p.second) }, divider = n < items.lastIndex) }
                                 }) else null
                             )
                             ToolbarBtn(
                                 IosGlyph.Forward, tab.canForward, { tab.engine?.forward(); tab.webView?.let { WebSupport.goForwardFast(it) } },
                                 menu = if (tab.canForward) ({ close ->
                                     val items = historyItems(tab, false)
-                                    items.forEachIndexed { n, p -> IosCell(p.first, { close(); tab.webView?.goBackOrForward(p.second) }, divider = n < items.lastIndex) }
+                                    items.forEachIndexed { n, p -> IosCell(p.first, { close(); val g = tab.engine; if (g != null) g.goRelative(p.second) else tab.webView?.goBackOrForward(p.second) }, divider = n < items.lastIndex) }
                                 }) else null
                             )
                             ToolbarBtn(IosGlyph.Share, hasPage, { sheet = true })

@@ -6,6 +6,7 @@ import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
+import org.mozilla.geckoview.MediaSession
 import org.mozilla.geckoview.WebResponse
 
 interface EngineListener {
@@ -20,6 +21,7 @@ interface EngineListener {
     fun onCrash(tab: EngineTab) {}
     fun onFullScreen(tab: EngineTab, on: Boolean) {}
     fun onFind(tab: EngineTab, current: Int, total: Int) {}
+    fun onClose(tab: EngineTab) {}
 }
 
 class EngineTab(
@@ -28,7 +30,9 @@ class EngineTab(
     restore: GeckoSession.SessionState? = null,
     desktop: Boolean = false,
     ui: GeckoUi? = null,
-    selection: GeckoSession.SelectionActionDelegate? = null
+    selection: GeckoSession.SelectionActionDelegate? = null,
+    media: MediaSession.Delegate? = null,
+    open: Boolean = true
 ) {
     val session: GeckoSession = GeckoSession(
         GeckoSessionSettings.Builder()
@@ -52,6 +56,10 @@ class EngineTab(
     var canForward: Boolean = false
         private set
     var scrollY: Int = 0
+        private set
+    var history: List<Pair<String, String>> = emptyList()
+        private set
+    var historyIndex: Int = -1
         private set
     var state: GeckoSession.SessionState? = null
         private set
@@ -131,6 +139,10 @@ class EngineTab(
                 listener.onFullScreen(this@EngineTab, fullScreen)
             }
 
+            override fun onCloseRequest(s: GeckoSession) {
+                listener.onClose(this@EngineTab)
+            }
+
             override fun onCrash(s: GeckoSession) {
                 listener.onCrash(this@EngineTab)
             }
@@ -151,7 +163,14 @@ class EngineTab(
             session.permissionDelegate = ui
         }
         if (selection != null) session.selectionActionDelegate = selection
-        session.open(NovaApp.runtime())
+        if (media != null) session.setMediaSessionDelegate(media)
+        session.historyDelegate = object : GeckoSession.HistoryDelegate {
+            override fun onHistoryStateChange(s: GeckoSession, list: GeckoSession.HistoryDelegate.HistoryList) {
+                historyIndex = list.currentIndex
+                history = list.map { (it.title ?: "") to (it.uri ?: "") }
+            }
+        }
+        if (open) session.open(NovaApp.runtime())
         if (restore != null) session.restoreState(restore)
     }
 
@@ -181,6 +200,11 @@ class EngineTab(
     fun stop() = session.stop()
     fun back() = session.goBack()
     fun forward() = session.goForward()
+
+    fun goRelative(offset: Int) {
+        val i = historyIndex + offset
+        if (i >= 0 && i < history.size) session.gotoHistoryIndex(i)
+    }
     fun setActive(active: Boolean) = session.setActive(active)
 
     fun setDesktop(desktop: Boolean) {

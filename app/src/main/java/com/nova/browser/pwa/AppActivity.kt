@@ -290,10 +290,15 @@ class AppActivity : ComponentActivity() {
 
     /** يدفع الخيارات الحالية (Shorts/التركيز/الجودة بحسب الشبكة) إلى صفحة يوتيوب؛ آمن إن لم تكن الصفحة جاهزة. */
     private fun pushOpts() {
-        val w = tab.webView ?: return
-        if (!tab.yt || !YtWeb.owns(w)) return
+        if (!tab.yt) return
         val metered = getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered ?: false
         val q = qualityJs(if (metered) optQMobile else optQWifi)
+        if (tab.engine != null) {
+            GeckoYt.pushOpts(tab, optShorts, optFocus, q)
+            return
+        }
+        val w = tab.webView ?: return
+        if (!YtWeb.owns(w)) return
         w.evaluateJavascript("window.__novaOpts&&window.__novaOpts({shorts:$optShorts,focus:$optFocus,q:'$q'})", null)
     }
 
@@ -334,6 +339,7 @@ class AppActivity : ComponentActivity() {
         sleepMin = 0; sleepEnd = 0L; sleepLeft = 0
         if (YtAudio.active) YtAudio.control("pause")
         else if (YtMedia.owner === tab) YtMedia.control("pause")
+        if (GeckoYt.owns(tab)) GeckoYt.control(tab, "pause")
         tab.webView?.evaluateJavascript("document.querySelectorAll('video,audio').forEach(function(m){try{m.pause()}catch(e){}})", null)
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         toast(this, L("انتهى مؤقّت النوم وأُوقف التشغيل"))
@@ -381,7 +387,7 @@ class AppActivity : ComponentActivity() {
         val u = tab.url; val p = YtMedia.pos
         YtMedia.control("pause")
         YtAudio.start(this, u, p, YtMedia.title, YtMedia.artist)
-        tab.webView?.loadUrl("https://m.youtube.com/")   // leave the video page; the mini player takes over
+        if (tab.engine != null) tab.engine?.load("https://m.youtube.com/") else tab.webView?.loadUrl("https://m.youtube.com/")
     }
 
     // ───────── إيماءات الحواف في ملء الشاشة: يسار = سطوع، يمين = صوت ─────────
@@ -521,12 +527,14 @@ class AppActivity : ComponentActivity() {
         inPip = isInPictureInPictureMode
         wasPip = wasPip || isInPictureInPictureMode
         YtWeb.pip = isInPictureInPictureMode
+        GeckoYt.pip = isInPictureInPictureMode
         // عودة المستخدم للواجهة (توسيع المنبثقة): لا يُعدّ أي إيقاف لاحق إغلاقاً للمنبثقة، وإلا يتوقف الصوت عند الخروج العادي
         if (!isInPictureInPictureMode) window.decorView.postDelayed({
             if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) wasPip = false
         }, 500)
         val w = tab.webView
         if (YtWeb.owns(w)) YtWeb.onPip(w, isInPictureInPictureMode, custom != null)
+        if (GeckoYt.owns(tab)) GeckoYt.onPip(tab, isInPictureInPictureMode, custom != null || geckoFull)
     }
 
     private fun reapplyInsets() {
@@ -554,6 +562,7 @@ class AppActivity : ComponentActivity() {
             tab.webView?.let { refitWeb(it) }
             tab.engineView?.let { it.requestLayout(); it.invalidate() }
         }, d)
+        if (GeckoYt.owns(tab)) GeckoYt.afterRotate(tab)
         val w = tab.webView ?: return
         if (YtWeb.owns(w)) {
             YtWeb.afterRotate(w)
@@ -578,6 +587,10 @@ class AppActivity : ComponentActivity() {
             YtWeb.background(w, false)
             YtWeb.recover(w)
         }
+        if (!inPip && GeckoYt.owns(tab)) {
+            GeckoYt.background(tab, false)
+            GeckoYt.recover(tab)
+        }
     }
 
     override fun onResume() {
@@ -587,11 +600,15 @@ class AppActivity : ComponentActivity() {
             it.resumeTimers()
             if (YtWeb.owns(it)) YtHub.pushCc(it)
         }
+        if (GeckoYt.owns(tab)) GeckoYt.pushCfg(tab)
     }
 
     override fun onPause() {
         super.onPause()
-        if (Prefs.ytBg && YtMedia.owner === tab) YtWeb.background(tab.webView, true)
+        if (Prefs.ytBg && YtMedia.owner === tab) {
+            YtWeb.background(tab.webView, true)
+            if (GeckoYt.owns(tab)) GeckoYt.background(tab, true)
+        }
     }
 
     override fun onStop() {
@@ -604,11 +621,13 @@ class AppActivity : ComponentActivity() {
             wasPip = false
             inPip = false
             YtWeb.pip = false
+            GeckoYt.pip = false
             YtMedia.stop(pause = true)
             return
         }
-        if (Prefs.pauseBg && !geckoFull) tab.engine?.setActive(false)
         val live = Prefs.ytBg && YtMedia.owner === tab
+        if (Prefs.pauseBg && !geckoFull && !live) tab.engine?.setActive(false)
+        if (live && GeckoYt.owns(tab)) GeckoYt.background(tab, true)
         if (live) YtWeb.background(w, true)
         else if (Prefs.pauseBg && custom == null) w?.onPause()
     }
@@ -618,6 +637,10 @@ class AppActivity : ComponentActivity() {
         mainH.removeCallbacks(hudHide)
         if (pipReceiverOn) { runCatching { unregisterReceiver(pipReceiver) }; pipReceiverOn = false }
         if (YtMedia.owner === tab) YtMedia.killPlayback()
+        GeckoYt.unregister(this)
+        GeckoPage.unregister(this)
+        GeckoYt.forget(tab)
+        GeckoPage.forget(tab)
         custom = null
         runCatching { customCb?.onCustomViewHidden() }
         tab.webView?.let { w ->
@@ -665,7 +688,12 @@ class AppActivity : ComponentActivity() {
         optDim = AppPrefs.dim(this, hostKey)
         optGestures = AppPrefs.gestures(this, hostKey)
         if (optDim) applyDim()
-        if (YtWeb.isYtUrl(startUrl)) YtRules.refresh(applicationContext)
+        if (GeckoYt.isYtUrl(startUrl)) {
+            YtRules.refresh(applicationContext)
+            tab.yt = true
+        }
+        GeckoPage.register(this) { tab }
+        GeckoYt.register(this, applicationContext, find = { tab }, onState = { refreshPip() }, onLoaded = { pushOpts() })
         pipReceiverOn = runCatching {
             val f = IntentFilter().apply { addAction(ACT_PLAY); addAction(ACT_PAUSE); addAction(ACT_BACK); addAction(ACT_FWD) }
             ContextCompat.registerReceiver(this, pipReceiver, f, ContextCompat.RECEIVER_NOT_EXPORTED)
@@ -879,7 +907,7 @@ class AppActivity : ComponentActivity() {
                 AndroidView(
                     modifier = Modifier.fillMaxSize().padding(bottom = miniPad),
                     factory = { ctx ->
-                        if (!YtWeb.isYtUrl(startUrl)) return@AndroidView geckoContainer(ctx, tab, handlers, primaryInt, bgInt, spinnerInt).also { (it as? SwipeRefreshLayout)?.isEnabled = optPull }
+                        if (USE_GECKO) return@AndroidView geckoContainer(ctx, tab, handlers, primaryInt, bgInt, spinnerInt).also { (it as? SwipeRefreshLayout)?.isEnabled = optPull && !tab.yt }
                         val wv = if (YtWeb.isYtUrl(startUrl)) YtWeb.create(ctx, tab, handlers) else createWebView(ctx, tab, handlers)
                         tab.webView = wv
                         wv.visibility = View.VISIBLE
@@ -906,7 +934,10 @@ class AppActivity : ComponentActivity() {
 
             val insetPx = if (gestureNav && !fullscreen && !inPip) navDp.value else 0f
             LaunchedEffect(insetPx, tab.epoch) {
-                if (tab.yt) tab.webView?.let { YtWeb.setInset(it, insetPx) }
+                if (tab.yt) {
+                    tab.webView?.let { YtWeb.setInset(it, insetPx) }
+                    if (GeckoYt.owns(tab)) GeckoYt.setInset(tab, insetPx)
+                }
             }
 
             if (tab.loading && !inPip && !fullscreen) {
@@ -923,7 +954,7 @@ class AppActivity : ComponentActivity() {
                 YtMiniBar(Modifier.align(Alignment.BottomCenter), bottomInset = if (gestureNav) navDp else 0.dp) {
                     val u = YtAudio.watchUrl()
                     YtAudio.close()
-                    tab.webView?.loadUrl(u)
+                    if (tab.engine != null) tab.engine?.load(u) else tab.webView?.loadUrl(u)
                 }
             }
 

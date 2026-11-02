@@ -83,6 +83,8 @@ class MainActivity : ComponentActivity() {
     var pipAuto = false
     var fullscreenActive = false
     var wvProvider: () -> WebView? = { null }
+    var tabProvider: () -> BrowserTab? = { null }
+    private val fsNow: Boolean get() = fullscreenActive || GeckoYt.fullscreen
     var netTabs: () -> List<BrowserTab> = { emptyList() }
     private val netRetry by lazy { NetRetry(this) { netTabs() } }
 
@@ -143,8 +145,8 @@ class MainActivity : ComponentActivity() {
         b.setAutoEnterEnabled(pipAuto).setSeamlessResizeEnabled(false)
         if (hasVideo) b.setTitle(YtMedia.title.ifBlank { null }).setSubtitle(YtMedia.artist.ifBlank { null })
         // انتقال أنعم: نحدّد مكان المشغّل في الصفحة ليتحوّل منه إطار المنبثقة
-        if (hasVideo && !fullscreenActive) runCatching {
-            val w = wvProvider()
+        if (hasVideo && !fsNow) runCatching {
+            val w: View? = wvProvider() ?: tabProvider()?.engineView
             val r = android.graphics.Rect()
             if (w != null && w.getGlobalVisibleRect(r) && r.width() > 0) {
                 val hh = minOf(r.width() * ratio.denominator / ratio.numerator, r.height())
@@ -183,6 +185,7 @@ class MainActivity : ComponentActivity() {
         if (Prefs.ytBg && YtMedia.owner != null) {
             YtLog.add("native onPause")
             YtWeb.background(wvProvider(), true)
+            YtMedia.owner?.takeIf { GeckoYt.owns(it) }?.let { GeckoYt.background(it, true) }
         }
     }
 
@@ -192,7 +195,11 @@ class MainActivity : ComponentActivity() {
         pipExitAt = 0L
         inPip = isInPictureInPictureMode   // لا نترك الحالة عالقة إن فاتنا إشعار الخروج من المنبثقة
         YtWeb.pip = inPip
-        if (!inPip) { val w = wvProvider(); YtWeb.background(w, false); if (YtWeb.owns(w)) { YtWeb.recover(w); YtHub.pushCc(w) } }   // تنظيف أنماط المنبثقة إن بقيت
+        GeckoYt.pip = inPip
+        if (!inPip) {
+            val w = wvProvider(); YtWeb.background(w, false); if (YtWeb.owns(w)) { YtWeb.recover(w); YtHub.pushCc(w) }
+            tabProvider()?.takeIf { GeckoYt.owns(it) }?.let { GeckoYt.background(it, false); GeckoYt.recover(it); GeckoYt.pushCfg(it) }
+        }   // تنظيف أنماط المنبثقة إن بقيت
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
@@ -201,9 +208,10 @@ class MainActivity : ComponentActivity() {
         val w = wvProvider()
         // الدخول للمنبثقة يطلق تغيير الإعدادات قبل onPictureInPictureModeChanged: لا نعتبره دوراناً (كان يعيد قياس الفيديو ويُفسد المنبثقة)
         val pipNow = inPip || isInPictureInPictureMode
-        if (pipNow) YtWeb.pip = true
+        if (pipNow) { YtWeb.pip = true; GeckoYt.pip = true }
+        tabProvider()?.takeIf { GeckoYt.owns(it) }?.let { if (!pipNow) GeckoYt.afterRotate(it) }
         if (YtWeb.owns(w)) {
-            YtLog.add("config orientation=" + newConfig.orientation + " fullscreen=" + fullscreenActive + " pip=" + pipNow)
+            YtLog.add("config orientation=" + newConfig.orientation + " fullscreen=" + fsNow + " pip=" + pipNow)
             if (!pipNow) YtWeb.afterRotate(w)
         } else if (w != null && !pipNow) {
             for (d in longArrayOf(120L, 450L, 1000L)) w.postDelayed({
@@ -217,16 +225,18 @@ class MainActivity : ComponentActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         inPip = isInPictureInPictureMode
         YtWeb.pip = isInPictureInPictureMode
+        GeckoYt.pip = isInPictureInPictureMode
         pipExitAt = if (isInPictureInPictureMode) 0L else android.os.SystemClock.elapsedRealtime()
-        YtLog.add("native pip=$isInPictureInPictureMode fullscreen=$fullscreenActive")
+        YtLog.add("native pip=$isInPictureInPictureMode fullscreen=$fsNow")
         if (isInPictureInPictureMode) refreshPip()
         // الخروج من المنبثقة بلا عودة للواجهة = أُغلقت بزر ✕ (بعض الأجهزة لا تستدعي onStop فوراً): نتحقق بعد لحظة
         if (!isInPictureInPictureMode) window.decorView.postDelayed({
             if (!isFinishing && !lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) onPipDismissed()
             else if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) pipExitAt = 0L   // عاد المستخدم للواجهة: لا يُعدّ أي إيقاف لاحق إغلاقاً للمنبثقة
         }, 500)
+        tabProvider()?.takeIf { GeckoYt.owns(it) }?.let { GeckoYt.onPip(it, isInPictureInPictureMode, fsNow) }
         val w = wvProvider() ?: return
-        if (YtWeb.owns(w)) YtWeb.onPip(w, isInPictureInPictureMode, fullscreenActive)
+        if (YtWeb.owns(w)) YtWeb.onPip(w, isInPictureInPictureMode, fsNow)
         else {
             if (isInPictureInPictureMode) { w.resumeTimers(); w.onResume() }
             else { w.postDelayed({ w.requestLayout(); w.invalidate() }, 150) }
@@ -338,6 +348,7 @@ class MainActivity : ComponentActivity() {
         inPip = false
         val w = wvProvider()
         if (YtWeb.owns(w)) YtWeb.background(w, false)
+        YtMedia.owner?.takeIf { GeckoYt.owns(it) }?.let { GeckoYt.background(it, false) }
         YtMedia.stop(pause = true)   // إغلاق المنبثقة يوقف الفيديو ويزيل الإشعار
     }
 
@@ -375,7 +386,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class, kotlinx.coroutines.FlowPreview::class)
 @Composable
-fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incoming: Pair<Int, String>? = null) {
+fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incoming: Pair<Int, String>? = null) {
     val activity = LocalContext.current as ComponentActivity
     val cs = MaterialTheme.colorScheme
     val prefs = remember { activity.getSharedPreferences("nova", Context.MODE_PRIVATE) }
@@ -404,6 +415,8 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
     // يُعرض شرح الإذن مرة واحدة عند أول حاجة (تنزيل أو تشغيل في الخلفية)، ولا تتكرر الطلبات المتفرقة
     val askNotif = { if (Notif.needsPermission && !Notif.enabled(activity) && !Prefs.notifAsked) { Prefs.pickNotifAsked(true); notifPrompt = true } }
     var customView by remember { mutableStateOf<View?>(null) }
+    var geckoFull by remember { mutableStateOf(false) }
+    val inPip = inPipIn || geckoFull
     var customCb by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
     val tab = tabs[current.coerceIn(0, tabs.lastIndex)]
     val visit = remember { mutableStateListOf<Int>() }
@@ -464,7 +477,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
     }
     fun go(t: BrowserTab, input: String) {
         val u = normalize(input); t.url = u
-        if (USE_GECKO) t.engine?.load(u) else if (!YtWeb.swapIfNeeded(t, u)) t.webView?.let { WebSupport.prepareLoad(it); it.loadUrl(u, Perf.privacyHeaders) }   // تبديل بين WebView يوتيوب المخصّص والعام يعيد الإنشاء ويحمّل الرابط
+        if (USE_GECKO) { t.yt = GeckoYt.isYtUrl(u); t.engine?.load(u) } else if (!YtWeb.swapIfNeeded(t, u)) t.webView?.let { WebSupport.prepareLoad(it); it.loadUrl(u, Perf.privacyHeaders) }   // تبديل بين WebView يوتيوب المخصّص والعام يعيد الإنشاء ويحمّل الرابط
     }
     fun snapSoftware(t: BrowserTab, w: WebView, tw: Int, th: Int) {
         runCatching {
@@ -509,6 +522,8 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
     }
     fun dispose(t: BrowserTab) {
         YtMedia.tabClosed(t)
+        GeckoYt.forget(t)
+        GeckoPage.forget(t)
         t.engine?.close(); t.engine = null; t.engineView = null
         t.webView?.let { w -> (w.parent as? ViewGroup)?.removeView(w); w.destroy() }
         t.webView = null
@@ -620,6 +635,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
     }
     LaunchedEffect(tab.url) { if (fillOffer?.host != Vault.norm(hostOf(tab.url))) fillOffer = null }
     fun clearData() {
+        runCatching { GeckoSettings.clearData() }
         CookieManager.getInstance().removeAllCookies(null); CookieManager.getInstance().flush()
         WebStorage.getInstance().deleteAllData()
         tabs.forEach { t -> t.webView?.let { it.clearCache(true); it.clearHistory(); it.clearFormData() } }
@@ -628,6 +644,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
     }
 
     fun clearCacheNow() {
+        runCatching { GeckoSettings.clearCache() }
         tabs.forEach { it.webView?.clearCache(true) }
         Work.disk { runCatching { CacheCleaner.clean(activity.applicationContext) } }
         toast(activity, L("تم مسح الذاكرة المؤقتة"))
@@ -645,7 +662,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
         // فيديو يوتيوب يعمل/مفتوح لا يُخفى أبداً: إخفاء الـ WebView يجعل الصفحة hidden فيفرّغ يوتيوب الفيديو (emptied) ويتوقف
         val keep = (Prefs.ytBg && YtMedia.owner != null) || YtWeb.isLive(tab)
         tab.webView?.visibility = if (showTabs && !keep) View.INVISIBLE else View.VISIBLE
-        tab.engineView?.visibility = if (showTabs) View.INVISIBLE else View.VISIBLE
+        tab.engineView?.visibility = if (showTabs && !keep) View.INVISIBLE else View.VISIBLE
     }
     // عند ضغط الذاكرة: نحرر الـ WebView للتبويبات الخلفية (تُعاد عند الرجوع لها)
     DisposableEffect(Unit) {
@@ -673,6 +690,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
         val cap = Adaptive.liveCap(maxLive)
         val cur = tabs.getOrNull(current)
         cur?.lastUsed = android.os.SystemClock.elapsedRealtime()
+        if (Prefs.ytBg) YtMedia.owner?.takeIf { it !== cur && GeckoYt.owns(it) }?.engine?.setActive(true)
         kotlinx.coroutines.delay(1200)   // بعد إنشاء الـ WebView الجديد
         val live = tabs.filter { it.webView != null || it.engine != null }
         if (live.size > cap)
@@ -700,17 +718,25 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
     DisposableEffect(Unit) {
         val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
             val w = tabs.getOrNull(current)?.webView
-            tabs.getOrNull(current)?.engine?.let { g -> if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP && Prefs.pauseBg) g.setActive(false) else if (e == androidx.lifecycle.Lifecycle.Event.ON_START) g.setActive(true) }
             val inPipNow = (activity as? MainActivity)?.inPip == true
+            val curTab = tabs.getOrNull(current)
+            val ytKeep = Prefs.ytBg && curTab != null && GeckoYt.owns(curTab) && (YtMedia.owner === curTab || inPipNow)
+            curTab?.engine?.let { g -> if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP && Prefs.pauseBg && !ytKeep) g.setActive(false) else if (e == androidx.lifecycle.Lifecycle.Event.ON_START) g.setActive(true) }
             if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
                 val ytLive = Prefs.ytBg && (YtMedia.owner != null || inPipNow)
                 if (!ytLive && customView == null) YtMedia.stop()   // الخلفية معطّلة: لا إشعار تشغيل بعد الخروج
-                if (ytLive) YtWeb.background(w, true)   // لا نجمّد الصفحة أثناء تشغيل يوتيوب
+                if (ytLive) {
+                    YtWeb.background(w, true)
+                    YtMedia.owner?.takeIf { GeckoYt.owns(it) }?.let { GeckoYt.background(it, true) }
+                }
                 else if (Prefs.pauseBg && customView == null) { w?.onPause(); w?.pauseTimers() }
             } else if (e == androidx.lifecycle.Lifecycle.Event.ON_START) {
                 // pauseTimers عامة لكل الـ WebView: نستأنفها حتى لو لم يكن للتبويب الحالي WebView (صفحة البداية) وإلا بقيت مؤقتات بقية التبويبات مجمّدة
                 (w ?: tabs.firstNotNullOfOrNull { it.webView })?.resumeTimers(); w?.onResume()
-                if (!inPipNow) YtWeb.background(w, false)
+                if (!inPipNow) {
+                    YtWeb.background(w, false)
+                    YtMedia.owner?.takeIf { GeckoYt.owns(it) }?.let { GeckoYt.background(it, false) }
+                }
             }
         }
         activity.lifecycle.addObserver(obs)
@@ -832,6 +858,25 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
                 askNotif()
                 (activity as? MainActivity)?.onYtPlayState()
             },
+            onGeckoFullScreen = { geckoFull = it },
+            newPopup = { u ->
+                val par = tabs.getOrNull(current)
+                val nt = BrowserTab(nextId++, u)
+                nt.popup = true
+                nt.parentId = par?.id ?: -1
+                tabs.add(nt)
+                current = tabs.lastIndex
+                nt
+            },
+            closePopup = { t ->
+                val i = tabs.indexOf(t)
+                if (i >= 0) {
+                    val pid = t.parentId
+                    closeTab(i)
+                    val pi = tabs.indexOfFirst { it.id == pid }
+                    if (pi >= 0) current = pi
+                }
+            },
             onDownload = { u, ua, cd, mime, ref ->
                 if (!Shield.downloadAllowed(hostOf(ref ?: u))) toast(activity, L("تم حظر تنزيلات تلقائية متتابعة من الصفحة"))
                 else if (u.startsWith("blob:", true) || u.startsWith("data:", true)) BlobDownload.start(activity, (tabs.firstOrNull { it.webView != null && it.url == ref } ?: tabs.getOrNull(current))?.webView, u, cd, mime)
@@ -853,9 +898,9 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
         )
     }
 
-    DisposableEffect(customView != null) {
+    DisposableEffect(customView != null || geckoFull) {
         val c = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
-        if (customView != null) {
+        if (customView != null || geckoFull) {
             c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             c.hide(WindowInsetsCompat.Type.systemBars())
             activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
@@ -877,15 +922,41 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
         customCb?.onCustomViewHidden(); customView = null; customCb = null
         tabs.getOrNull(current)?.webView?.takeIf { YtWeb.owns(it) }?.let { YtWeb.onFullscreen(it, false); YtWeb.afterFullscreen(it) }
     }
+    BackHandler(enabled = geckoFull) { tabs.getOrNull(current)?.engine?.exitFullScreen() }
 
     // ربط الـ Activity: مزوّد الـ WebView الحالي + تفعيل الدخول التلقائي للنافذة المنبثقة أثناء تشغيل فيديو يوتيوب
     val mainAct = activity as? MainActivity
     SideEffect {
         mainAct?.wvProvider = { tabs.getOrNull(current)?.webView }
+        mainAct?.tabProvider = { tabs.getOrNull(current) }
         mainAct?.netTabs = { tabs.toList() }
         mainAct?.fullscreenActive = customView != null
         val want = Prefs.autoPip && ((tab.yt && isYtVideo(tab.url)) || customView != null)
         if (mainAct != null && mainAct.pipAuto != want) { mainAct.pipAuto = want; mainAct.refreshPip() }
+    }
+    LaunchedEffect(Prefs.js, Prefs.textZoom, Prefs.siteDark) { runCatching { GeckoSettings.update() } }
+    DisposableEffect(Unit) {
+        GeckoPage.register(activity) { u ->
+            val k = GeckoYt.key(u)
+            tabs.firstOrNull { it.engine != null && GeckoYt.key(it.url) == k } ?: tabs.getOrNull(current)?.takeIf { it.engine != null }
+        }
+        onDispose { GeckoPage.unregister(activity) }
+    }
+    DisposableEffect(Unit) {
+        GeckoYt.register(
+            activity,
+            activity,
+            find = { u ->
+                val k = GeckoYt.key(u)
+                tabs.firstOrNull { it.engine != null && it.yt && GeckoYt.key(it.url) == k }
+                    ?: tabs.getOrNull(current)?.takeIf { it.engine != null && it.yt }
+            },
+            onState = {
+                askNotif()
+                mainAct?.onYtPlayState()
+            }
+        )
+        onDispose { GeckoYt.unregister(activity) }
     }
 
     val iosC = LocalIos.current
@@ -1042,7 +1113,10 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
                     onDesktop = { tab.desktop = !tab.desktop; tab.engine?.setDesktop(tab.desktop); tab.webView?.let { applyUa(it, tab.desktop, tab.safari); it.reload() } },
                     onShare = { shareText(activity, tab.url) }, onCopy = { copyText(activity, tab.url) },
                     onDownloads = { openPanel(activity, "downloads") }, onSettings = { openPanel(activity, "settings") }, onTranslate = { translatePage(tab) }, onPrint = { printPage(tab) }, onLibrary = { openPanel(activity, "library") }, onCloseCurrent = { closeTab(current) },
-                    onSummarize = { tab.webView?.let { w -> SmartAssist.summarize(activity, w) { u -> openChild(u) } } }, onAskAi = { askPage(tab) },
+                    onSummarize = {
+                        tab.webView?.let { w -> SmartAssist.summarize(activity, w) { u -> openChild(u) } }
+                        if (tab.engine != null) GeckoPage.exec(tab, "summarize.js") { r -> SmartAssist.summarizeRaw(activity, r, tab.url) { u -> openChild(u) } }
+                    }, onAskAi = { askPage(tab) },
                     onSwitch = { d -> snap(tab); current = (current + d).coerceIn(0, tabs.lastIndex) }
                 )
                 }
