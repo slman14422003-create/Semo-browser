@@ -27,7 +27,8 @@ class EngineTab(
     private val listener: EngineListener,
     restore: GeckoSession.SessionState? = null,
     desktop: Boolean = false,
-    ui: GeckoUi? = null
+    ui: GeckoUi? = null,
+    selection: GeckoSession.SelectionActionDelegate? = null
 ) {
     val session: GeckoSession = GeckoSession(
         GeckoSessionSettings.Builder()
@@ -149,6 +150,7 @@ class EngineTab(
             session.promptDelegate = ui
             session.permissionDelegate = ui
         }
+        if (selection != null) session.selectionActionDelegate = selection
         session.open(NovaApp.runtime())
         if (restore != null) session.restoreState(restore)
     }

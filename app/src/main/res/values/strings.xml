@@ -9,6 +9,7 @@
     <string name="smart_close">Close</string>
     <string name="smart_ask_ai">Ask AI</string>
     <string name="smart_translate">Translate</string>
+    <string name="smart_summarize_text">Summarize</string>
     <string name="smart_search">Search</string>
     <string name="smart_no_summary">Not enough text to summarize on this page</string>
     <string name="smart_on_device">The summary is generated on your device and nothing is sent</string>

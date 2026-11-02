@@ -12,6 +12,7 @@ object SmartAssist {
     const val SEL_ASK = 0x6E01
     const val SEL_TRANSLATE = 0x6E02
     const val SEL_SEARCH = 0x6E03
+    const val SEL_SUMMARIZE = 0x6E04
 
     class Summary(val title: String, val minutes: Int, val points: List<String>, val keywords: List<String>)
 
@@ -30,6 +31,9 @@ object SmartAssist {
     fun selectionPrompt(text: String): String =
         "Explain the following text clearly and concisely. Reply in " + answerLanguage() + ".\n\n" + text.take(1200)
 
+    fun summarizePrompt(text: String): String =
+        "Summarize the following text in a few short bullet points. Reply in " + answerLanguage() + ".\n\n" + text.take(1500)
+
     fun translateUrl(text: String): String =
         "https://translate.google.com/?sl=auto&tl=" + targetCode() + "&text=" + Uri.encode(text.take(1500)) + "&op=translate"
 
@@ -43,6 +47,7 @@ object SmartAssist {
             SEL_ASK -> { toast(ctx, S(R.string.smart_sent_to_google)); open(aiUrl(selectionPrompt(t))) }
             SEL_TRANSLATE -> { toast(ctx, S(R.string.smart_sent_translate)); open(translateUrl(t)) }
             SEL_SEARCH -> open(searchUrl(t))
+            SEL_SUMMARIZE -> { toast(ctx, S(R.string.smart_sent_to_google)); open(aiUrl(summarizePrompt(t))) }
         }
     }
 

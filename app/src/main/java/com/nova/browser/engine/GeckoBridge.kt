@@ -160,7 +160,7 @@ fun geckoContainer(ctx: Context, tb: BrowserTab, h: Handlers, primary: Int, bg: 
         fresh = true
         val st = tb.engineState
         tb.engineState = null
-        EngineTab(tb.id, GeckoBridge(tb, h), st, tb.desktop, GeckoUi(h)).also { tb.engine = it }
+        EngineTab(tb.id, GeckoBridge(tb, h), st, tb.desktop, GeckoUi(h), GeckoSelection(h.activity) { id, text -> SmartAssist.onSelection(h.activity, id, text, h.openTab) }).also { tb.engine = it }
     }
     e.attach(view)
     if (fresh && !e.restored) {
