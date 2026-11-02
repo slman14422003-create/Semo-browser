@@ -78,6 +78,8 @@ function nativeConnect() {
         .getAll({ url: m.url })
         .then(list => nativeReply(p, { type: "cookies", id: m.id, header: list.map(c => c.name + "=" + c.value).join("; ") }))
         .catch(() => nativeReply(p, { type: "cookies", id: m.id, header: "" }));
+    } else if (m.type === "fill") {
+      browser.tabs.sendMessage(m.tab, { pwFill: true, host: m.host, u: m.u, p: m.p }, { frameId: 0 }).catch(() => {});
     }
   });
   nativeRetry = 0;
@@ -85,3 +87,8 @@ function nativeConnect() {
 }
 
 nativeConnect();
+
+browser.runtime.onMessage.addListener((m, sender) => {
+  if (!m || !m.pw || !sender || !sender.tab || sender.frameId !== 0 || !nativePort) return;
+  nativeReply(nativePort, { type: "pw", tab: sender.tab.id, url: sender.url, o: m.pw });
+});

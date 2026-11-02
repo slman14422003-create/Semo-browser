@@ -717,6 +717,29 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
         onDispose { activity.lifecycle.removeObserver(obs) }
     }
 
+    fun formFound(t: BrowserTab, host: String) {
+        if (t === tabs.getOrNull(current)) {
+            val cs = Vault.forHost(host)
+            if (cs.isNotEmpty()) fillOffer = FillOffer(t.id, host, cs)
+            else if (GoogleAccounts.suggest && GoogleAccounts.accounts.isNotEmpty())
+                fillOffer = FillOffer(t.id, host, GoogleAccounts.accounts.map { Cred("g:$it", host, it, "", 0L) })
+        }
+    }
+    fun credFound(host: String, user: String, pass: String) {
+        if (pass.isNotEmpty() && !Vault.isNever(host)) {
+            val k = Vault.classify(host, user, pass)
+            if (k != SaveKind.SAME) pendingSave = PendingSave(host, user, pass, k)
+        }
+    }
+    fun fillPw(t: BrowserTab, c: Cred) {
+        val wv = t.webView
+        if (wv != null) PasswordBridge.fill(wv, c) else GeckoPasswords.fill(t, c)
+    }
+    DisposableEffect(Unit) {
+        GeckoPasswords.bind({ tabs.getOrNull(current) }, { t, host -> formFound(t, host) }, { host, user, pass -> credFound(host, user, pass) })
+        onDispose { GeckoPasswords.unbind() }
+    }
+
     val handlers = remember {
         Handlers(
             activity = activity,
@@ -803,20 +826,8 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
                 customView = null; customCb = null
                 tabs.getOrNull(current)?.webView?.takeIf { YtWeb.owns(it) }?.let { YtWeb.onFullscreen(it, false); YtWeb.afterFullscreen(it) }
             },
-            onLoginForm = { t, _, host ->
-                if (t === tabs.getOrNull(current)) {
-                    val cs = Vault.forHost(host)
-                    if (cs.isNotEmpty()) fillOffer = FillOffer(t.id, host, cs)
-                    else if (GoogleAccounts.suggest && GoogleAccounts.accounts.isNotEmpty())
-                        fillOffer = FillOffer(t.id, host, GoogleAccounts.accounts.map { Cred("g:$it", host, it, "", 0L) })   // بريد فقط، بلا كلمة مرور
-                }
-            },
-            onCredential = { host, user, pass ->
-                if (pass.isNotEmpty() && !Vault.isNever(host)) {
-                    val k = Vault.classify(host, user, pass)
-                    if (k != SaveKind.SAME) pendingSave = PendingSave(host, user, pass, k)
-                }
-            },
+            onLoginForm = { t, _, host -> formFound(t, host) },
+            onCredential = { host, user, pass -> credFound(host, user, pass) },
             onYtState = {
                 askNotif()
                 (activity as? MainActivity)?.onYtPlayState()
@@ -1067,8 +1078,8 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPip: Boolean = false, incomin
                 o, modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp),
                 onClose = { fillOffer = null },
                 onFill = { c ->
-                    if (c.pass.isEmpty()) { tab.webView?.let { PasswordBridge.fill(it, c) }; fillOffer = null }   // بريد الحساب: لا يحتاج بصمة
-                    else Auth.run(activity, L("تأكيد الهوية لتعبئة كلمة المرور")) { tab.webView?.let { PasswordBridge.fill(it, c) }; fillOffer = null }
+                    if (c.pass.isEmpty()) { fillPw(tab, c); fillOffer = null }   // بريد الحساب: لا يحتاج بصمة
+                    else Auth.run(activity, L("تأكيد الهوية لتعبئة كلمة المرور")) { fillPw(tab, c); fillOffer = null }
                 }
             )
         }

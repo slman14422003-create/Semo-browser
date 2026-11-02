@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Semo Shield",
-  "version": "1.1",
+  "version": "1.2",
   "browser_specific_settings": {
     "gecko": {
       "id": "shield@semo.browser"
@@ -31,6 +31,17 @@
       "run_at": "document_start",
       "all_frames": true,
       "match_about_blank": true
+    },
+    {
+      "matches": [
+        "https://*/*",
+        "http://localhost/*"
+      ],
+      "js": [
+        "pw.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": false
     }
   ]
 }

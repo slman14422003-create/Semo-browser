@@ -5,6 +5,7 @@ import android.os.Looper
 import org.json.JSONObject
 import org.mozilla.geckoview.WebExtension
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -16,6 +17,7 @@ object CookieBridge : WebExtension.MessageDelegate {
     private val pending = ConcurrentHashMap<String, CompletableFuture<String>>()
     private val cache = ConcurrentHashMap<String, Pair<Long, String>>()
     private val seq = AtomicLong()
+    val listeners = CopyOnWriteArrayList<(String, JSONObject) -> Unit>()
 
     @Volatile private var port: WebExtension.Port? = null
     @Volatile var userAgent: String = ""
@@ -38,10 +40,17 @@ object CookieBridge : WebExtension.MessageDelegate {
 
     private fun handle(message: Any) {
         val o = message as? JSONObject ?: return
-        when (o.optString("type")) {
+        val type = o.optString("type")
+        when (type) {
             "hello" -> userAgent = o.optString("ua")
             "cookies" -> pending.remove(o.optString("id"))?.complete(o.optString("header"))
+            else -> listeners.forEach { it(type, o) }
         }
+    }
+
+    fun send(o: JSONObject) {
+        val p = port ?: return
+        main.post { runCatching { p.postMessage(o) } }
     }
 
     fun header(url: String, timeoutMs: Long = 2500L): String? {
