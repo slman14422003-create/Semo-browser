@@ -43,6 +43,7 @@ object YtMedia {
 
     fun control(a: String) {
         if (YtAudio.active) { YtAudio.control(a); return }
+        owner?.takeIf { GeckoYt.owns(it) }?.let { GeckoYt.control(it, a); return }   // محرك Gecko: الأمر يمرّ عبر إضافة Semo
         val w = wvRef?.get() ?: return
         w.post {
             // الصفحة قد تكون مجمّدة (onPause/pauseTimers) فنوقظها قبل تنفيذ الأمر؛ وقد تكون دُمّرت: لا نُسقط التطبيق
@@ -54,10 +55,21 @@ object YtMedia {
     }
 
     fun update(ctx: Context, tab: BrowserTab, wv: WebView, o: JSONObject) {
-        owner = tab; wvRef = WeakReference(wv)
+        wvRef = WeakReference(wv)
+        applyState(ctx, tab, wv.url, o)
+    }
+
+    /** نفس update لكن لصفحة Gecko (لا WebView): الرابط من التبويب. */
+    fun updateGecko(ctx: Context, tab: BrowserTab, url: String?, o: JSONObject) {
+        wvRef = null
+        applyState(ctx, tab, url, o)
+    }
+
+    private fun applyState(ctx: Context, tab: BrowserTab, pageUrl: String?, o: JSONObject) {
+        owner = tab
         playing = o.optBoolean("playing"); pos = o.optLong("pos"); dur = o.optLong("dur")
         if (playing) { lastPlayAt = System.currentTimeMillis(); if (YtAudio.active) YtAudio.release() }   // the page plays again: audio-only ends
-        wv.url?.takeIf { isYtVideo(it) }?.let { if (it != videoUrl && tab.app) YtAudio.warm(it); videoUrl = it }
+        pageUrl?.takeIf { isYtVideo(it) }?.let { if (it != videoUrl && tab.app) YtAudio.warm(it); videoUrl = it }
         vw = o.optInt("vw"); vh = o.optInt("vh")
         title = o.optString("title"); artist = o.optString("artist")
         loadArt(o.optString("art"))
@@ -99,6 +111,7 @@ object YtMedia {
     }
     /** Audio hand-off failed: let the page player continue (returns false when there is no page to resume). */
     fun resumePage(): Boolean {
+        owner?.takeIf { GeckoYt.owns(it) }?.let { GeckoYt.control(it, "play"); return true }
         val w = wvRef?.get() ?: return false
         w.post {
             runCatching {
@@ -109,6 +122,7 @@ object YtMedia {
         return true
     }
     fun killPlayback() {
+        owner?.takeIf { GeckoYt.owns(it) }?.let { GeckoYt.control(it, "pause") }
         val w = wvRef?.get()
         if (w != null) runCatching {
             w.evaluateJavascript("window.__novaYtCtl&&window.__novaYtCtl('pause')", null)
@@ -124,7 +138,7 @@ object YtMedia {
     fun pageChanged(tab: BrowserTab, url: String) {
         if (owner !== tab || isYtVideo(url)) return
         if (YtAudio.active) return
-        val ctx = wvRef?.get()?.context?.applicationContext
+        val ctx = wvRef?.get()?.context?.applicationContext ?: GeckoYt.appContext
         val recent = playing || System.currentTimeMillis() - lastPlayAt < 2500L
         if (tab.app && ctx != null && recent && videoUrl.isNotBlank()) {
             val u = videoUrl; val p = pos; val t = title; val a = artist
