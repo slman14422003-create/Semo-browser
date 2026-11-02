@@ -142,6 +142,7 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
     }
 
     override fun onFullScreen(tab: EngineTab, on: Boolean) {
+        h.onGeckoFullScreen(on)
         val w = h.activity.window
         val c = WindowCompat.getInsetsController(w, w.decorView)
         if (on) {

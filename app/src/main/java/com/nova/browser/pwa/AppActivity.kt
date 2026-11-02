@@ -110,6 +110,7 @@ class AppActivity : ComponentActivity() {
     private var custom by mutableStateOf<View?>(null)
     private var customCb: WebChromeClient.CustomViewCallback? = null
     private var inPip by mutableStateOf(false)
+    private var geckoFull by mutableStateOf(false)
     private var configTick by mutableStateOf(0)
     private var hostKey = ""
     private var optOrient by mutableIntStateOf(0)
@@ -551,6 +552,7 @@ class AppActivity : ComponentActivity() {
             if (isFinishing || isDestroyed) return@postDelayed
             reapplyInsets()
             tab.webView?.let { refitWeb(it) }
+            tab.engineView?.let { it.requestLayout(); it.invalidate() }
         }, d)
         val w = tab.webView ?: return
         if (YtWeb.owns(w)) {
@@ -568,6 +570,7 @@ class AppActivity : ComponentActivity() {
         super.onStart()
         netRetry.start()
         registerNetCb()
+        tab.engine?.setActive(true)
         val w = tab.webView
         w?.onResume()
         w?.resumeTimers()
@@ -604,6 +607,7 @@ class AppActivity : ComponentActivity() {
             YtMedia.stop(pause = true)
             return
         }
+        if (Prefs.pauseBg && !geckoFull) tab.engine?.setActive(false)
         val live = Prefs.ytBg && YtMedia.owner === tab
         if (live) YtWeb.background(w, true)
         else if (Prefs.pauseBg && custom == null) w?.onPause()
@@ -626,6 +630,9 @@ class AppActivity : ComponentActivity() {
             }
         }
         tab.webView = null
+        tab.engine?.close()
+        tab.engine = null
+        tab.engineView = null
         super.onDestroy()
     }
 
@@ -747,6 +754,20 @@ class AppActivity : ComponentActivity() {
                     toast(this, "Download started")
                 }
             },
+            filePick = { intent, cb ->
+                fileCb?.onReceiveValue(null)
+                fileCb = cb
+                runCatching { fileLauncher.launch(intent) }.onFailure { cb.onReceiveValue(null); fileCb = null }
+            },
+            androidPerm = { perms, cb -> runOnUiThread { askPerms(perms, cb) } },
+            sitePerm = { origin, label, perms, done ->
+                runOnUiThread {
+                    askSite(origin, label) { allow ->
+                        if (!allow) done(false) else askPerms(perms) { done(perms.isEmpty() || perms.any { granted(it) }) }
+                    }
+                }
+            },
+            onGeckoFullScreen = { geckoFull = it },
             onYtState = { refreshPip() }
         )
 
@@ -763,7 +784,7 @@ class AppActivity : ComponentActivity() {
         val cs = MaterialTheme.colorScheme
         // YouTube: until the page colour is sampled, use YouTube's own header colour (not the system background) so the status bar never looks like a separate black strip
         val bg = tab.topColor?.let { Color(it) } ?: if (tab.yt) (if (cs.background.luminance() < 0.5f) Color(0xFF0F0F0F) else Color.White) else cs.background
-        val fullscreen = custom != null
+        val fullscreen = custom != null || geckoFull
         @Suppress("UNUSED_VARIABLE") val tick = configTick
         var splash by remember { mutableStateOf(true) }
         val icon = remember { Favicons.get(hostOf(startUrl)) }
@@ -838,8 +859,8 @@ class AppActivity : ComponentActivity() {
         val spinnerInt = cs.onSurface.toArgb()
 
         BackHandler(enabled = optSheet) { optSheet = false }
-        BackHandler(enabled = fullscreen) { customCb?.onCustomViewHidden() }
-        BackHandler(enabled = !fullscreen && !optSheet && tab.canBack) { tab.webView?.let { WebSupport.goBackFast(it) } }
+        BackHandler(enabled = fullscreen) { if (custom != null) customCb?.onCustomViewHidden() else tab.engine?.exitFullScreen() }
+        BackHandler(enabled = !fullscreen && !optSheet && tab.canBack) { val w = tab.webView; if (w != null) WebSupport.goBackFast(w) else tab.engine?.back() }
         BackHandler(enabled = !fullscreen && !optSheet && !tab.canBack) { finishAndRemoveTask() }
 
         Box(Modifier.fillMaxSize().background(bg)) {
@@ -858,6 +879,7 @@ class AppActivity : ComponentActivity() {
                 AndroidView(
                     modifier = Modifier.fillMaxSize().padding(bottom = miniPad),
                     factory = { ctx ->
+                        if (!YtWeb.isYtUrl(startUrl)) return@AndroidView geckoContainer(ctx, tab, handlers, primaryInt, bgInt, spinnerInt).also { (it as? SwipeRefreshLayout)?.isEnabled = optPull }
                         val wv = if (YtWeb.isYtUrl(startUrl)) YtWeb.create(ctx, tab, handlers) else createWebView(ctx, tab, handlers)
                         tab.webView = wv
                         wv.visibility = View.VISIBLE
@@ -978,7 +1000,7 @@ class AppActivity : ComponentActivity() {
                 onDim = { manual(); setDim(it) },
                 onGestures = { manual(); setGestures(it) },
                 onSleep = { cycleSleep() },
-                onReload = { tab.webView?.reload() },
+                onReload = { tab.webView?.reload() ?: tab.engine?.reload() },
                 onShare = { shareText(this@AppActivity, shareLink(false)) },
                 onCopy = { copyText(this@AppActivity, shareLink(false)) },
                 onOpenNova = { openExternal(tab.url.ifBlank { startUrl }) },

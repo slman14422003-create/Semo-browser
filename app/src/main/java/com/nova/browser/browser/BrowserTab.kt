@@ -75,5 +75,6 @@ class Handlers(
     val onYtState: (BrowserTab) -> Unit = {},
     val filePick: (Intent, ValueCallback<Array<Uri>>) -> Unit = { _, cb -> cb.onReceiveValue(null) },
     val androidPerm: (List<String>, () -> Unit) -> Unit = { _, c -> c() },
-    val sitePerm: (String, String, List<String>, (Boolean) -> Unit) -> Unit = { _, _, _, d -> d(false) }
+    val sitePerm: (String, String, List<String>, (Boolean) -> Unit) -> Unit = { _, _, _, d -> d(false) },
+    val onGeckoFullScreen: (Boolean) -> Unit = {}
 )

@@ -176,6 +176,7 @@ class EngineTab(
         session.load(GeckoSession.Loader().data(html, "text/html"))
     }
 
+    fun exitFullScreen() = session.exitFullScreen()
     fun reload() = session.reload()
     fun stop() = session.stop()
     fun back() = session.goBack()
