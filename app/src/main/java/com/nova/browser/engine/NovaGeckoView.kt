@@ -9,6 +9,10 @@ class NovaGeckoView(ctx: Context) : GeckoView(ctx) {
     @Volatile
     private var dirs = -1
 
+    init {
+        setViewBackend(GeckoView.BACKEND_TEXTURE_VIEW)
+    }
+
     fun pageCanScrollUp(): Boolean? = if (dirs < 0) null else (dirs and TOP) != 0
 
     @SuppressLint("ClickableViewAccessibility")
