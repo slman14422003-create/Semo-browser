@@ -1,4 +1,7 @@
 const hosts = new Set();
+// إعدادات التطبيق (Prefs) تصل عبر المنفذ الأصلي وتُحفظ ليعمل الحقن فور بدء التشغيل
+const DEFAULT_CFG = { shield: true, ads: true, ytads: true, fit: true, lazy: true, boost: true, pop: true, zoom: true, copy: true, draft: true, dataSaver: false };
+let cfg = Object.assign({}, DEFAULT_CFG);
 fetch(browser.runtime.getURL("blocklist.txt"))
   .then(r => r.text())
   .then(t => {
@@ -28,6 +31,8 @@ browser.webRequest.onBeforeRequest.addListener(
   d => {
     try {
       if (d.type === "main_frame") return {};
+      if (cfg.dataSaver && (d.type === "image" || d.type === "imageset")) return { cancel: true };
+      if (!cfg.ads) return {};
       const host = new URL(d.url).hostname.toLowerCase();
       if (!listed(host)) return {};
       const doc = d.documentUrl || d.originUrl;
@@ -47,6 +52,7 @@ browser.webRequest.onBeforeRequest.addListener(
 let nativePort = null;
 let nativeRetry = 0;
 let ytCfg = null;
+let applyChain = Promise.resolve();
 
 function nativeSchedule() {
   nativeRetry = Math.min(nativeRetry + 1, 10);
@@ -79,6 +85,10 @@ function nativeConnect() {
         .getAll({ url: m.url })
         .then(list => nativeReply(p, { type: "cookies", id: m.id, header: list.map(c => c.name + "=" + c.value).join("; ") }))
         .catch(() => nativeReply(p, { type: "cookies", id: m.id, header: "" }));
+    } else if (m.type === "cfg") {
+      cfg = Object.assign({}, DEFAULT_CFG, m.cfg || {});
+      try { browser.storage.local.set({ cfg }).catch(() => {}); } catch (e) {}
+      applyMain();
     } else if (m.type === "fill") {
       browser.tabs.sendMessage(m.tab, { pwFill: true, host: m.host, u: m.u, p: m.p }, { frameId: 0 }).catch(() => {});
     } else if (m.type === "ytcfg") {
@@ -146,3 +156,56 @@ async function registerYtMain() {
 }
 
 registerYtMain();
+
+// ---------- سكربتات عالم الصفحة (MAIN world) ----------
+// تُسجَّل كملفات (لا وسم <script> مضمّن) فلا تحجبها سياسة CSP للصفحة. ملفات cfg-*.js تضبط window.__semoCfg قبل السكربتات.
+const MAIN_ID = "semo-main";
+const FLAGS = ["fit", "lazy", "boost", "pop", "zoom", "copy", "draft", "ytads"];
+
+function mainFiles() {
+  const js = [];
+  for (const f of FLAGS) if (cfg[f]) js.push("cfg-" + f + ".js");
+  js.push("main-polyfills.js", "main-webcompat.js", "main-langfix.js", "main-enhance.js", "main-perfboost.js");
+  if (cfg.shield) js.push("main-shield.js");
+  if (cfg.ads) js.push("main-cosmetic.js");
+  if (cfg.fit || cfg.lazy || cfg.boost || cfg.pop) js.push("main-smooth.js");
+  if (cfg.zoom || cfg.copy || cfg.draft) js.push("main-extras.js");
+  if (cfg.ytads) js.push("main-ytads.js");
+  return js;
+}
+
+async function applyMainNow() {
+  try {
+    if (!browser.scripting || !browser.scripting.registerContentScripts) return;
+    try {
+      await browser.scripting.unregisterContentScripts({ ids: [MAIN_ID] });
+    } catch (e) {}
+    await browser.scripting.registerContentScripts([
+      {
+        id: MAIN_ID,
+        matches: ["http://*/*", "https://*/*"],
+        js: mainFiles(),
+        runAt: "document_start",
+        world: "MAIN",
+        allFrames: true,
+        persistAcrossSessions: false
+      }
+    ]);
+  } catch (e) {}
+}
+
+function applyMain() {
+  applyChain = applyChain.then(applyMainNow, applyMainNow);
+}
+
+try {
+  browser.storage.local
+    .get("cfg")
+    .then(r => {
+      if (r && r.cfg) cfg = Object.assign({}, DEFAULT_CFG, r.cfg);
+    })
+    .catch(() => {})
+    .then(applyMain);
+} catch (e) {
+  applyMain();
+}
