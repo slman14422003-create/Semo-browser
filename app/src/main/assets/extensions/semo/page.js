@@ -15,16 +15,32 @@
     return c && c !== "transparent" && c !== "rgba(0, 0, 0, 0)" ? c : null;
   }
 
+  function topBg() {
+    try {
+      var el = document.elementFromPoint(Math.max(1, window.innerWidth / 2), 1);
+      while (el) {
+        var c = usable(getComputedStyle(el).backgroundColor);
+        if (c) return c;
+        el = el.parentElement;
+      }
+    } catch (e) {}
+    return null;
+  }
+
   function tint() {
     try {
       var m = document.querySelector("meta[name=theme-color]");
       var c = m && m.content;
+      if (!c) c = topBg();
       if (!c) {
         var h = getComputedStyle(document.documentElement).backgroundColor;
         var b = document.body ? getComputedStyle(document.body).backgroundColor : null;
         c = usable(b) || usable(h);
       }
-      c = c || "";
+      if (!c) {
+        var cs = (getComputedStyle(document.documentElement).colorScheme || "").toLowerCase();
+        c = cs.indexOf("dark") >= 0 && cs.indexOf("light") < 0 ? "#121212" : "#ffffff";
+      }
       if (c !== last.c) {
         last.c = c;
         send({ t: "tint", c: c });
