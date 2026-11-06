@@ -20,7 +20,7 @@ object StreamDownload {
         Downloader.init(app)
         val uri = response.uri
         val body = response.body
-        toast(app, L("Saving file…"))
+        toast(app, L("جارٍ حفظ الملف…"))
         Work.io {
             val r = runCatching {
                 when {
@@ -32,7 +32,7 @@ object StreamDownload {
                     else -> throw IOException("no body")
                 }
             }
-            if (r.isFailure) Work.ui { toast(app, L("Could not save the file")) }
+            if (r.isFailure) Work.ui { toast(app, L("تعذّر حفظ الملف")) }
         }
     }
 
@@ -81,7 +81,7 @@ object StreamDownload {
     private fun done(app: Context, s: Sink) {
         val name = Downloader.displayName(app, s.uri, s.name)
         Downloader.addFinished(name, s.uri, s.mime, s.size(app))
-        Work.ui { toast(app, L("Saved. Menu, then Downloads")) }
+        Work.ui { toast(app, L("تم الحفظ — القائمة ⋮ ثم التنزيلات")) }
     }
 
     private class Sink(val app: Context, val uri: Uri, val out: OutputStream, val name: String, val mime: String) {

@@ -1,5 +1,6 @@
 package com.nova.browser
 
+import org.mozilla.geckoview.ContentBlocking
 import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.StorageController
 
@@ -10,6 +11,17 @@ object GeckoSettings {
         s.setJavaScriptEnabled(Prefs.js)
         s.setAutomaticFontSizeAdjustment(false)
         s.setFontSizeFactor(z / 100f)
+        // حجب الإعلانات/المتتبعات، منع تتبع البصمة، والكوكيز الخارجية (معزولة بدل الحجب الكامل كي لا تنكسر تسجيلات الدخول)
+        var at = if (Prefs.blockAds) ContentBlocking.AntiTracking.DEFAULT else ContentBlocking.AntiTracking.NONE
+        if (Prefs.antiFingerprint) at = at or ContentBlocking.AntiTracking.FINGERPRINTING
+        s.contentBlocking.setAntiTracking(at)
+        s.contentBlocking.setCookieBehavior(
+            if (Prefs.blockThirdCookies) ContentBlocking.CookieBehavior.ACCEPT_FIRST_PARTY_AND_ISOLATE_OTHERS
+            else ContentBlocking.CookieBehavior.ACCEPT_ALL
+        )
+        // لغة المواقع (Accept-Language و navigator.language)
+        val lc = Prefs.siteLangCode()
+        s.setLocales(arrayOf(if (lc.isNotEmpty()) lc else java.util.Locale.getDefault().toLanguageTag()))
         s.setPreferredColorScheme(
             if (Prefs.siteDark) GeckoRuntimeSettings.COLOR_SCHEME_SYSTEM else GeckoRuntimeSettings.COLOR_SCHEME_LIGHT
         )

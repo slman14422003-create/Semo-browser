@@ -152,7 +152,7 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
         if (uri.startsWith("blob:", true) || uri.startsWith("data:", true)) {
             if (!Shield.downloadAllowed(hostOf(ref.ifBlank { uri }))) {
                 runCatching { response.body?.close() }
-                toast(ctx, L("Blocked repeated automatic downloads from this page"))
+                toast(ctx, L("تم حجب تنزيلات تلقائية متكررة من هذه الصفحة"))
             } else StreamDownload.start(ctx, response, cd, mime)
             return
         }

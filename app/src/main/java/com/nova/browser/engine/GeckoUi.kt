@@ -137,6 +137,21 @@ class GeckoUi(private val h: Handlers) : GeckoSession.PromptDelegate, GeckoSessi
         return res
     }
 
+    override fun onColorPrompt(session: GeckoSession, prompt: GeckoSession.PromptDelegate.ColorPrompt): GeckoResult<PromptResponse>? {
+        val res = GeckoResult<PromptResponse>()
+        val colors = intArrayOf(
+            0xFF000000.toInt(), 0xFFFFFFFF.toInt(), 0xFFFF3B30.toInt(), 0xFFFF9500.toInt(), 0xFFFFCC00.toInt(), 0xFF34C759.toInt(),
+            0xFF00C7BE.toInt(), 0xFF007AFF.toInt(), 0xFF5856D6.toInt(), 0xFFAF52DE.toInt(), 0xFFFF2D55.toInt(), 0xFF8E8E93.toInt()
+        )
+        val names = arrayOf("#000000", "#FFFFFF", "#FF3B30", "#FF9500", "#FFCC00", "#34C759", "#00C7BE", "#007AFF", "#5856D6", "#AF52DE", "#FF2D55", "#8E8E93")
+        AlertDialog.Builder(act)
+            .setItems(names) { _, i -> res.complete(prompt.confirm(names[i].lowercase())) }
+            .setNegativeButton(android.R.string.cancel) { _, _ -> res.complete(prompt.dismiss()) }
+            .setOnCancelListener { res.complete(prompt.dismiss()) }
+            .show()
+        return res
+    }
+
     override fun onPopupPrompt(session: GeckoSession, prompt: GeckoSession.PromptDelegate.PopupPrompt): GeckoResult<PromptResponse>? =
         GeckoResult.fromValue(prompt.confirm(AllowOrDeny.DENY))
 

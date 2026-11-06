@@ -42,7 +42,10 @@ object CookieBridge : WebExtension.MessageDelegate {
         val o = message as? JSONObject ?: return
         val type = o.optString("type")
         when (type) {
-            "hello" -> userAgent = o.optString("ua")
+            "hello" -> {
+                userAgent = o.optString("ua")
+                GeckoCfg.push()
+            }
             "cookies" -> pending.remove(o.optString("id"))?.complete(o.optString("header"))
             else -> listeners.forEach { it(type, o) }
         }

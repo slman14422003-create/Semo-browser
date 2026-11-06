@@ -325,7 +325,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
             RowSpec(L("الوضع الداكن للمواقع"), L("يتبع وضع النظام الداكن"), Icons.Default.Star, { Prefs.pickSiteDark(!Prefs.siteDark) },
                 { IosSwitch(checked = Prefs.siteDark, onCheckedChange = null) })
         )),
-        SectionSpec("security", L("الأمان"), L("الحماية الفورية • HTTPS • سجل الأمان"), Icons.Default.Check, listOf(
+        SectionSpec("security", L("الأمان"), L("الحماية الفورية • HTTPS • سجل الأمان"), Icons.Default.Check, listOfNotNull(
             RowSpec(L("الحماية الفورية"),
                 (if (Shield.version >= 0) L("تصدّي لهجمات الشبكة المحلية والتعدين الخفي والتتبع والروابط المخادعة وإغراق النوافذ — تم صدّ ") + Shield.total else ""),
                 Icons.Default.Lock, { Prefs.pickShield(!Prefs.shield) },
@@ -334,7 +334,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
                 { IosSwitch(checked = Prefs.httpsFirst, onCheckedChange = null) }),
             RowSpec(L("الحماية من البصمة"), L("توحيد وتشويش قيم Canvas وWebGL والصوت والجهاز (يُطبَّق على التبويبات الجديدة)"), Icons.Default.Lock, { Prefs.pickAntiFingerprint(!Prefs.antiFingerprint) },
                 { IosSwitch(checked = Prefs.antiFingerprint, onCheckedChange = null) }),
-            RowSpec(S(R.string.fp_strict_title), S(R.string.fp_strict_sub), Icons.Default.Lock, { Prefs.pickFpStrict(!Prefs.fpStrict) },
+            if (USE_GECKO) null else RowSpec(S(R.string.fp_strict_title), S(R.string.fp_strict_sub), Icons.Default.Lock, { Prefs.pickFpStrict(!Prefs.fpStrict) },
                 { IosSwitch(checked = Prefs.fpStrict, onCheckedChange = null) }),
             RowSpec(L("إزالة معرّفات التتبع"), L("utm و fbclid و gclid وغيرها من الروابط"), Icons.Default.Check, { Prefs.pickCleanUrls(!Prefs.cleanUrls) },
                 { IosSwitch(checked = Prefs.cleanUrls, onCheckedChange = null) }),
@@ -385,7 +385,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
                 { IosSwitch(checked = Prefs.cap60, onCheckedChange = null) }),
             RowSpec(L("حركات الواجهة"), L("إيقافها يجعل التنقل فورياً ويوفر الطاقة"), Icons.Default.Star, { Prefs.pickSmoothAnim(!Prefs.smoothAnim) },
                 { IosSwitch(checked = Prefs.smoothAnim, onCheckedChange = null) }),
-            RowSpec(L("Page brain"), L("Detects the page type and framework, applies matching fixes and speed tweaks, and updates its rules. Applies to new tabs"), Icons.Default.Star, { Prefs.pickBrain(!Prefs.brain) },
+            if (USE_GECKO) null else RowSpec(L("Page brain"), L("Detects the page type and framework, applies matching fixes and speed tweaks, and updates its rules. Applies to new tabs"), Icons.Default.Star, { Prefs.pickBrain(!Prefs.brain) },
                 { IosSwitch(checked = Prefs.brain, onCheckedChange = null) })
         )),
         SectionSpec("downloads", L("التنزيلات"), L("الاتصالات • مكان الحفظ"), Icons.Default.KeyboardArrowDown, listOf(

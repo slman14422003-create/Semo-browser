@@ -391,6 +391,8 @@ object I18n {
         "نسخة سطح المكتب افتراضياً" to "Desktop site by default",
         "جارٍ حفظ الملف…" to "Saving the file…",
         "تعذّر حفظ الملف" to "Could not save the file",
+        "تم حجب تنزيلات تلقائية متكررة من هذه الصفحة" to "Blocked repeated automatic downloads from this page",
+        "تعذّر تشغيل هذه الميزة على الصفحة الحالية. أعد تحميل الصفحة وجرّب مجدداً" to "Couldn't run this on the current page. Reload the page and try again",
         "تم الحفظ — القائمة ⋮ ثم التنزيلات" to "Saved — menu ⋮ then Downloads",
         "هذا النوع من الملفات (تطبيق/ملف تنفيذي) قد يضر بجهازك. نزّله فقط من مصدر تثق به.\n\n" to "This kind of file (app/executable) may harm your device. Download it only from a source you trust.\n\n",
         "يتبع وضع النظام الداكن" to "Follows the system dark mode",
