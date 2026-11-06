@@ -934,7 +934,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
         val want = Prefs.autoPip && ((tab.yt && isYtVideo(tab.url)) || customView != null)
         if (mainAct != null && mainAct.pipAuto != want) { mainAct.pipAuto = want; mainAct.refreshPip() }
     }
-    LaunchedEffect(Prefs.js, Prefs.textZoom, Prefs.siteDark) { runCatching { GeckoSettings.update() } }
+    LaunchedEffect(Prefs.js, Prefs.textZoom, Prefs.siteDark, GeckoCfg.key()) { runCatching { GeckoSettings.update(); GeckoCfg.push() } }
     DisposableEffect(Unit) {
         GeckoPage.register(activity) { u ->
             val k = GeckoYt.key(u)
