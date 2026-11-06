@@ -41,9 +41,21 @@ fun fmtEta(s: Long): String {
     return if (h > 0) String.format(Locale.US, "%d:%02d:%02d", h, m, sec) else String.format(Locale.US, "%02d:%02d", m, sec)
 }
 
+fun viewUri(t: DlTask): android.net.Uri? {
+    val u = t.uri ?: return null
+    val base = when {
+        t.mime.startsWith("image/", true) -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        t.mime.startsWith("video/", true) -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        t.mime.startsWith("audio/", true) -> android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        else -> return u
+    }
+    if (u.authority != android.provider.MediaStore.AUTHORITY) return u
+    return runCatching { android.content.ContentUris.withAppendedId(base, android.content.ContentUris.parseId(u)) }.getOrDefault(u)
+}
+
 fun openFile(c: Context, t: DlTask) {
     runCatching {
-        c.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(t.uri, t.mime.ifBlank { "*/*" }).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+        c.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(viewUri(t), t.mime.ifBlank { "*/*" }).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).also { if (c !is android.app.Activity) it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
     }.onFailure { toast(c, L("لا يوجد تطبيق لفتح الملف")) }
 }
 

@@ -515,7 +515,7 @@ object Downloader {
         if (!Prefs.notifDone || !Notif.enabled(app)) return
         ensureEngine()
         runCatching {
-            val i = Intent(Intent.ACTION_VIEW).setDataAndType(t.uri, t.mime.ifBlank { "*/*" }).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            val i = Intent(Intent.ACTION_VIEW).setDataAndType(viewUri(t), t.mime.ifBlank { "*/*" }).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             val pi = PendingIntent.getActivity(app, notifId(t), i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             app.getSystemService(NotificationManager::class.java).notify(
                 notifId(t),
