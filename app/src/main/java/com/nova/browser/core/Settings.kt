@@ -378,7 +378,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
             RowSpec(L("توفير البيانات"), L("عدم تحميل الصور (يُطبَّق على التبويبات الجديدة)"), Icons.Default.Info, { Prefs.pickDataSaver(!Prefs.dataSaver) },
                 { IosSwitch(checked = Prefs.dataSaver, onCheckedChange = null) })
         )),
-        SectionSpec("thermal", L("الحرارة والسلاسة"), L("الحرارة • الحركات"), Icons.Default.Warning, listOf(
+        SectionSpec("thermal", L("الحرارة والسلاسة"), L("الحرارة • الحركات"), Icons.Default.Warning, listOfNotNull(
             RowSpec(L("التكيف مع حرارة الجهاز"), L("يخفّف الحركة ويحرّر التبويبات الخلفية عند السخونة أو توفير الطاقة"), Icons.Default.Warning, { Prefs.pickAdaptive(!Prefs.adaptive) },
                 { IosSwitch(checked = Prefs.adaptive, onCheckedChange = null) }),
             RowSpec(L("تحديد 60Hz عند السخونة"), L("يقلل استهلاك الشاشة والمعالج"), Icons.Default.Refresh, { Prefs.pickCap60(!Prefs.cap60) },
