@@ -1,5 +1,15 @@
 # سجل المهام والتعديلات
 
+## 2026-11-06 - Gecko: ميزات لا تعمل وصفحات لا تُعرض صحيحاً
+- السبب: حزمة content.js كانت تحقن السكربتات بوسم <script> مضمّن فتحجبه CSP الصفحة، وإعدادات كثيرة (Prefs) لم تكن تصل إلى Gecko أصلاً.
+- الإضافة: السكربتات صارت ملفات main-*.js تُسجَّل في عالم MAIN عبر scripting.registerContentScripts (background.js)، وملفات cfg-*.js تضبط window.__semoCfg. تُولَّد بـ tools/gen-ext.py من assets/*.js (شغّله بعد أي تعديل عليها). حُذف content.js.
+- engine/GeckoCfg.kt: يرسل Prefs إلى الإضافة (عند الاتصال وعند أي تغيير) فتعمل: Shield، الإعلانات، لافتات الكوكيز، تحسين العرض، التحميل الكسول، التسريع، التكبير، فك النسخ، المسودات، توفير البيانات (حجب الصور).
+- GeckoSettings: حجب الإعلانات/المتتبعات، حماية البصمة (ETP)، الكوكيز الخارجية، ولغة المواقع.
+- GeckoUi: حوار اختيار اللون. وضع القراءة: رسالة عند الفشل.
+- الإعدادات: صفا fpStrict وPage brain مخفيان في Gecko (تخص WebView). privacy.js وbrain.js وsafari.js وscrollguard.js وpwa.js لا تُحقن في Gecko.
+- ترجمة: أربع رسائل كانت تمرر نصاً إنجليزياً إلى L() (تظهر بالإنجليزية في الواجهة العربية)، وsmart_summarize_text في values-ar.
+- لم يُبنَ المشروع في الجلسة؛ شغّل Gradle أولاً.
+
 ## 2026-10-24 (4) - back to the previous tab, visible Close all
 - BrowserTab.parentId: tabs opened from a page (Handlers.openTab, Ask AI, summarize links) remember the tab they came from (MainActivity.openChild).
 - MainActivity: visit history (last 30 tab ids). Back order: page history, then tab back (close a child tab and return to its parent, otherwise switch to the previously visited tab without closing), then the old start-page reset, then the app. Closed child tabs go to the reopen list.

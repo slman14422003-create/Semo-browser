@@ -9,6 +9,7 @@
     <string name="smart_close">إغلاق</string>
     <string name="smart_ask_ai">اسأل الذكاء الاصطناعي</string>
     <string name="smart_translate">ترجمة</string>
+    <string name="smart_summarize_text">تلخيص</string>
     <string name="smart_search">بحث</string>
     <string name="smart_no_summary">لا يوجد نص كافٍ للتلخيص في هذه الصفحة</string>
     <string name="smart_on_device">يُنشأ الملخص على جهازك دون إرسال أي بيانات</string>
