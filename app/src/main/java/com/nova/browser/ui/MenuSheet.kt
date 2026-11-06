@@ -194,7 +194,7 @@ fun PageMenu(
                 }
                 IosDivider()
                 IosCell(L("نسخة سطح المكتب"), { act(onDesktop) }, trailing = if (tab.desktop) ({ IosIcon(IosGlyph.Check, ios.blue, 20.dp) }) else null)
-                IosCell(L("وضع القراءة"), { act { tab.webView?.let { WebSupport.reader(it) }; if (tab.engine != null) GeckoPage.exec(tab, "reader.js") { } } })
+                IosCell(L("وضع القراءة"), { act { tab.webView?.let { WebSupport.reader(it) }; if (tab.engine != null) GeckoPage.exec(tab, "reader.js") { r -> if (r == null) toast(ctx, L("تعذّر تشغيل هذه الميزة على الصفحة الحالية. أعد تحميل الصفحة وجرّب مجدداً")) } } })
                 IosCell(L("ترجمة الصفحة"), { act(onTranslate) })
                 if (Prefs.smart) {
                     IosCell(S(R.string.smart_summarize), { act(onSummarize) }, enabled = tab.url.isNotBlank())
