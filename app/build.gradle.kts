@@ -95,7 +95,7 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.2.0")   // 1.0.1 كان يُسقط أحياناً عند الخروج (NPE داخلي في مزامنة حركة الأيقونة)
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("org.mozilla.geckoview:geckoview-arm64-v8a:157.+")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")           // شبكة HTTP/2 مع كاش وإعادة استخدام الاتصالات (اقتراحات البحث)
+    implementation("com.squareup.okhttp3:okhttp:5.5.1")           // شبكة HTTP/2 مع كاش وإعادة استخدام الاتصالات (اقتراحات البحث)
     implementation("androidx.profileinstaller:profileinstaller:1.4.1") // ملفات Baseline لتسريع بدء التشغيل وتقليل التقطيع
     implementation("com.moizhassan.ffmpeg:ffmpeg-kit-16kb:6.1.1")   // تحويل الصوت إلى MP3 وغيره (FFmpeg)
     implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.5") // استخراج روابط الفيديو/الصوت من يوتيوب (مجاني ومفتوح المصدر)
