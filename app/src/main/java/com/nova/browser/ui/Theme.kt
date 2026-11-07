@@ -1,7 +1,6 @@
 package com.nova.browser
 
 import android.content.*
-import android.webkit.*
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.*

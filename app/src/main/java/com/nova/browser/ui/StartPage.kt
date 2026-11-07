@@ -1,7 +1,6 @@
 package com.nova.browser
 
 import android.content.*
-import android.webkit.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*

@@ -26,12 +26,4 @@
     <string name="x_copy_sub">Lets you select and copy text on pages that block it (applies to new tabs)</string>
     <string name="x_draft_title">Draft rescue</string>
     <string name="x_draft_sub">Keeps long text typed in text boxes for 30 minutes if the page reloads or closes (applies to new tabs)</string>
-    <string name="site_fix">Fix this site (turn off protections here)</string>
-    <string name="site_fix_on">Protections off for this site</string>
-    <string name="site_fix_off">Protections back on for this site</string>
-    <string name="ssl_warn">This site certificate is not trusted. Continuing may expose your data.</string>
-    <string name="ssl_proceed">Continue anyway</string>
-    <string name="ssl_back">Go back</string>
-    <string name="fp_strict_title">Strict fingerprint protection</string>
-    <string name="fp_strict_sub">Also randomizes canvas, WebGL, audio and fonts. Can break some sites and CAPTCHA pages (applies to new tabs)</string>
 </resources>
