@@ -120,3 +120,26 @@
     });
   } catch (e) {}
 })();
+
+(function () {
+  try {
+    if (window.top !== window) return;
+    var done = false;
+    function pad() {
+      try {
+        if (done || !document.body) return;
+        if (document.documentElement.scrollHeight > window.innerHeight * 1.25) {
+          var d = document.createElement("div");
+          d.setAttribute("data-semo-pad", "1");
+          d.style.cssText = "height:92px;width:1px;pointer-events:none;flex:none";
+          document.body.appendChild(d);
+          done = true;
+        }
+      } catch (e) {}
+    }
+    window.addEventListener("load", function () {
+      setTimeout(pad, 600);
+      setTimeout(pad, 2500);
+    });
+  } catch (e) {}
+})();
