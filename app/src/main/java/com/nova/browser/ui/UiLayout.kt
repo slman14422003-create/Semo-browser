@@ -37,7 +37,7 @@ object UiLayout {
     const val BAR_ROW_DP = BAR_DP - PROGRESS_DP
 
     /** المساحة المحجوزة للكبسولة السفلية فوق شريط التنقل. */
-    val PILL: Dp = 96.dp
+    val PILL: Dp = 116.dp
 
     /**
      * مهلة استقرار الكيبورد: لا نغيّر ارتفاع الـ WebView إلا بعد أن يثبت ارتفاع الكيبورد هذه المدة.

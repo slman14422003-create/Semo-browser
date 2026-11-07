@@ -68,7 +68,7 @@ private fun FavoriteItem(st: Site, modifier: Modifier, onRemove: (() -> Unit)? =
         }
         Spacer(Modifier.height(6.dp))
         Text(st.name, style = MaterialTheme.typography.labelMedium, color = ios.label, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-        if (onRemove != null) IosMenu(expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(14.dp), tonalElevation = 0.dp) {
+        if (onRemove != null) IosMenu(expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(22.dp), tonalElevation = 0.dp) {
             DropdownMenuItem(text = { Text(L("حذف")) }, onClick = { menu = false; onRemove() })
         }
     }
@@ -153,7 +153,7 @@ fun StartPage(
         }
         StartHeader(L("تقرير الخصوصية"), Modifier.stagger(3, shown))
         Row(
-            Modifier.stagger(4, shown).padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ios.cell).padding(16.dp),
+            Modifier.stagger(4, shown).padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(ios.cell).padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IosIcon(IosGlyph.ShieldFill, ios.blue, 40.dp, accent = ios.cell)

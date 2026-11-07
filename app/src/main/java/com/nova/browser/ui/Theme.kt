@@ -12,6 +12,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -122,9 +125,23 @@ private val NovaShapes = Shapes(
 
 object IosShape {
     val pill = RoundedCornerShape(50)
-    val card = RoundedCornerShape(14.dp)
-    val field = RoundedCornerShape(12.dp)
-    val sheet = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+    val card = RoundedCornerShape(26.dp)
+    val field = RoundedCornerShape(22.dp)
+    val sheet = RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp)
+}
+
+@Composable
+fun Modifier.liquidGlass(shape: androidx.compose.ui.graphics.Shape = IosShape.pill): Modifier {
+    val ios = LocalIos.current
+    val tint = if (ios.dark) Color(0xE62C2C2E) else Color(0xEBFFFFFF)
+    val top = if (ios.dark) Color(0x40FFFFFF) else Color(0xCCFFFFFF)
+    val bottom = if (ios.dark) Color(0x14FFFFFF) else Color(0x1A000000)
+    val shadow = if (ios.dark) Color(0x99000000) else Color(0x40000000)
+    return this
+        .shadow(10.dp, shape, ambientColor = shadow, spotColor = shadow)
+        .clip(shape)
+        .background(tint, shape)
+        .border(0.8.dp, androidx.compose.ui.graphics.Brush.verticalGradient(listOf(top, bottom)), shape)
 }
 
 @Composable
