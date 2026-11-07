@@ -278,7 +278,7 @@ fun ListRow(
     enabled: Boolean = true, trailing: (@Composable () -> Unit)? = null, modifier: Modifier = Modifier, leading: @Composable () -> Unit
 ) {
     val ios = LocalIos.current
-    val r = 10.dp
+    val r = 24.dp
     val clipShape = RoundedCornerShape(
         topStart = if (shape.first) r else 0.dp, topEnd = if (shape.first) r else 0.dp,
         bottomStart = if (shape.last) r else 0.dp, bottomEnd = if (shape.last) r else 0.dp
@@ -290,7 +290,7 @@ fun ListRow(
 
 @Composable
 fun IosGroup(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(10.dp)).background(LocalIos.current.cell), content = content)
+    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(24.dp)).background(LocalIos.current.cell), content = content)
 }
 
 @Composable
@@ -347,7 +347,7 @@ fun IosButton(text: String, onClick: () -> Unit, filled: Boolean = true, modifie
     val ios = LocalIos.current
     val src = remember { MutableInteractionSource() }
     Box(
-        modifier.fillMaxWidth().height(50.dp).pressScale(src, 0.97f).clip(RoundedCornerShape(12.dp))
+        modifier.fillMaxWidth().height(50.dp).pressScale(src, 0.97f).clip(RoundedCornerShape(25.dp))
             .background(if (filled) ios.blue else ios.fill3).clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {

@@ -61,7 +61,7 @@ fun NovaDialog(
     val total = (if (hasConfirm) 1 else 0) + (if (hasDismiss) 1 else 0) + (if (extraAction != null) 1 else 0)
     val confirmColor = if (danger) ios.red else ios.blue
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(Modifier.width(280.dp).clip(RoundedCornerShape(14.dp)).background(ios.alert)) {
+        Column(Modifier.width(280.dp).clip(RoundedCornerShape(30.dp)).background(ios.alert)) {
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 20.dp, bottom = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)

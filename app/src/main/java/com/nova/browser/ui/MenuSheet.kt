@@ -87,7 +87,7 @@ private fun ShareApps(url: String, title: String, act: (() -> Unit) -> Unit) {
                 }.padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box(Modifier.size(56.dp).clip(RoundedCornerShape(13.dp)).background(ios.cell), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(56.dp).clip(RoundedCornerShape(18.dp)).background(ios.cell), contentAlignment = Alignment.Center) {
                     val ic = t.icon
                     if (ic != null) Image(remember(ic) { ic.asImageBitmap() }, null, Modifier.fillMaxSize())
                     else Text(t.label.take(1).uppercase(), style = MaterialTheme.typography.titleMedium, color = ios.label2)
@@ -101,7 +101,7 @@ private fun ShareApps(url: String, title: String, act: (() -> Unit) -> Unit) {
                 Modifier.width(72.dp).clip(RoundedCornerShape(10.dp)).clickable { act { shareText(ctx, url) } }.padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box(Modifier.size(56.dp).clip(RoundedCornerShape(13.dp)).background(ios.cell), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(56.dp).clip(RoundedCornerShape(18.dp)).background(ios.cell), contentAlignment = Alignment.Center) {
                     IosIcon(IosGlyph.Ellipsis, ios.label, 24.dp)
                 }
                 Spacer(Modifier.height(5.dp))
@@ -175,7 +175,7 @@ fun PageMenu(
     val zoomNames = listOf(L("صغير"), L("عادي"), L("كبير"), L("كبير جداً"))
     fun act(a: () -> Unit) { onDismiss(); a() }
     IosMenu(
-        expanded = expanded, onDismissRequest = onDismiss, shape = RoundedCornerShape(14.dp),
+        expanded = expanded, onDismissRequest = onDismiss, shape = RoundedCornerShape(22.dp),
         tonalElevation = 0.dp, shadowElevation = 12.dp
     ) {
         Column(Modifier.width(260.dp)) {

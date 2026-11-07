@@ -58,7 +58,7 @@ fun FindBar(tab: BrowserTab) {
     var q by remember { mutableStateOf("") }
     val fr = remember { FocusRequester() }
     LaunchedEffect(Unit) { fr.requestFocus() }
-    Column(Modifier.imePadding().fillMaxWidth().background(ios.chrome).iosHairlineTop(ios.separator)) {
+    Column(Modifier.imePadding().fillMaxWidth().then(if (editing) Modifier.background(ios.chrome).iosHairlineTop(ios.separator) else Modifier)) {
         Row(Modifier.navigationBarsPadding().height(52.dp).padding(start = 12.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(
                 Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(10.dp)).background(ios.fill3).padding(horizontal = 8.dp),
@@ -105,10 +105,10 @@ private fun RowScope.ToolbarBtn(
         ),
         contentAlignment = Alignment.Center
     ) {
-        val tbTint by animateColorAsState(if (enabled) ios.blue else ios.label3, tween(Adaptive.ms(200)), label = "tbTint")
+        val tbTint by animateColorAsState(if (enabled) ios.label else ios.label3, tween(Adaptive.ms(200)), label = "tbTint")
         IosIcon(kind, tbTint, 25.dp, Modifier.pressScale(src, 0.86f))
         if (menu != null) IosMenu(
-            expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(14.dp),
+            expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(22.dp),
             tonalElevation = 0.dp, shadowElevation = 12.dp
         ) {
             Column(Modifier.width(260.dp)) { menu({ open = false }) }
@@ -174,7 +174,7 @@ fun BottomPill(
                         LaunchedEffect(Unit) { fr.requestFocus() }
                         LaunchedEffect(fill) { fill?.let { f -> field = TextFieldValue(f, TextRange(f.length)); query = f; fill = null } }
                         Row(
-                            Modifier.weight(1f).height(40.dp).clip(IosShape.field).background(ios.fill3).padding(start = 10.dp, end = 4.dp),
+                            Modifier.weight(1f).height(40.dp).clip(IosShape.pill).background(ios.fill3).padding(start = 10.dp, end = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IosIcon(IosGlyph.Magnifier, ios.label2, 17.dp)
@@ -216,13 +216,13 @@ fun BottomPill(
                     }
                 } else {
                     Column(Modifier.fillMaxWidth()) {
-                        Box(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 12.dp, vertical = 6.dp)) {
+                        Box(Modifier.fillMaxWidth().height(56.dp).padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 4.dp)) {
                             val animatedProgress by animateFloatAsState(
                                 targetValue = if (tab.loading) tab.progress.coerceIn(0.05f, 1f) else 0f,
                                 animationSpec = tween(180, easing = FastOutSlowInEasing), label = "loadBar"
                             )
                             Box(
-                                Modifier.fillMaxSize().clip(IosShape.field).background(ios.fill3)
+                                Modifier.fillMaxSize().liquidGlass()
                                     .pointerInput(Unit) {
                                         var dx = 0f; var dy = 0f
                                         detectDragGestures(
@@ -278,7 +278,7 @@ fun BottomPill(
                                 Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(animatedProgress).height(2.dp).background(ios.blue))
                             }
                         }
-                        Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 6.dp).height(52.dp).liquidGlass(), verticalAlignment = Alignment.CenterVertically) {
                             ToolbarBtn(
                                 IosGlyph.Back, tab.canBack || hasPage, { if (tab.canBack) tab.engine?.back() else onHome() },
                                 menu = if (tab.canBack) ({ close ->
