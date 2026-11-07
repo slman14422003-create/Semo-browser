@@ -10,9 +10,6 @@ import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import java.util.concurrent.ConcurrentHashMap
-import android.webkit.WebView
-import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature
 
 /** نوع الصفحة من منظور «وضع التطبيق». */
 enum class SiteKind { NONE, YT, YT_VIDEO, AI, APP }
@@ -23,7 +20,6 @@ class SiteInfo(val kind: SiteKind, val name: String, val host: String)
 /**
  * وضع PWA لمواقع الذكاء الاصطناعي + الشريط العلوي ليوتيوب:
  * - يكتشف نوع الصفحة (يوتيوب / فيديو / ذكاء اصطناعي) لعرض الشريط العلوي المناسب.
- * - يحقن pwa.js على مواقع الذكاء الاصطناعي فقط (محاكاة standalone، مظهر تطبيق). يوتيوب لا يُحقن فيه: له WebView مخصّص.
  */
 object Pwa {
     const val BAR_H = UiLayout.BAR_DP   // dp: ارتفاع الشريط العلوي (يشمل خط التقدّم) — القيمة في UiLayout
@@ -33,13 +29,6 @@ object Pwa {
         "claude.ai" to "Claude", "perplexity.ai" to "Perplexity", "copilot.microsoft.com" to "Copilot",
         "chat.deepseek.com" to "DeepSeek", "grok.com" to "Grok", "poe.com" to "Poe", "chat.mistral.ai" to "Le Chat"
     )
-
-    /** النطاقات التي يُحقن فيها pwa.js (الدالة داخل السكربت تضيّق google.com على udm=50 فقط). */
-    val origins: Set<String> = buildSet {
-        add("https://www.google.com")   // يوتيوب خارج القائمة عمداً: له WebView مخصّص (YtWeb) بلا pwa.js
-        aiNames.keys.forEach { add("https://$it") }
-        add("https://www.perplexity.ai")
-    }
 
     // ---------- تطبيقات مثبّتة (أي موقع يُثبَّت كتطبيق مستقل) ----------
     private val apps = ConcurrentHashMap<String, String>()
@@ -69,7 +58,7 @@ object Pwa {
     fun publishShortcuts(c: Context) {
         runCatching {
             // إن كان يوتيوب مثبّتاً كتطبيق: اختصاران مباشران (الاشتراكات والسجل) ثم أحدث 3 تطبيقات؛ وإلا أحدث 4 تطبيقات كما كان
-            val ytHost = apps.keys.firstOrNull { YtWeb.isYtHost(it) }
+            val ytHost = apps.keys.firstOrNull { PageRules.isYtHost(it) }
             val appList = apps.entries.toList().takeLast(if (ytHost != null) 3 else 4).map { (host, name) ->
                 ShortcutInfoCompat.Builder(c, "dyn_$host").setShortLabel(name).setLongLabel(name)
                     .setIcon(IconCompat.createWithBitmap((PwaManifest.cachedIcon(c, host) ?: Favicons.get(host))?.let { Bitmap.createScaledBitmap(it, 192, 192, true) } ?: letterIcon(host, name)))
@@ -95,20 +84,12 @@ object Pwa {
 
     fun homeFor(url: String): String {
         val h = hostOf(url)
-        return if (YtWeb.isYtHost(h)) "https://m.youtube.com/" else "https://$h/"
+        return if (PageRules.isYtHost(h)) "https://m.youtube.com/" else "https://$h/"
     }
 
     fun launch(ctx: Context, url: String) {
         ensure(ctx)
         runCatching { ctx.startActivity(AppActivity.intentFor(ctx, homeFor(url))) }
-    }
-
-    private fun installedOrigins(): Set<String> = apps.keys.map { "https://$it" }.toSet() + apps.keys.map { "https://www.$it" }.toSet()
-
-    private fun cfgJson(): String {
-        val arr = org.json.JSONArray()
-        apps.keys.forEach { arr.put(it); arr.put("www.$it") }
-        return "{\"v\":3,\"anim\":${Prefs.smoothAnim && Adaptive.level == 0},\"hap\":${Prefs.pwaHaptics},\"apps\":$arr}"
     }
 
     private fun letterIcon(host: String, label: String): Bitmap {
@@ -160,52 +141,6 @@ object Pwa {
         }
         return true
     }
-
-    private val js: String? by lazy {
-        runCatching { Perf.asset("pwa.js") }.getOrNull()
-    }
-
-    private val docStart by lazy { WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) }
-    private val listenerOk by lazy { WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) }
-
-    /** يثبّت جسر NovaPwa (مشاركة أصلية + اهتزاز) ثم يحقن pwa.js مع إعدادات التشغيل. */
-    fun install(wv: WebView) {
-        val base = js ?: return
-        if (!Prefs.pwaMode) return
-        ensure(wv.context)
-        val allOrigins = origins + installedOrigins()
-        if (listenerOk) runCatching {
-            WebViewCompat.addWebMessageListener(wv, "NovaPwa", allOrigins, WebViewCompat.WebMessageListener { view, message, _, isMain, _ ->
-                if (!isMain) return@WebMessageListener
-                val data = message.data ?: return@WebMessageListener
-                if (data.length > 4000) return@WebMessageListener
-                val o = runCatching { org.json.JSONObject(data) }.getOrNull() ?: return@WebMessageListener
-                when (o.optString("t")) {
-                    "share" -> { val t = o.optString("text").take(2000); if (t.isNotBlank()) runCatching { shareText(view.context, t) } }
-                    "hap" -> if (Prefs.pwaHaptics) view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-                }
-            })
-        }
-        if (docStart) {
-            runCatching { WebViewCompat.addDocumentStartJavaScript(wv, base.replace("__CFG__", cfgJson()), allOrigins) }
-        }
-    }
-
-    /**
-     * احتياطي للأجهزة التي لا تدعم الحقن قبل الصفحة (DOCUMENT_START_SCRIPT): كان pwa.js لا يعمل عليها إطلاقاً.
-     * يُنفَّذ عند بدء الصفحة وللنطاقات المسموحة فقط؛ السكربت نفسه يحمي من التنفيذ المزدوج (__novaPwa).
-     */
-    fun onPageStart(wv: WebView, url: String) {
-        if (docStart || !Prefs.pwaMode) return
-        val base = js ?: return
-        val o = runCatching { Uri.parse(url) }.getOrNull() ?: return
-        ensure(wv.context)
-        if (o.scheme != "https" || "https://${o.host}" !in (origins + installedOrigins())) return
-        wv.evaluateJavascript(base.replace("__CFG__", cfgJson()), null)
-    }
-
-    /** يمرّر الصفحة (أو أكبر حاوية تمرير فيها) إلى الأعلى بحركة ناعمة — عند الضغط على اسم الموقع في الشريط. */
-    fun scrollTop(wv: WebView?) { wv?.evaluateJavascript("window.__novaTop&&window.__novaTop()", null) }
 
     @Volatile private var lastUrl: String? = null
     @Volatile private var lastInfo: SiteInfo? = null

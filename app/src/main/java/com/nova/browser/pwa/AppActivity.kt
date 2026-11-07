@@ -31,10 +31,6 @@ import android.os.Bundle
 import android.util.Rational
 import android.view.View
 import android.view.ViewGroup
-import android.webkit.PermissionRequest
-import android.webkit.ValueCallback
-import android.webkit.WebChromeClient
-import android.webkit.WebView
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -106,9 +102,7 @@ class AppActivity : ComponentActivity() {
     private val tab = BrowserTab(seq++)
     private var startUrl = ""
     private var appName = ""
-    private var fileCb: ValueCallback<Array<Uri>>? = null
-    private var custom by mutableStateOf<View?>(null)
-    private var customCb: WebChromeClient.CustomViewCallback? = null
+    private var fileCb: ((Array<Uri>?) -> Unit)? = null
     private var inPip by mutableStateOf(false)
     private var geckoFull by mutableStateOf(false)
     private var configTick by mutableStateOf(0)
@@ -148,7 +142,9 @@ class AppActivity : ComponentActivity() {
     private var permCur: (() -> Unit)? = null
 
     private val fileLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
-        fileCb?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(res.resultCode, res.data))
+        val d = res.data
+        val out: Array<Uri>? = if (res.resultCode != RESULT_OK || d == null) null else d.clipData?.let { c -> Array(c.itemCount) { c.getItemAt(it).uri } } ?: d.data?.let { arrayOf(it) }
+        fileCb?.invoke(out)
         fileCb = null
     }
 
@@ -205,23 +201,18 @@ class AppActivity : ComponentActivity() {
 
     private fun boot() {
         val c = applicationContext
-        WebSupport.warmStart(c)
         CrashLog.install(c)
         Robust.init(c)
         Prefs.init(c)
         SiteStore.init(c)
-        PageBrain.init(c)
         GoogleAccounts.init(c)
         Adaptive.init(c)
         Library.init(c)
         Work.cpu { Vault.init(c) }
         Security.init(c)
         Perf.init(c)
-        PageExtras.preheat(c)
         Shield.init(c)
-        WebEngine.init(c)
         NetKit.init(c)
-        WebSupport.init(c)
         Downloader.init(c)
         Notif.ensureChannels(c)
         MainActivity.initialized = true
@@ -239,7 +230,7 @@ class AppActivity : ComponentActivity() {
     private fun setOrient(v: Int) {
         optOrient = v
         AppPrefs.setOrient(this, hostKey, v)
-        if (custom == null) requestedOrientation = AppPrefs.orientFlag(v)
+        if (!geckoFull) requestedOrientation = AppPrefs.orientFlag(v)
     }
 
     private fun setAwake(v: Boolean) {
@@ -293,13 +284,7 @@ class AppActivity : ComponentActivity() {
         if (!tab.yt) return
         val metered = getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered ?: false
         val q = qualityJs(if (metered) optQMobile else optQWifi)
-        if (tab.engine != null) {
-            GeckoYt.pushOpts(tab, optShorts, optFocus, q)
-            return
-        }
-        val w = tab.webView ?: return
-        if (!YtWeb.owns(w)) return
-        w.evaluateJavascript("window.__novaOpts&&window.__novaOpts({shorts:$optShorts,focus:$optFocus,q:'$q'})", null)
+        if (tab.engine != null) GeckoYt.pushOpts(tab, optShorts, optFocus, q)
     }
 
     private fun registerNetCb() {
@@ -340,7 +325,6 @@ class AppActivity : ComponentActivity() {
         if (YtAudio.active) YtAudio.control("pause")
         else if (YtMedia.owner === tab) YtMedia.control("pause")
         if (GeckoYt.owns(tab)) GeckoYt.control(tab, "pause")
-        tab.webView?.evaluateJavascript("document.querySelectorAll('video,audio').forEach(function(m){try{m.pause()}catch(e){}})", null)
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         toast(this, L("انتهى مؤقّت النوم وأُوقف التشغيل"))
     }
@@ -387,7 +371,7 @@ class AppActivity : ComponentActivity() {
         val u = tab.url; val p = YtMedia.pos
         YtMedia.control("pause")
         YtAudio.start(this, u, p, YtMedia.title, YtMedia.artist)
-        if (tab.engine != null) tab.engine?.load("https://m.youtube.com/") else tab.webView?.loadUrl("https://m.youtube.com/")
+        tab.engine?.load("https://m.youtube.com/")
     }
 
     // ───────── إيماءات الحواف في ملء الشاشة: يسار = سطوع، يمين = صوت ─────────
@@ -461,7 +445,7 @@ class AppActivity : ComponentActivity() {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (optGestures && custom != null && !inPip && tab.yt) {
+        if (optGestures && geckoFull && !inPip && tab.yt) {
             when (edgeGesture(ev)) {
                 1 -> {
                     val c = MotionEvent.obtain(ev)
@@ -526,29 +510,18 @@ class AppActivity : ComponentActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         inPip = isInPictureInPictureMode
         wasPip = wasPip || isInPictureInPictureMode
-        YtWeb.pip = isInPictureInPictureMode
         GeckoYt.pip = isInPictureInPictureMode
         // عودة المستخدم للواجهة (توسيع المنبثقة): لا يُعدّ أي إيقاف لاحق إغلاقاً للمنبثقة، وإلا يتوقف الصوت عند الخروج العادي
         if (!isInPictureInPictureMode) window.decorView.postDelayed({
             if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) wasPip = false
         }, 500)
-        val w = tab.webView
-        if (YtWeb.owns(w)) YtWeb.onPip(w, isInPictureInPictureMode, custom != null)
-        if (GeckoYt.owns(tab)) GeckoYt.onPip(tab, isInPictureInPictureMode, custom != null || geckoFull)
+        if (GeckoYt.owns(tab)) GeckoYt.onPip(tab, isInPictureInPictureMode, geckoFull)
     }
 
     private fun reapplyInsets() {
         val root = window.decorView
         ViewCompat.requestApplyInsets(root)
         root.requestLayout()
-    }
-
-    private fun refitWeb(w: WebView) {
-        val lp = w.layoutParams
-        if (lp != null) w.layoutParams = lp
-        (w.parent as? View)?.requestLayout()
-        w.requestLayout()
-        w.invalidate()
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
@@ -559,20 +532,9 @@ class AppActivity : ComponentActivity() {
         for (d in longArrayOf(0L, 120L, 400L, 900L)) root.postDelayed({
             if (isFinishing || isDestroyed) return@postDelayed
             reapplyInsets()
-            tab.webView?.let { refitWeb(it) }
             tab.engineView?.let { it.requestLayout(); it.invalidate() }
         }, d)
         if (GeckoYt.owns(tab)) GeckoYt.afterRotate(tab)
-        val w = tab.webView ?: return
-        if (YtWeb.owns(w)) {
-            YtWeb.afterRotate(w)
-        } else {
-            for (d in longArrayOf(120L, 450L, 1000L)) w.postDelayed({
-                w.requestLayout()
-                w.invalidate()
-                w.evaluateJavascript("window.dispatchEvent(new Event('resize'))", null)
-            }, d)
-        }
     }
 
     override fun onStart() {
@@ -580,13 +542,6 @@ class AppActivity : ComponentActivity() {
         netRetry.start()
         registerNetCb()
         tab.engine?.setActive(true)
-        val w = tab.webView
-        w?.onResume()
-        w?.resumeTimers()
-        if (!inPip && YtWeb.owns(w)) {
-            YtWeb.background(w, false)
-            YtWeb.recover(w)
-        }
         if (!inPip && GeckoYt.owns(tab)) {
             GeckoYt.background(tab, false)
             GeckoYt.recover(tab)
@@ -595,18 +550,12 @@ class AppActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        tab.webView?.let {
-            it.onResume()
-            it.resumeTimers()
-            if (YtWeb.owns(it)) YtHub.pushCc(it)
-        }
         if (GeckoYt.owns(tab)) GeckoYt.pushCfg(tab)
     }
 
     override fun onPause() {
         super.onPause()
         if (Prefs.ytBg && YtMedia.owner === tab) {
-            YtWeb.background(tab.webView, true)
             if (GeckoYt.owns(tab)) GeckoYt.background(tab, true)
         }
     }
@@ -615,12 +564,9 @@ class AppActivity : ComponentActivity() {
         super.onStop()
         netRetry.stop()
         unregisterNetCb()
-        Perf.flushCookies(true)
-        val w = tab.webView
         if (wasPip && !isInPictureInPictureMode && !isFinishing) {
             wasPip = false
             inPip = false
-            YtWeb.pip = false
             GeckoYt.pip = false
             YtMedia.stop(pause = true)
             return
@@ -628,8 +574,6 @@ class AppActivity : ComponentActivity() {
         val live = Prefs.ytBg && YtMedia.owner === tab
         if (Prefs.pauseBg && !geckoFull && !live) tab.engine?.setActive(false)
         if (live && GeckoYt.owns(tab)) GeckoYt.background(tab, true)
-        if (live) YtWeb.background(w, true)
-        else if (Prefs.pauseBg && custom == null) w?.onPause()
     }
 
     override fun onDestroy() {
@@ -641,18 +585,6 @@ class AppActivity : ComponentActivity() {
         GeckoPage.unregister(this)
         GeckoYt.forget(tab)
         GeckoPage.forget(tab)
-        custom = null
-        runCatching { customCb?.onCustomViewHidden() }
-        tab.webView?.let { w ->
-            (w.parent as? ViewGroup)?.removeView(w)
-            runCatching {
-                w.stopLoading()
-                w.loadUrl("about:blank")
-                w.onPause()
-                w.destroy()
-            }
-        }
-        tab.webView = null
         tab.engine?.close()
         tab.engine = null
         tab.engineView = null
@@ -689,7 +621,6 @@ class AppActivity : ComponentActivity() {
         optGestures = AppPrefs.gestures(this, hostKey)
         if (optDim) applyDim()
         if (GeckoYt.isYtUrl(startUrl)) {
-            YtRules.refresh(applicationContext)
             tab.yt = true
         }
         GeckoPage.register(this) { tab }
@@ -712,80 +643,20 @@ class AppActivity : ComponentActivity() {
 
         val handlers = Handlers(
             activity = this,
-            chooser = { cb, p ->
-                fileCb?.onReceiveValue(null)
-                fileCb = cb
-                runCatching { fileLauncher.launch(p.createIntent()) }.onFailure {
-                    cb.onReceiveValue(null)
-                    fileCb = null
-                }
-                true
-            },
-            permission = { req ->
-                runOnUiThread {
-                    val av = req.resources.filter {
-                        it == PermissionRequest.RESOURCE_VIDEO_CAPTURE || it == PermissionRequest.RESOURCE_AUDIO_CAPTURE
-                    }
-                    val prot = req.resources.filter { it == PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID }.toTypedArray()
-                    if (av.isEmpty()) {
-                        if (prot.isNotEmpty()) req.grant(prot) else req.deny()
-                    } else {
-                        val perms = av.map {
-                            if (it == PermissionRequest.RESOURCE_VIDEO_CAPTURE) Manifest.permission.CAMERA else Manifest.permission.RECORD_AUDIO
-                        }
-                        val what = av.joinToString(" and ") { if (it == PermissionRequest.RESOURCE_VIDEO_CAPTURE) "camera" else "microphone" }
-                        askSite(req.origin.toString(), what) { allow ->
-                            if (!allow) req.deny()
-                            else askPerms(perms) {
-                                val ok = av.filter {
-                                    granted(if (it == PermissionRequest.RESOURCE_VIDEO_CAPTURE) Manifest.permission.CAMERA else Manifest.permission.RECORD_AUDIO)
-                                }.toTypedArray()
-                                if (ok.isEmpty() && prot.isEmpty()) req.deny() else req.grant(ok + prot)
-                            }
-                        }
-                    }
-                }
-            },
-            geo = { origin, cb ->
-                runOnUiThread {
-                    val perms = listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-                    askSite(origin, "location") { allow ->
-                        if (!allow) cb.invoke(origin, false, false)
-                        else askPerms(perms) { cb.invoke(origin, perms.any { granted(it) }, false) }
-                    }
-                }
-            },
             openTab = { openExternal(it) },
-            showCustom = { v, cb ->
-                if (custom != null && custom !== v) {
-                    custom?.let { (it.parent as? ViewGroup)?.removeView(it) }
-                    runCatching { customCb?.onCustomViewHidden() }
-                }
-                custom = v
-                customCb = cb
-                tab.webView?.takeIf { YtWeb.owns(it) }?.let { YtWeb.onFullscreen(it, true) }
-            },
-            hideCustom = {
-                custom?.let { v -> (v.parent as? ViewGroup)?.removeView(v) }
-                custom = null
-                customCb = null
-                tab.webView?.takeIf { YtWeb.owns(it) }?.let {
-                    YtWeb.onFullscreen(it, false)
-                    YtWeb.afterFullscreen(it)
-                }
-            },
             onDownload = { u, ua, cd, mime, ref ->
                 if (!Shield.downloadAllowed(hostOf(ref ?: u))) toast(this, "Download blocked")
-                else if (u.startsWith("blob:", true) || u.startsWith("data:", true)) BlobDownload.start(this, tab.webView, u, cd, mime)
+                else if (u.startsWith("data:", true)) BlobDownload.start(this, u, cd, mime)
+                else if (u.startsWith("blob:", true)) toast(this, "Download failed")
                 else {
                     Downloader.start(this, u, ua, cd, mime, ref)
                     toast(this, "Download started")
                 }
             },
             filePick = { intent, cb ->
-                fileCb?.onReceiveValue(null)
+                fileCb?.invoke(null)
                 fileCb = cb
-                runCatching { fileLauncher.launch(intent) }.onFailure { cb.onReceiveValue(null); fileCb = null }
+                runCatching { fileLauncher.launch(intent) }.onFailure { cb(null); fileCb = null }
             },
             androidPerm = { perms, cb -> runOnUiThread { askPerms(perms, cb) } },
             sitePerm = { origin, label, perms, done ->
@@ -812,7 +683,7 @@ class AppActivity : ComponentActivity() {
         val cs = MaterialTheme.colorScheme
         // YouTube: until the page colour is sampled, use YouTube's own header colour (not the system background) so the status bar never looks like a separate black strip
         val bg = tab.topColor?.let { Color(it) } ?: if (tab.yt) (if (cs.background.luminance() < 0.5f) Color(0xFF0F0F0F) else Color.White) else cs.background
-        val fullscreen = custom != null || geckoFull
+        val fullscreen = geckoFull
         @Suppress("UNUSED_VARIABLE") val tick = configTick
         var splash by remember { mutableStateOf(true) }
         val icon = remember { Favicons.get(hostOf(startUrl)) }
@@ -887,8 +758,8 @@ class AppActivity : ComponentActivity() {
         val spinnerInt = cs.onSurface.toArgb()
 
         BackHandler(enabled = optSheet) { optSheet = false }
-        BackHandler(enabled = fullscreen) { if (custom != null) customCb?.onCustomViewHidden() else tab.engine?.exitFullScreen() }
-        BackHandler(enabled = !fullscreen && !optSheet && tab.canBack) { val w = tab.webView; if (w != null) WebSupport.goBackFast(w) else tab.engine?.back() }
+        BackHandler(enabled = fullscreen) { tab.engine?.exitFullScreen() }
+        BackHandler(enabled = !fullscreen && !optSheet && tab.canBack) { tab.engine?.back() }
         BackHandler(enabled = !fullscreen && !optSheet && !tab.canBack) { finishAndRemoveTask() }
 
         Box(Modifier.fillMaxSize().background(bg)) {
@@ -906,28 +777,7 @@ class AppActivity : ComponentActivity() {
             key(tab.epoch) {
                 AndroidView(
                     modifier = Modifier.fillMaxSize().padding(bottom = miniPad),
-                    factory = { ctx ->
-                        if (USE_GECKO) return@AndroidView geckoContainer(ctx, tab, handlers, primaryInt, bgInt, spinnerInt).also { (it as? SwipeRefreshLayout)?.isEnabled = optPull && !tab.yt }
-                        val wv = if (YtWeb.isYtUrl(startUrl)) YtWeb.create(ctx, tab, handlers) else createWebView(ctx, tab, handlers)
-                        tab.webView = wv
-                        wv.visibility = View.VISIBLE
-                        wv.onResume()
-                        wv.resumeTimers()
-                        if (YtWeb.isYtUrl(startUrl)) wv.loadUrl(startUrl) else wv.loadUrl(startUrl, Perf.privacyHeaders)
-                        val lp = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                        if (tab.yt) FrameLayout(ctx).apply { addView(wv, lp) }   // يوتيوب: بلا سحب للتحديث (يتعارض مع تمرير الصفحة)
-                        else SwipeRefreshLayout(ctx).apply {
-                            addView(wv, lp)
-                            setOnRefreshListener { wv.reload() }
-                            setOnChildScrollUpCallback { _, _ -> wv.scrollY > 0 || wv.canScrollVertically(-1) || WebSupport.innerScrolled(wv) }
-                            setDistanceToTriggerSync((120 * ctx.resources.displayMetrics.density).toInt())
-                            setSlingshotDistance((140 * ctx.resources.displayMetrics.density).toInt())
-                            setColorSchemeColors(primaryInt)
-                            setProgressBackgroundColorSchemeColor(bgInt)
-                            useIosSpinner(spinnerInt)
-                            isEnabled = optPull
-                        }
-                    },
+                    factory = { ctx -> geckoContainer(ctx, tab, handlers, primaryInt, bgInt, spinnerInt).also { (it as? SwipeRefreshLayout)?.isEnabled = optPull && !tab.yt } },
                     update = { v -> (v as? SwipeRefreshLayout)?.isEnabled = optPull }
                 )
             }
@@ -935,7 +785,6 @@ class AppActivity : ComponentActivity() {
             val insetPx = if (gestureNav && !fullscreen && !inPip) navDp.value else 0f
             LaunchedEffect(insetPx, tab.epoch) {
                 if (tab.yt) {
-                    tab.webView?.let { YtWeb.setInset(it, insetPx) }
                     if (GeckoYt.owns(tab)) GeckoYt.setInset(tab, insetPx)
                 }
             }
@@ -954,18 +803,8 @@ class AppActivity : ComponentActivity() {
                 YtMiniBar(Modifier.align(Alignment.BottomCenter), bottomInset = if (gestureNav) navDp else 0.dp) {
                     val u = YtAudio.watchUrl()
                     YtAudio.close()
-                    if (tab.engine != null) tab.engine?.load(u) else tab.webView?.loadUrl(u)
+                    tab.engine?.load(u)
                 }
-            }
-
-            custom?.let { v ->
-                AndroidView(
-                    modifier = Modifier.fillMaxSize().background(Color.Black),
-                    factory = {
-                        (v.parent as? ViewGroup)?.removeView(v)
-                        v
-                    }
-                )
             }
 
             // مؤشّر السطوع/الصوت أثناء إيماءات الحواف
@@ -1031,7 +870,7 @@ class AppActivity : ComponentActivity() {
                 onDim = { manual(); setDim(it) },
                 onGestures = { manual(); setGestures(it) },
                 onSleep = { cycleSleep() },
-                onReload = { tab.webView?.reload() ?: tab.engine?.reload() },
+                onReload = { tab.engine?.reload() },
                 onShare = { shareText(this@AppActivity, shareLink(false)) },
                 onCopy = { copyText(this@AppActivity, shareLink(false)) },
                 onOpenNova = { openExternal(tab.url.ifBlank { startUrl }) },

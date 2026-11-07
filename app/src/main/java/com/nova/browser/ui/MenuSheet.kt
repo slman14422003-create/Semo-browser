@@ -1,7 +1,6 @@
 package com.nova.browser
 
 import android.content.*
-import android.webkit.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
@@ -194,7 +193,7 @@ fun PageMenu(
                 }
                 IosDivider()
                 IosCell(L("نسخة سطح المكتب"), { act(onDesktop) }, trailing = if (tab.desktop) ({ IosIcon(IosGlyph.Check, ios.blue, 20.dp) }) else null)
-                IosCell(L("وضع القراءة"), { act { tab.webView?.let { WebSupport.reader(it) }; if (tab.engine != null) GeckoPage.exec(tab, "reader.js") { r -> if (r == null) toast(ctx, L("تعذّر تشغيل هذه الميزة على الصفحة الحالية. أعد تحميل الصفحة وجرّب مجدداً")) } } })
+                IosCell(L("وضع القراءة"), { act { GeckoPage.exec(tab, "reader.js") { r -> if (r == null) toast(ctx, L("تعذّر تشغيل هذه الميزة على الصفحة الحالية. أعد تحميل الصفحة وجرّب مجدداً")) } } })
                 IosCell(L("ترجمة الصفحة"), { act(onTranslate) })
                 if (Prefs.smart) {
                     IosCell(S(R.string.smart_summarize), { act(onSummarize) }, enabled = tab.url.isNotBlank())
@@ -229,54 +228,23 @@ fun PageMenu(
                 if (tab.url.startsWith("http")) {
                     val sh = hostOf(tab.url)
                     IosCell(
-                        "Site text size",
-                        { act { val z = SiteStore.nextZoom(sh); SiteStore.refresh(tab, tab.webView, sh); toast(ctx, "$z%") } }
-                    )
-                    IosCell(
-                        S(R.string.site_fix),
-                        { act { val on = SiteStore.toggleFix(sh); SiteRules.setFlag(tab.webView, on); val w = tab.webView; w?.postDelayed({ SiteStore.refresh(tab, w, sh) }, 150); toast(ctx, if (on) S(R.string.site_fix_on) else S(R.string.site_fix_off)) } }
-                    )
-                    IosCell(
                         "Site JavaScript",
-                        { act { val on = SiteStore.toggleJs(sh); SiteStore.refresh(tab, tab.webView, sh); toast(ctx, if (on) "JavaScript on" else "JavaScript off") } }
-                    )
-                    IosCell(
-                        "Site images",
-                        { act { val on = SiteStore.toggleImages(sh); SiteStore.refresh(tab, tab.webView, sh); toast(ctx, if (on) "Images on" else "Images off") } }
+                        { act { val on = SiteStore.toggleJs(sh); SiteStore.apply(tab, sh); toast(ctx, if (on) "JavaScript on" else "JavaScript off") } }
                     )
                     IosCell(
                         "Site desktop mode",
-                        { act { val on = SiteStore.toggleDesktop(sh, tab.desktop); SiteStore.refresh(tab, tab.webView, sh); toast(ctx, if (on) "Desktop" else "Mobile") } }
-                    )
-                    IosCell(
-                        "Site Safari (iPhone) identity",
-                        { act { val on = SiteStore.toggleSafari(sh, tab.safari); SiteStore.refresh(tab, tab.webView, sh); toast(ctx, if (on) "Safari identity on" else "Safari identity off") } }
-                    )
-                    IosCell(
-                        "Safari identity for all sites",
-                        { act { val on = SiteStore.toggleGlobalSafari(); SiteStore.refresh(tab, tab.webView, sh); toast(ctx, if (on) "Safari identity on for all sites" else "Safari identity off for all sites") } }
+                        { act { val on = SiteStore.toggleDesktop(sh, tab.desktop); SiteStore.apply(tab, sh); toast(ctx, if (on) "Desktop" else "Mobile") } }
                     )
                     IosCell(
                         "Clear site data",
-                        { act { SiteStore.clearData(sh); tab.webView?.reload(); toast(ctx, "Site data cleared") } }
+                        { act { SiteStore.clearData(sh); tab.engine?.reload(); toast(ctx, "Site data cleared") } }
                     )
                     if (SiteStore.get(sh).custom) IosCell(
                         "Reset site settings",
-                        { act { SiteStore.reset(sh); SiteStore.refresh(tab, tab.webView, sh); toast(ctx, "Site settings reset") } }
+                        { act { SiteStore.reset(sh); toast(ctx, "Site settings reset") } }
                     )
                 }
-                if (tab.url.startsWith("http")) IosCell(
-                    L("ترجمة الصفحة"),
-                    { act { tab.webView?.loadUrl("https://translate.google.com/translate?sl=auto&tl=" + (if (I18n.isEnglish()) "en" else "ar") + "&u=" + android.net.Uri.encode(tab.url)) } }
-                )
-                IosCell(L("الأعلى"), { act { tab.webView?.let { WebSupport.scroll(it, true) } } })
-                IosCell(L("الأسفل"), { act { tab.webView?.let { WebSupport.scroll(it, false) } } })
-                IosCell(L("تحديث تصميم الصفحة"), { act { tab.webView?.let { WebSupport.refreshDesign(it) } } })
-                IosCell(L("تحديث كامل"), { act { tab.webView?.let { WebSupport.hardReload(it) } } })
-                IosCell(L("إخفاء العائم"), { act { tab.webView?.let { WebSupport.toggleFloating(it) } } })
-                IosCell(L("الصور"), { act { tab.webView?.let { WebSupport.toggleImages(it) } } })
-                IosCell(L("إبقاء الشاشة"), { act { tab.webView?.let { WebSupport.toggleKeepOn(it) } } })
-                IosCell(L("نسخ النص"), { act { tab.webView?.let { WebSupport.copyPageText(it) } } }, divider = false)
+                IosCell(L("الأعلى"), { act { tab.engine?.scrollTop() } }, divider = false)
             }
         }
     }

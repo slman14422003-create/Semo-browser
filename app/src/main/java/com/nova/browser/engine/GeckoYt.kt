@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
- * يوتيوب على محرك Gecko — نظير YtWeb/YtHub لكن عبر إضافة Semo بدل WebView مخصّص.
+ * يوتيوب على محرك Gecko عبر إضافة Semo.
  *
  * المسار:
  *   صفحة يوتيوب (yt-main.js في عالم الصفحة، مولَّد من assets/yt.js)
@@ -66,6 +66,8 @@ object GeckoYt {
         val id = u.getQueryParameter("v") ?: u.getQueryParameter("list") ?: u.getQueryParameter("search_query") ?: ""
         return host + (u.path ?: "") + (if (id.isNotEmpty()) "?$id" else "")
     }
+
+    fun isLive(t: BrowserTab): Boolean = t.yt && t.ytPlaying
 
     fun owns(tab: BrowserTab?): Boolean = tab != null && tab.yt && tab.engine != null
 

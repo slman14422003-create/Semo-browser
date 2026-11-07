@@ -2,7 +2,6 @@ package com.nova.browser
 
 import android.content.*
 import android.net.Uri
-import android.webkit.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -68,7 +67,7 @@ fun FindBar(tab: BrowserTab) {
                 IosIcon(IosGlyph.Magnifier, ios.label2, 16.dp)
                 Spacer(Modifier.width(6.dp))
                 BasicTextField(
-                    value = q, onValueChange = { q = it; tab.webView?.findAllAsync(it); tab.engine?.find(it) }, singleLine = true,
+                    value = q, onValueChange = { q = it; tab.engine?.find(it) }, singleLine = true,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = ios.label), cursorBrush = SolidColor(ios.blue),
                     modifier = Modifier.weight(1f).focusRequester(fr),
                     decorationBox = { inner ->
@@ -80,76 +79,14 @@ fun FindBar(tab: BrowserTab) {
                 )
                 if (tab.findInfo.isNotEmpty()) Text(tab.findInfo, style = MaterialTheme.typography.bodySmall, color = ios.label2, maxLines = 1)
             }
-            Box(Modifier.size(40.dp).clickable { tab.webView?.findNext(false); tab.engine?.findNext(false) }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.ChevronUp, ios.blue, 22.dp) }
-            Box(Modifier.size(40.dp).clickable { tab.webView?.findNext(true); tab.engine?.findNext(true) }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.ChevronDown, ios.blue, 22.dp) }
-            IosTextButton(L("تم"), { tab.webView?.clearMatches(); tab.engine?.clearFind(); tab.finding = false }, bold = true)
+            Box(Modifier.size(40.dp).clickable { tab.engine?.findNext(false) }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.ChevronUp, ios.blue, 22.dp) }
+            Box(Modifier.size(40.dp).clickable { tab.engine?.findNext(true) }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.ChevronDown, ios.blue, 22.dp) }
+            IosTextButton(L("تم"), { tab.engine?.clearFind(); tab.finding = false }, bold = true)
         }
     }
 }
 
 class SitePrompt(val title: String, val message: String, val onAllow: () -> Unit, val onDeny: () -> Unit)
-
-@Composable
-fun EngineMissingScreen(ctx: Context, onRetry: () -> Unit) {
-    val ios = LocalIos.current
-    Surface(Modifier.fillMaxSize(), color = ios.groupedBg) {
-        Column(
-            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
-        ) {
-            Icon(Icons.Default.Warning, null, Modifier.size(56.dp), tint = ios.orange)
-            Spacer(Modifier.height(20.dp))
-            Text(L("تعذّر تشغيل محرك عرض الصفحات"), style = MaterialTheme.typography.headlineSmall, color = ios.label, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(10.dp))
-            Text(
-                L("يعتمد Semo brawser على مكوّن Android System WebView، ويبدو أنه معطّل أو غير مثبّت على جهازك. فعّله أو حدّثه ثم أعد المحاولة."),
-                style = MaterialTheme.typography.bodyMedium, color = ios.label2, textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(28.dp))
-            IosButton(L("فتح صفحة WebView في المتجر"), {
-                runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.webview")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                    .onFailure { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.webview")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
-            })
-            Spacer(Modifier.height(10.dp))
-            IosButton(L("إعدادات تطبيق WebView"), {
-                runCatching { ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", "com.google.android.webview", null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            }, filled = false)
-            Spacer(Modifier.height(4.dp))
-            IosTextButton(L("إعادة المحاولة"), onRetry)
-        }
-    }
-}
-
-@Composable
-fun EngineAlertBanner(ctx: Context) {
-    val ios = LocalIos.current
-    AnimatedVisibility(
-        visible = WebEngine.bannerVisible,
-        enter = fadeIn(tween(Adaptive.ms(160))) + slideInVertically(tween(Adaptive.ms(160))) { -it },
-        exit = fadeOut(tween(Adaptive.ms(120))) + slideOutVertically(tween(Adaptive.ms(120))) { -it }
-    ) {
-        Column(Modifier.fillMaxWidth().background(ios.chrome).iosHairlineBottom(ios.separator)) {
-            Row(
-                Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.Warning, null, Modifier.size(18.dp), tint = ios.orange)
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    if (WebEngine.missing) L("تعذّر تشغيل محرك عرض الصفحات (Android System WebView) — بعض المواقع لن تعمل")
-                    else L("محرك عرض الصفحات قديم جداً ويشكّل خطراً أمنياً — حدّثه الآن"),
-                    style = MaterialTheme.typography.bodySmall, color = ios.label, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis
-                )
-                IosTextButton(L("تحديث"), {
-                    if (WebEngine.missing) {
-                        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.webview")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                    } else WebEngine.openStore(ctx)
-                }, bold = true)
-                Box(Modifier.size(36.dp).clickable { WebEngine.dismissBanner() }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.Close, ios.label2, 16.dp) }
-            }
-        }
-    }
-}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -190,15 +127,7 @@ private fun historyItems(tab: BrowserTab, back: Boolean): List<Pair<String, Int>
             (if (e.first.isNotBlank()) e.first else hostOf(e.second)) to (i - cur)
         }.take(12)
     }
-    val wv = tab.webView ?: return emptyList()
-    val l = wv.copyBackForwardList()
-    val cur = l.currentIndex
-    val range = if (back) (cur - 1 downTo 0) else (cur + 1 until l.size)
-    return range.map { i ->
-        val e = l.getItemAtIndex(i)
-        val t = e.title
-        (if (!t.isNullOrBlank()) t else hostOf(e.url ?: "")) to (i - cur)
-    }.take(12)
+    return emptyList()
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -342,7 +271,7 @@ fun BottomPill(
                                         Modifier.width(36.dp).fillMaxHeight().clickable { onDownloads() }, contentAlignment = Alignment.Center
                                     ) { IosIcon(IosGlyph.Download, ios.blue, 19.dp) }
                                     if (hasPage) Box(
-                                        Modifier.width(44.dp).fillMaxHeight().clickable { if (tab.loading) { tab.webView?.stopLoading(); tab.engine?.stop() } else { tab.webView?.reload(); tab.engine?.reload() } },
+                                        Modifier.width(44.dp).fillMaxHeight().clickable { if (tab.loading) tab.engine?.stop() else tab.engine?.reload() },
                                         contentAlignment = Alignment.Center
                                     ) { IosIcon(if (tab.loading) IosGlyph.Close else IosGlyph.Reload, ios.label, 17.dp) } else Spacer(Modifier.width(44.dp))
                                 }
@@ -351,17 +280,17 @@ fun BottomPill(
                         }
                         Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
                             ToolbarBtn(
-                                IosGlyph.Back, tab.canBack || hasPage, { if (tab.canBack) { tab.engine?.back(); tab.webView?.let { WebSupport.goBackFast(it) } } else onHome() },
+                                IosGlyph.Back, tab.canBack || hasPage, { if (tab.canBack) tab.engine?.back() else onHome() },
                                 menu = if (tab.canBack) ({ close ->
                                     val items = historyItems(tab, true)
-                                    items.forEachIndexed { n, p -> IosCell(p.first, { close(); val g = tab.engine; if (g != null) g.goRelative(p.second) else tab.webView?.goBackOrForward(p.second) }, divider = n < items.lastIndex) }
+                                    items.forEachIndexed { n, p -> IosCell(p.first, { close(); tab.engine?.goRelative(p.second) }, divider = n < items.lastIndex) }
                                 }) else null
                             )
                             ToolbarBtn(
-                                IosGlyph.Forward, tab.canForward, { tab.engine?.forward(); tab.webView?.let { WebSupport.goForwardFast(it) } },
+                                IosGlyph.Forward, tab.canForward, { tab.engine?.forward() },
                                 menu = if (tab.canForward) ({ close ->
                                     val items = historyItems(tab, false)
-                                    items.forEachIndexed { n, p -> IosCell(p.first, { close(); val g = tab.engine; if (g != null) g.goRelative(p.second) else tab.webView?.goBackOrForward(p.second) }, divider = n < items.lastIndex) }
+                                    items.forEachIndexed { n, p -> IosCell(p.first, { close(); tab.engine?.goRelative(p.second) }, divider = n < items.lastIndex) }
                                 }) else null
                             )
                             ToolbarBtn(IosGlyph.Share, hasPage, { sheet = true })

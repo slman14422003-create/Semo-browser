@@ -105,8 +105,6 @@ private fun PanelHost(kind: String, close: () -> Unit) {
 
 /** احتياطي إن لم يكن المتصفح مسجَّلاً في الجسر: يمسح ما لا يحتاج WebView محدداً. */
 private fun clearDataGlobal() {
-    android.webkit.CookieManager.getInstance().removeAllCookies(null)
-    android.webkit.CookieManager.getInstance().flush()
-    android.webkit.WebStorage.getInstance().deleteAllData()
+    runCatching { GeckoSettings.clearData() }
     Library.clearHistory()
 }

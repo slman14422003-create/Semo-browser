@@ -157,7 +157,7 @@ object AppModes {
 /** اسم عرض مناسب للتطبيق: «YouTube» بدل m.youtube.com، وإلا الاسم المحفوظ، وإلا اسم الموقع بحرف كبير. */
 fun prettyAppName(host: String, stored: String?): String {
     val h = host.removePrefix("www.")
-    if (YtWeb.isYtHost(h)) return "YouTube"
+    if (PageRules.isYtHost(h)) return "YouTube"
     val s = stored?.trim().orEmpty()
     if (s.isNotEmpty() && !s.equals(h, true) && !s.equals(host, true)) return s
     val parts = h.split('.').filter { it.isNotEmpty() && it != "m" && it != "mobile" }

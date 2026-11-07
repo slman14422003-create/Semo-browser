@@ -1,32 +1,23 @@
 package com.nova.browser
 
 import android.accounts.AccountManager
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.browser.customtabs.CustomTabsClient
-import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
-/**
- * حسابات Google المضافة إلى المتصفح (البريد فقط — لا كلمات مرور ولا رموز دخول).
- *
- * ما تفعله فعلاً:
- *  1) تقترح البريد في نماذج تسجيل الدخول عند ظهور حقل الدخول (FillBanner).
- *  2) تضيف login_hint إلى صفحات accounts.google.com فيُملأ البريد مسبقاً.
- *  3) خيار فتح تسجيل دخول Google في Chrome Custom Tab (Google ترفض كثيراً الدخول داخل WebView).
- *
- * ما لا تفعله: لا تنقل جلسة Google إلى WebView ولا تدخل تلقائياً إلى المواقع — لا يسمح أندرويد/Google بذلك.
- */
 object GoogleAccounts {
     val accounts = mutableStateListOf<String>()
     var primary by mutableStateOf(""); private set
     var suggest by mutableStateOf(true); private set      // اقتراح البريد في نماذج الدخول
-    var useChrome by mutableStateOf(false); private set   // فتح تسجيل دخول Google في Custom Tab
+    private val authHosts = setOf(
+        "accounts.google.com", "accounts.youtube.com", "myaccount.google.com", "oauth2.googleapis.com",
+        "appleid.apple.com", "login.microsoftonline.com", "login.live.com", "github.com"
+    )
+    private val relaxed = java.util.Collections.newSetFromMap(java.util.WeakHashMap<BrowserTab, Boolean>())
 
     private var sp: ConfStore? = null
     private val emailRe = Regex("^[A-Za-z0-9._%+'-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
@@ -38,7 +29,6 @@ object GoogleAccounts {
         p.getString("gacc", "").split(',').map { it.trim().lowercase() }.filter { isValid(it) }.distinct().forEach { accounts.add(it) }
         primary = p.getString("gprimary", "").lowercase().takeIf { it in accounts } ?: accounts.firstOrNull().orEmpty()
         suggest = p.getBoolean("gsuggest", true)
-        useChrome = p.getBoolean("gchrome", false)
     }
 
     fun deviceAccountIntent(): Intent =
@@ -74,7 +64,6 @@ object GoogleAccounts {
 
     fun choosePrimary(email: String) { if (email in accounts) { primary = email; save() } }
     fun pickSuggest(v: Boolean) { suggest = v; sp?.putBoolean("gsuggest", v) }
-    fun pickUseChrome(v: Boolean) { useChrome = v; sp?.putBoolean("gchrome", v) }
 
     /** هل هذا الرابط صفحة تسجيل دخول Google؟ */
     fun isSignInUrl(u: Uri): Boolean {
@@ -89,11 +78,21 @@ object GoogleAccounts {
         return u.buildUpon().appendQueryParameter("login_hint", primary).build()
     }
 
-    /** يفتح الرابط في Chrome Custom Tab؛ false إن لم يوجد متصفح يدعمه. */
-    fun openInCustomTab(a: Activity, u: Uri): Boolean {
-        val pkg = CustomTabsClient.getPackageName(a, null) ?: return false
-        val ci = CustomTabsIntent.Builder().build()
-        ci.intent.setPackage(pkg)
-        return runCatching { ci.launchUrl(a, u) }.isSuccess
+    fun isAuthHost(host: String?): Boolean {
+        val h = host?.lowercase() ?: return false
+        return h in authHosts || h.endsWith(".accounts.google.com")
+    }
+
+    fun guard(bt: BrowserTab, tab: EngineTab, url: String) {
+        val host = runCatching { Uri.parse(url).host }.getOrNull()
+        val want = isAuthHost(host) && host != "github.com"
+        val has = relaxed.contains(bt)
+        if (want && !has) { relaxed.add(bt); tab.relaxBlocking(true) }
+        else if (!want && has) { relaxed.remove(bt); tab.relaxBlocking(false) }
+    }
+
+    fun signOut() {
+        runCatching { GeckoSettings.clearHost("google.com") }
+        runCatching { GeckoSettings.clearHost("youtube.com") }
     }
 }

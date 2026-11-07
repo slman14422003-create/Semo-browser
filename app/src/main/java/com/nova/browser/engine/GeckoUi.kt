@@ -8,7 +8,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.text.InputType
-import android.webkit.ValueCallback
 import android.widget.EditText
 import android.widget.LinearLayout
 import androidx.core.content.ContextCompat
@@ -152,8 +151,11 @@ class GeckoUi(private val h: Handlers) : GeckoSession.PromptDelegate, GeckoSessi
         return res
     }
 
-    override fun onPopupPrompt(session: GeckoSession, prompt: GeckoSession.PromptDelegate.PopupPrompt): GeckoResult<PromptResponse>? =
-        GeckoResult.fromValue(prompt.confirm(AllowOrDeny.DENY))
+    override fun onPopupPrompt(session: GeckoSession, prompt: GeckoSession.PromptDelegate.PopupPrompt): GeckoResult<PromptResponse>? {
+        val host = runCatching { Uri.parse(prompt.targetUri ?: "").host }.getOrNull().orEmpty()
+        val ok = GoogleAccounts.isAuthHost(host)
+        return GeckoResult.fromValue(prompt.confirm(if (ok) AllowOrDeny.ALLOW else AllowOrDeny.DENY))
+    }
 
     override fun onRepostConfirmPrompt(session: GeckoSession, prompt: GeckoSession.PromptDelegate.RepostConfirmPrompt): GeckoResult<PromptResponse>? =
         GeckoResult.fromValue(prompt.confirm(AllowOrDeny.ALLOW))
@@ -173,7 +175,7 @@ class GeckoUi(private val h: Handlers) : GeckoSession.PromptDelegate, GeckoSessi
             if (types.isNotEmpty()) i.putExtra(Intent.EXTRA_MIME_TYPES, types.toTypedArray())
         }
         if (multiple) i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-        val cb = ValueCallback<Array<Uri>> { uris ->
+        val cb: (Array<Uri>?) -> Unit = { uris ->
             if (uris == null || uris.isEmpty()) res.complete(prompt.dismiss())
             else if (multiple) res.complete(prompt.confirm(act, uris))
             else res.complete(prompt.confirm(act, uris[0]))

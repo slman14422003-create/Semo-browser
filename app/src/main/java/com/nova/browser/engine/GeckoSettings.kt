@@ -35,9 +35,15 @@ object GeckoSettings {
         NovaApp.runtime().storageController.clearData(StorageController.ClearFlags.ALL)
     }
 
+    fun clearHost(host: String) {
+        NovaApp.runtime().storageController.clearDataFromHost(host, StorageController.ClearFlags.ALL)
+    }
+
     fun clearCache() {
         NovaApp.runtime().storageController.clearData(
             StorageController.ClearFlags.NETWORK_CACHE or StorageController.ClearFlags.IMAGE_CACHE
         )
     }
+
+    fun engineSummary(): String = "GeckoView"
 }

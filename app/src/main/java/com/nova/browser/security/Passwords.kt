@@ -2,7 +2,6 @@ package com.nova.browser
 
 import android.app.Activity
 import android.content.Context
-import android.webkit.WebView
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,59 +18,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature
 import org.json.JSONObject
 
 class PendingSave(val host: String, val user: String, val pass: String, val kind: SaveKind)
 class FillOffer(val tabId: Int, val host: String, val creds: List<Cred>)
-
-/** جسر بين سكربت pw.js داخل الصفحة والتطبيق: اكتشاف نماذج الدخول والتقاط بيانات الدخول والتعبئة. */
-object PasswordBridge {
-    private val docStart by lazy { WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) }
-    private val listenerOk by lazy { WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) }
-    private var cached: String? = null
-
-    private fun script(c: Context): String? {
-        if (cached == null) cached = runCatching { c.assets.open("pw.js").bufferedReader().use { it.readText() } }.getOrNull()
-        return cached
-    }
-
-    fun install(wv: WebView, tab: BrowserTab, h: Handlers) {
-        if (!listenerOk) return
-        val js = script(wv.context) ?: return
-        runCatching {
-            WebViewCompat.addWebMessageListener(wv, "NovaPw", setOf("*"), WebViewCompat.WebMessageListener { view, message, origin, isMain, _ ->
-                if (!isMain || Prefs.pwMode != 0) return@WebMessageListener
-                val host = origin.host ?: return@WebMessageListener
-                val secure = origin.scheme == "https" || host == "localhost"
-                if (!secure) return@WebMessageListener
-                // الرسالة يجب أن تأتي من نفس النطاق المعروض فعلاً
-                if (Vault.norm(host) != Vault.norm(hostOf(view.url ?: ""))) return@WebMessageListener
-                val data = message.data ?: return@WebMessageListener
-                if (data.length > 4096) return@WebMessageListener
-                val o = runCatching { JSONObject(data) }.getOrNull() ?: return@WebMessageListener
-                when (o.optString("t")) {
-                    "form" -> h.onLoginForm(tab, view, Vault.norm(host))
-                    "save" -> h.onCredential(Vault.norm(host), o.optString("u"), o.optString("p"))
-                }
-            })
-            if (docStart) ScriptBundle.add(wv, js)
-        }
-    }
-
-    /** للأجهزة التي لا تدعم الحقن المبكر. */
-    fun onPageDone(wv: WebView) {
-        if (listenerOk && !docStart && Prefs.pwMode == 0) script(wv.context)?.let { wv.evaluateJavascript(it, null) }
-    }
-
-    fun fill(wv: WebView, c: Cred) {
-        val cur = runCatching { android.net.Uri.parse(wv.url ?: "") }.getOrNull() ?: return
-        if (cur.scheme != "https" && cur.host != "localhost") return
-        if (Vault.norm(hostOf(wv.url ?: "")) != c.host) return   // لا نعبّئ إلا في نفس الموقع
-        wv.evaluateJavascript("window.__novaFill&&window.__novaFill(${JSONObject.quote(c.user)},${JSONObject.quote(c.pass)})", null)
-    }
-}
 
 @Composable
 fun SavePasswordDialog(p: PendingSave, onSave: () -> Unit, onNever: () -> Unit, onDismiss: () -> Unit) {

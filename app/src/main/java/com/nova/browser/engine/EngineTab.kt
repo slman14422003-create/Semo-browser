@@ -33,11 +33,12 @@ class EngineTab(
     ui: GeckoUi? = null,
     selection: GeckoSession.SelectionActionDelegate? = null,
     media: MediaSession.Delegate? = null,
-    open: Boolean = true
+    open: Boolean = true,
+    priv: Boolean = false
 ) {
     val session: GeckoSession = GeckoSession(
         GeckoSessionSettings.Builder()
-            .usePrivateMode(false)
+            .usePrivateMode(priv)
             .useTrackingProtection(true)
             .userAgentMode(if (desktop) GeckoSessionSettings.USER_AGENT_MODE_DESKTOP else GeckoSessionSettings.USER_AGENT_MODE_MOBILE)
             .viewportMode(if (desktop) GeckoSessionSettings.VIEWPORT_MODE_DESKTOP else GeckoSessionSettings.VIEWPORT_MODE_MOBILE)
@@ -212,12 +213,32 @@ class EngineTab(
     }
     fun setActive(active: Boolean) = session.setActive(active)
 
+    fun relaxBlocking(on: Boolean) {
+        val c = NovaApp.runtime().contentBlockingController
+        runCatching { if (on) c.addException(session) else c.removeException(session) }
+    }
+
+    fun scrollTop() {
+        attached?.panZoomController?.scrollTo(org.mozilla.geckoview.ScreenLength.zero(), org.mozilla.geckoview.ScreenLength.zero(), org.mozilla.geckoview.PanZoomController.SCROLL_BEHAVIOR_SMOOTH)
+    }
+
+    fun pdf(cb: (java.io.InputStream?) -> Unit) {
+        session.saveAsPdf().accept({ cb(it) }, { cb(null) })
+    }
+
     fun setDesktop(desktop: Boolean) {
         session.settings.userAgentMode =
             if (desktop) GeckoSessionSettings.USER_AGENT_MODE_DESKTOP else GeckoSessionSettings.USER_AGENT_MODE_MOBILE
         session.settings.viewportMode =
             if (desktop) GeckoSessionSettings.VIEWPORT_MODE_DESKTOP else GeckoSessionSettings.VIEWPORT_MODE_MOBILE
         session.reload()
+    }
+
+    fun setJs(on: Boolean) {
+        if (session.settings.allowJavascript != on) {
+            session.settings.allowJavascript = on
+            session.reload()
+        }
     }
 
     fun find(q: String) {

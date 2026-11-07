@@ -15,7 +15,6 @@ import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
 import org.mozilla.geckoview.WebResponse
 
-const val USE_GECKO = true
 
 class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : EngineListener {
     private val ctx: Context get() = h.activity
@@ -25,7 +24,7 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
         if (url.startsWith("http")) {
             PageTint.onStart(this.tab, url)
             this.tab.url = url
-            this.tab.shieldHost = Shield.hostFor(url)
+            GoogleAccounts.guard(this.tab, tab, url)
             val yt = GeckoYt.isYtUrl(url)
             if (this.tab.yt && !yt) this.tab.ytPlaying = false
             this.tab.yt = yt
@@ -46,11 +45,10 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
         this.tab.loading = loading
         if (loading) {
             this.tab.clearFailedIfNew()
-            this.tab.thirdOn = false
             if (this.tab.yt) GeckoYt.pushCfg(this.tab)
         } else {
             (this.tab.engineView as? SwipeRefreshLayout)?.isRefreshing = false
-            if (!this.tab.popup && tab.url.startsWith("http")) Library.visit(tab.url, tab.title)
+            if (!this.tab.popup && !this.tab.isPrivate && tab.url.startsWith("http")) Library.visit(tab.url, tab.title)
         }
     }
 
@@ -72,12 +70,8 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
                         h.openTab(Security.cleanUrl(u).toString())
                         return false
                     }
-                    if (current && GoogleAccounts.isSignInUrl(u)) {
+                    if (current && !this.tab.popup && GoogleAccounts.isSignInUrl(u)) {
                         val hinted = GoogleAccounts.withHint(u)
-                        if (GoogleAccounts.useChrome && GoogleAccounts.openInCustomTab(h.activity, hinted)) {
-                            toast(ctx, L("فُتح تسجيل دخول Google في Chrome — الجلسة هناك منفصلة عن Semo brawser"))
-                            return false
-                        }
                         if (hinted != u) {
                             main.post { tab.load(hinted.toString()) }
                             return false
@@ -108,7 +102,7 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
             }
             null, "about", "blob", "data", "resource", "moz-extension", "view-source" -> true
             "intent" -> {
-                WebCompat.intentTarget(uri)?.takeIf { !WebCompat.samePage(tab.url, it) }?.let { f ->
+                PageRules.intentTarget(uri)?.takeIf { !PageRules.samePage(tab.url, it) }?.let { f ->
                     val fu = Uri.parse(f)
                     if (!Shield.isSpoofed(fu)) main.post { tab.load(Security.cleanUrl(fu).toString()) }
                 }
@@ -205,7 +199,7 @@ class GeckoBridge(private val tab: BrowserTab, private val h: Handlers) : Engine
             this.tab.engine = null
             this.tab.engineView = null
             this.tab.loading = false
-            this.tab.holdLoad = !WebCompat.rendererGone(this.tab)
+            this.tab.holdLoad = !PageRules.rendererGone(this.tab)
             if (!this.tab.holdLoad) this.tab.engineState = saved
             this.tab.epoch++
         }
@@ -238,7 +232,7 @@ fun geckoContainer(ctx: Context, tb: BrowserTab, h: Handlers, primary: Int, bg: 
         }
         val st = tb.engineState
         tb.engineState = null
-        EngineTab(tb.id, GeckoBridge(tb, h), st, tb.desktop, GeckoUi(h), GeckoSelection(h.activity) { id, text -> SmartAssist.onSelection(h.activity, id, text, h.openTab) }, GeckoMedia(tb)).also { tb.engine = it }
+        EngineTab(tb.id, GeckoBridge(tb, h), st, tb.desktop, GeckoUi(h), GeckoSelection(h.activity) { id, text -> SmartAssist.onSelection(h.activity, id, text, h.openTab) }, GeckoMedia(tb), true, tb.isPrivate).also { tb.engine = it }
     }
     e.attach(view)
     if (fresh && !e.restored) {
@@ -260,7 +254,7 @@ fun geckoContainer(ctx: Context, tb: BrowserTab, h: Handlers, primary: Int, bg: 
                 val u = tb.url
                 if (u != judgedUrl) {
                     judgedUrl = u
-                    judged = Pwa.kind(u) != SiteKind.NONE || WebCompat.noPullRefresh(u)
+                    judged = Pwa.kind(u) != SiteKind.NONE || PageRules.noPullRefresh(u)
                 }
                 judged
             }

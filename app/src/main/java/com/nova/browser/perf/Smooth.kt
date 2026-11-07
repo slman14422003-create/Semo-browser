@@ -4,11 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.Uri
 import android.os.PowerManager
-import android.webkit.WebResourceResponse
-import android.webkit.WebSettings
-import android.webkit.WebView
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
@@ -33,182 +29,14 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.core.content.ContextCompat
-import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature
-import java.io.ByteArrayInputStream
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
-/*
- * Smooth.kt — ملف السلاسة الموحّد (كان Perf.kt + Adaptive.kt + Motion.kt):
- *   Perf     : ضبط الـ WebView، حجب المتتبعات، الحماية من البصمة، حقن smooth.js
- *   Adaptive : التكيّف مع حرارة الجهاز وتوفير الطاقة
- *   NovaMotion / pressScale : مصدر واحد للحركات (يمر عبر Adaptive.ms)
- * الأسماء والواجهات كما كانت، فلا تغيير في بقية الملفات.
- */
-
-/** تحسينات الأداء والخصوصية: حجب إعلانات/متتبعات، حماية من البصمة، سكربت السلاسة الموحّد، وضبط الـ WebView. */
 object Perf {
     private lateinit var app: Context
     fun init(c: Context) { app = c.applicationContext }
     fun context(): Context = app
-
-    /** ترويسات الخصوصية للتحميلات التي يبدؤها التطبيق (Do Not Track + Global Privacy Control). */
-    val privacyHeaders: Map<String, String>
-        get() {
-            val h = linkedMapOf("DNT" to "1", "Sec-GPC" to "1")
-            val al = LangUtil.acceptLanguage(Prefs.siteLangCode())   // لغة المواقع المفضّلة
-            if (al.isNotEmpty()) h["Accept-Language"] = al
-            return h
-        }
-
-    /** قائمة النطاقات تُقرأ مرة واحدة من assets/blocklist.txt. */
-    private val blocked: Set<String> by lazy {
-        runCatching {
-            app.assets.open("blocklist.txt").bufferedReader().useLines { ls ->
-                ls.map { it.trim().lowercase() }.filter { it.isNotEmpty() && !it.startsWith("#") }.toHashSet()
-            }
-        }.getOrDefault(emptySet())
-    }
-
-    /** بادئات نطاقات فرعية دالّة على إعلانات/تتبع. */
-    private val trackerLabels = setOf("ads", "adserver", "adservice", "tracking", "tracker", "pixel", "telemetry", "beacon")
-
-    // ذاكرة قرارات الحجب لكل نطاق: كل صفحة تطلب عشرات الموارد من نفس النطاقات
-    private val verdicts = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
-
-    private fun isBlocked(host: String?): Boolean {
-        val h = host ?: return false
-        verdicts[h]?.let { return it }
-        val r = computeBlocked(h)
-        if (verdicts.size > 4000) verdicts.clear()
-        verdicts[h] = r
-        return r
-    }
-
-    private fun labelTracker(host: String, pageHost: String): Boolean {
-        if (pageHost.isEmpty() || !host.contains('.')) return false
-        if (host.substringBefore('.') !in trackerLabels) return false
-        return !Shield.sameSite(pageHost, host) && !SiteRules.relaxed(pageHost)
-    }
-
-    private var lastFlush = 0L
-    /** حفظ الكوكيز على القرص بحدّ أقصى مرة كل 15 ثانية (الاستدعاء المتكرر يسبب تقطيعاً). */
-    fun flushCookies(force: Boolean = false) {
-        val n = android.os.SystemClock.elapsedRealtime()
-        if (force || n - lastFlush > 15000) { lastFlush = n; android.webkit.CookieManager.getInstance().flush() }
-    }
-
-    private fun computeBlocked(host: String?): Boolean {
-        val h0 = host?.lowercase() ?: return false
-        var h = h0
-        while (true) {
-            if (h in blocked) return true
-            val i = h.indexOf('.')
-            if (i < 0) return false
-            h = h.substring(i + 1)
-        }
-    }
-
-    private val empty get() = WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
-
-    /** يُستدعى من shouldInterceptRequest؛ يعيد null للسماح بالطلب. */
-    fun intercept(url: Uri, isMainFrame: Boolean, pageHost: String = ""): WebResourceResponse? {
-        if (!Prefs.blockAds || isMainFrame) return null
-        if (pageHost.isNotEmpty() && SiteRules.fixed(pageHost)) return null
-        val h = url.host?.lowercase() ?: return null
-        if (isBlocked(h) || labelTracker(h, pageHost)) { Security.countBlocked(); return empty }
-        return null
-    }
-
-    /** يضبط إعدادات الأداء لكل WebView جديد. */
-    fun tune(wv: WebView) {
-        val s = wv.settings
-        s.cacheMode = WebSettings.LOAD_DEFAULT
-        s.setSafeBrowsingEnabled(true)
-        s.allowContentAccess = false
-        s.allowFileAccess = false
-        s.loadsImagesAutomatically = !Prefs.dataSaver
-        s.blockNetworkImage = Prefs.dataSaver
-        s.setOffscreenPreRaster(false)   // يوفر الذاكرة للتبويبات الخلفية
-        s.textZoom = Prefs.zoomValues[Prefs.textZoom]
-        applyDark(wv)
-        wv.isScrollbarFadingEnabled = true
-        wv.overScrollMode = android.view.View.OVER_SCROLL_NEVER
-        // ملاحظة: لا نستخدم LAYER_TYPE_HARDWARE؛ يضيف مخزناً خارج الشاشة ويزيد الذاكرة
-    }
-
-    // ---------- الحماية من البصمة ----------
-    private val seed: Long = java.security.SecureRandom().nextLong() and 0xFFFFFFFFL
-
-    private val fpTemplate: String? by lazy {
-        runCatching { app.assets.open("privacy.js").bufferedReader().use { it.readText() } }.getOrNull()
-    }
-    private fun fpScript(): String? = fpTemplate?.replace("__SEED__", seed.toString())?.replace("__LANG__", Prefs.siteLangCode())
-        ?.replace("__STRICT__", Prefs.fpStrict.toString())?.replace("__TRUSTED__", SiteRules.json())
-
-    /** الوضع الداكن للمواقع (يتبع وضع النظام الداكن). */
-    fun applyDark(wv: WebView) {
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING))
-            runCatching { androidx.webkit.WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv.settings, Prefs.siteDark) }
-    }
-
-    /** تطبيق حجم الخط والوضع الداكن على تبويب موجود. */
-    fun applyDisplay(wv: WebView) { wv.settings.textZoom = Prefs.zoomValues[Prefs.textZoom]; applyDark(wv) }
-
-    private val docStartSupported by lazy { WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) }
-
-    /** يحقن سكربت الحماية قبل أي سكربت للصفحة (إن كان مدعوماً). */
-    fun installPrivacy(wv: WebView) {
-        val js = fpScript() ?: return
-        if (Prefs.antiFingerprint && docStartSupported)
-            ScriptBundle.add(wv, js)
-    }
-
-    /** قراءة ملف نصي من assets. */
     fun asset(name: String): String = app.assets.open(name).bufferedReader().use { it.readText() }
-
-    /** User-Agent الافتراضي للـ WebView: استدعاؤه مكلف (يهيّئ محرك الويب)، فيُحسب مرة واحدة فقط لا مع كل تبويب. */
-    private var defUa: String? = null
-    fun defaultUa(c: Context): String = defUa ?: WebSettings.getDefaultUserAgent(c.applicationContext).also { defUa = it }
-
-    // ---------- سكربت السلاسة الموحّد (smooth.js = تحسين العرض + تحميل كسول + جلب مسبق + لافتات الكوكيز) ----------
-    private val smoothJs: String? by lazy { runCatching { asset("smooth.js") }.getOrNull() }
-
-    private fun smoothSrc(): String? {
-        if (!(Prefs.fitPages || Prefs.lazyMedia || Prefs.boost || Prefs.popups)) return null
-        return smoothJs?.replace("__FIT__", Prefs.fitPages.toString())?.replace("__LAZY__", Prefs.lazyMedia.toString())
-            ?.replace("__BOOST__", Prefs.boost.toString())?.replace("__POP__", Prefs.popups.toString())
-            ?.replace("__TRUSTED__", SiteRules.json())
-    }
-
-    /** يحقن smooth.js قبل سكربتات الصفحة (مرة واحدة بدل سكربتين وتحميل كسول ثالث). */
-    fun installSmooth(wv: WebView) {
-        val js = smoothSrc() ?: return
-        if (docStartSupported) ScriptBundle.add(wv, js)
-    }
-
-    // Brave-style cosmetic filtering: hides empty ad containers that network blocking leaves behind (assets/cosmetic.js)
-    private val cosmeticJs: String? by lazy { runCatching { asset("cosmetic.js") }.getOrNull() }
-
-    fun installCosmetic(wv: WebView) {
-        if (!Prefs.blockAds || !docStartSupported) return
-        val js = cosmeticJs?.replace("__TRUSTED__", SiteRules.json()) ?: return
-        ScriptBundle.add(wv, js)
-    }
-
-    /** احتياطي للأجهزة التي لا تدعم الحقن المبكر: يُنفَّذ عند بدء الصفحة. */
-    fun onPageStart(wv: WebView) {
-        if (Prefs.antiFingerprint && !docStartSupported) fpScript()?.let { wv.evaluateJavascript(it, null) }
-        if (!docStartSupported) smoothSrc()?.let { wv.evaluateJavascript(it, null) }
-    }
-
-    /** تسخين محرك الويب وفحص الأمان مبكراً لتسريع أول تصفح. */
-    fun warmUp(ctx: Context) {
-        runCatching { WebView.startSafeBrowsing(ctx.applicationContext, null) }
-        runCatching { defaultUa(ctx) }
-        Work.disk { cosmeticJs; smoothJs }   // read the script assets off the main thread
-    }
 }
 
 /**
