@@ -197,7 +197,7 @@ fun TabSwitcher(
                         }
                     }
                     IosMenu(
-                        expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(14.dp),
+                        expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(22.dp),
                         tonalElevation = 0.dp, shadowElevation = 12.dp
                     ) {
                         Column(Modifier.width(240.dp)) {
@@ -239,7 +239,7 @@ fun TabSwitcher(
                     IosIcon(IosGlyph.ChevronDown, ios.label2, 11.dp, weight = 1.3f)
                 }
                 IosMenu(
-                    expanded = filterMenu, onDismissRequest = { filterMenu = false }, shape = RoundedCornerShape(14.dp),
+                    expanded = filterMenu, onDismissRequest = { filterMenu = false }, shape = RoundedCornerShape(22.dp),
                     tonalElevation = 0.dp, shadowElevation = 12.dp
                 ) {
                     Column(Modifier.width(240.dp)) {
