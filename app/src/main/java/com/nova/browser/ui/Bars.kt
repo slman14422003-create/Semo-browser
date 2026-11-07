@@ -58,7 +58,7 @@ fun FindBar(tab: BrowserTab) {
     var q by remember { mutableStateOf("") }
     val fr = remember { FocusRequester() }
     LaunchedEffect(Unit) { fr.requestFocus() }
-    Column(Modifier.imePadding().fillMaxWidth().then(if (editing) Modifier.background(ios.chrome).iosHairlineTop(ios.separator) else Modifier)) {
+    Column(Modifier.imePadding().fillMaxWidth().background(ios.chrome).iosHairlineTop(ios.separator)) {
         Row(Modifier.navigationBarsPadding().height(52.dp).padding(start = 12.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(
                 Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(10.dp)).background(ios.fill3).padding(horizontal = 8.dp),
@@ -151,7 +151,7 @@ fun BottomPill(
     var fill by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(editing) { if (!editing) { query = ""; fill = null } }
 
-    Column(Modifier.imePadding().fillMaxWidth().background(ios.chrome).iosHairlineTop(ios.separator)) {
+    Column(Modifier.imePadding().fillMaxWidth().then(if (editing) Modifier.background(ios.chrome).iosHairlineTop(ios.separator) else Modifier)) {
         Column(Modifier.navigationBarsPadding().animateContentSize(tween(Adaptive.ms(240), easing = NovaMotion.emphasized))) {
             if (editing) SuggestionsPanel(
                 query = query,
