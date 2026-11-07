@@ -276,6 +276,8 @@ object I18n {
         "بحث في الصفحة" to "Find in page",
         "بدأ التنزيل — القائمة ⋮ ثم التنزيلات" to "Download started — menu ⋮ then Downloads",
         "تبويب جديد" to "New tab",
+        "الصفحة التالية" to "Forward",
+        "المفضلة والمكتبة" to "Bookmarks & Library",
         "تتبع" to "Tracking",
         "تحديث" to "Refresh",
         "تحذير ملف تنفيذي من " to "Executable file warning from ",

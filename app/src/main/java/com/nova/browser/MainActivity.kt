@@ -923,7 +923,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                 if (site == null && !inPip && !pageTyping && tab.yt && isYtVideo(tab.url)) {
                     Surface(
                         onClick = { mainAct?.enterPip() }, shape = CircleShape, color = cs.surfaceContainerHigh.copy(alpha = 0.92f), shadowElevation = 3.dp,
-                        modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 12.dp, bottom = UiLayout.PILL + 14.dp)
+                        modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 12.dp, bottom = UiLayout.BAR_H.dp + 14.dp)
                     ) { PipGlyph(cs.onSurface, Modifier.padding(11.dp).size(22.dp)) }
                 }
             }
