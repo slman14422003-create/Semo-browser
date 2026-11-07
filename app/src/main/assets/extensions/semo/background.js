@@ -27,25 +27,46 @@ function baseOf(h) {
   return p.length <= 2 ? h : p.slice(-2).join(".");
 }
 
+const verdict = new Map();
+
+function hostFast(u) {
+  const a = u.indexOf("//");
+  if (a < 0) return "";
+  let b = u.indexOf("/", a + 2);
+  if (b < 0) b = u.length;
+  let h = u.slice(a + 2, b);
+  const at = h.lastIndexOf("@");
+  if (at >= 0) h = h.slice(at + 1);
+  const c = h.indexOf(":");
+  if (c >= 0) h = h.slice(0, c);
+  return h.toLowerCase();
+}
+
 browser.webRequest.onBeforeRequest.addListener(
   d => {
     try {
-      if (d.type === "main_frame") return {};
       if (cfg.dataSaver && (d.type === "image" || d.type === "imageset")) return { cancel: true };
       if (!cfg.ads) return {};
-      const host = new URL(d.url).hostname.toLowerCase();
-      if (!listed(host)) return {};
-      const doc = d.documentUrl || d.originUrl;
-      if (doc) {
-        const dh = new URL(doc).hostname.toLowerCase();
-        if (baseOf(dh) === baseOf(host)) return {};
+      const host = hostFast(d.url);
+      if (!host) return {};
+      const doc = d.documentUrl || d.originUrl || "";
+      const key = host + "|" + doc.slice(0, 80);
+      let v = verdict.get(key);
+      if (v === undefined) {
+        v = false;
+        if (listed(host)) {
+          const dh = doc ? hostFast(doc) : "";
+          v = !(dh && baseOf(dh) === baseOf(host));
+        }
+        if (verdict.size > 4000) verdict.clear();
+        verdict.set(key, v);
       }
-      return { cancel: true };
+      return v ? { cancel: true } : {};
     } catch (e) {
       return {};
     }
   },
-  { urls: ["http://*/*", "https://*/*"] },
+  { urls: ["http://*/*", "https://*/*"], types: ["script", "sub_frame", "image", "imageset", "xmlhttprequest", "ping", "beacon", "media", "object", "stylesheet", "font", "websocket", "other"] },
   ["blocking"]
 );
 
@@ -160,13 +181,25 @@ registerYtMain();
 // ---------- سكربتات عالم الصفحة (MAIN world) ----------
 // تُسجَّل كملفات (لا وسم <script> مضمّن) فلا تحجبها سياسة CSP للصفحة. ملفات cfg-*.js تضبط window.__semoCfg قبل السكربتات.
 const MAIN_ID = "semo-main";
+const MAIN_TOP_ID = "semo-main-top";
 const FLAGS = ["fit", "lazy", "boost", "pop", "zoom", "copy", "draft", "ytads"];
 
-function mainFiles() {
+function cfgFiles() {
   const js = [];
   for (const f of FLAGS) if (cfg[f]) js.push("cfg-" + f + ".js");
-  js.push("main-polyfills.js", "main-webcompat.js", "main-langfix.js", "main-enhance.js", "main-perfboost.js");
+  return js;
+}
+
+function framesFiles() {
+  const js = cfgFiles();
+  js.push("main-polyfills.js", "main-webcompat.js");
   if (cfg.shield) js.push("main-shield.js");
+  return js;
+}
+
+function topFiles() {
+  const js = cfgFiles();
+  js.push("main-langfix.js", "main-enhance.js", "main-perfboost.js");
   if (cfg.ads) js.push("main-cosmetic.js");
   if (cfg.fit || cfg.lazy || cfg.boost || cfg.pop) js.push("main-smooth.js");
   if (cfg.zoom || cfg.copy || cfg.draft) js.push("main-extras.js");
@@ -178,18 +211,12 @@ async function applyMainNow() {
   try {
     if (!browser.scripting || !browser.scripting.registerContentScripts) return;
     try {
-      await browser.scripting.unregisterContentScripts({ ids: [MAIN_ID] });
+      await browser.scripting.unregisterContentScripts({ ids: [MAIN_ID, MAIN_TOP_ID] });
     } catch (e) {}
+    const m = ["http://*/*", "https://*/*"];
     await browser.scripting.registerContentScripts([
-      {
-        id: MAIN_ID,
-        matches: ["http://*/*", "https://*/*"],
-        js: mainFiles(),
-        runAt: "document_start",
-        world: "MAIN",
-        allFrames: true,
-        persistAcrossSessions: false
-      }
+      { id: MAIN_ID, matches: m, js: framesFiles(), runAt: "document_start", world: "MAIN", allFrames: true, persistAcrossSessions: false },
+      { id: MAIN_TOP_ID, matches: m, js: topFiles(), runAt: "document_start", world: "MAIN", allFrames: false, persistAcrossSessions: false }
     ]);
   } catch (e) {}
 }
