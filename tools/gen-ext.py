@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-"""يولّد سكربتات عالم الصفحة (MAIN world) لإضافة Gecko من assets/*.js.
+"""يولّد سكربتات عالم الصفحة (MAIN world) لإضافة Gecko من tools/src/*.js.
 الحقن عبر scripting.registerContentScripts يتجاوز CSP الصفحة (الحقن بوسم <script> مضمّن كان يُحجب).
 العلامات (__FIT__ …) تُستبدل بقراءة window.__semoCfg التي تضبطها ملفات cfg-*.js الصغيرة حسب الإعدادات.
-الاستخدام:  python3 tools/gen-ext.py   (شغّله بعد أي تعديل على assets/*.js المذكورة)"""
+الاستخدام:  python3 tools/gen-ext.py   (شغّله بعد أي تعديل على tools/src/*.js المذكورة)"""
 import re, json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-A = ROOT / "app/src/main/assets"
-E = A / "extensions/semo"
-kt = (ROOT / "app/src/main/java/com/nova/browser/browser/SiteRules.kt").read_text(encoding="utf-8")
-m = re.search(r"val trustedSuffixes = arrayOf\((.*?)\)\n", kt, re.S)
-trusted = json.dumps(re.findall(r'"([^"]+)"', m.group(1)))
+A = ROOT / "tools/src"
+E = ROOT / "app/src/main/assets/extensions/semo"
+trusted = json.dumps(["firebase.google.com", "firebaseapp.com", "web.app", "firebaseio.com", "cloud.google.com", "console.cloud.google.com", "cloudflare.com", "cloudflareaccess.com", "pages.dev", "workers.dev", "cloudflarestorage.com", "github.com", "github.dev", "gitlab.com", "bitbucket.org", "vercel.com", "vercel.app", "netlify.com", "netlify.app", "supabase.com", "supabase.co", "render.com", "onrender.com", "heroku.com", "herokuapp.com", "railway.app", "fly.io", "digitalocean.com", "amazon.com", "aws.amazon.com", "amazonaws.com", "azure.com", "azurewebsites.net", "microsoft.com", "microsoftonline.com", "live.com", "office.com", "atlassian.net", "atlassian.com", "slack.com", "notion.so", "figma.com", "stripe.com", "paypal.com", "auth0.com", "okta.com", "apple.com", "facebook.com", "linkedin.com", "x.com", "twitter.com", "discord.com", "openai.com", "chatgpt.com", "claude.ai", "anthropic.com", "huggingface.co", "expo.dev", "mongodb.com", "neon.tech", "sentry.io", "datadoghq.com", "codepen.io", "jsfiddle.net", "stackblitz.com", "codesandbox.io", "replit.com", "glitch.com", "glitch.me", "google.com", "googleusercontent.com", "gstatic.com"])
 
 C = "(window.__semoCfg||{})"
 SUBS = {
