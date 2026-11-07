@@ -221,7 +221,7 @@ fun BottomPill(
                             animationSpec = tween(180, easing = FastOutSlowInEasing), label = "loadBar"
                         )
                         Row(
-                            Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 4.dp).height(48.dp),
+                            Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 8.dp).height(48.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             GlassCircle(
@@ -280,30 +280,15 @@ fun BottomPill(
                                 }
                                 Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(animatedProgress).height(2.dp).background(ios.blue))
                             }
-                            GlassCircle(true, { if (hasPage) pageMenu = true else onSettings() }) {
+                            GlassCircle(true, { pageMenu = true }) {
                                 IosIcon(IosGlyph.Ellipsis, ios.label, 22.dp)
-                                if (hasPage) PageMenu(tab, pageMenu, { pageMenu = false }, onDesktop, onTranslate, onDownloads, onSettings, onSummarize, onAskAi)
+                                PageMenu(
+                                    tab, pageMenu, { pageMenu = false }, onDesktop, onTranslate, onDownloads, onSettings, onSummarize, onAskAi,
+                                    onForward = { tab.engine?.forward() }, onShare = { sheet = true }, onLibrary = onLibrary, onTabs = onTabs, onNewTab = onNewTab
+                                )
                             }
                         }
-                        Row(
-                            Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 6.dp).height(52.dp).liquidGlass(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            ToolbarBtn(
-                                IosGlyph.Forward, tab.canForward, { tab.engine?.forward() },
-                                menu = if (tab.canForward) ({ close ->
-                                    val items = historyItems(tab, false)
-                                    items.forEachIndexed { n, p -> IosCell(p.first, { close(); tab.engine?.goRelative(p.second) }, divider = n < items.lastIndex) }
-                                }) else null
-                            )
-                            ToolbarBtn(IosGlyph.Share, hasPage, { sheet = true })
-                            ToolbarBtn(IosGlyph.Book, true, { onLibrary() })
-                            ToolbarBtn(IosGlyph.Tabs, true, { onTabs() }, menu = { close ->
-                                IosCell(L("تبويب جديد"), { close(); onNewTab() })
-                                IosCell(L("إغلاق التبويب"), { close(); onCloseCurrent() }, tint = ios.red, divider = false)
-                            })
-                        }
-                    }
+                   }
                 }
             }
         }

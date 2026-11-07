@@ -133,15 +133,15 @@ object IosShape {
 @Composable
 fun Modifier.liquidGlass(shape: androidx.compose.ui.graphics.Shape = IosShape.pill): Modifier {
     val ios = LocalIos.current
-    val tint = if (ios.dark) Color(0xE62C2C2E) else Color(0xEBFFFFFF)
-    val top = if (ios.dark) Color(0x40FFFFFF) else Color(0xCCFFFFFF)
-    val bottom = if (ios.dark) Color(0x14FFFFFF) else Color(0x1A000000)
-    val shadow = if (ios.dark) Color(0x99000000) else Color(0x40000000)
+    val tint = if (ios.dark) Color(0xC71C1C1E) else Color(0xCCF6F6F8)
+    val top = if (ios.dark) Color(0x55FFFFFF) else Color(0xE6FFFFFF)
+    val bottom = if (ios.dark) Color(0x0DFFFFFF) else Color(0x0F000000)
+    val shadow = if (ios.dark) Color(0x80000000) else Color(0x33000000)
     return this
-        .shadow(10.dp, shape, ambientColor = shadow, spotColor = shadow)
+        .shadow(8.dp, shape, ambientColor = shadow, spotColor = shadow)
         .clip(shape)
         .background(tint, shape)
-        .border(0.8.dp, androidx.compose.ui.graphics.Brush.verticalGradient(listOf(top, bottom)), shape)
+        .border(0.5.dp, androidx.compose.ui.graphics.Brush.verticalGradient(listOf(top, bottom)), shape)
 }
 
 @Composable

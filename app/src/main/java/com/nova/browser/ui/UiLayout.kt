@@ -37,7 +37,8 @@ object UiLayout {
     const val BAR_ROW_DP = BAR_DP - PROGRESS_DP
 
     /** المساحة المحجوزة للكبسولة السفلية فوق شريط التنقل. */
-    val PILL: Dp = 116.dp
+    val PILL: Dp = 0.dp
+    const val BAR_H = 60
 
     /**
      * مهلة استقرار الكيبورد: لا نغيّر ارتفاع الـ WebView إلا بعد أن يثبت ارتفاع الكيبورد هذه المدة.
@@ -81,7 +82,7 @@ fun Modifier.pageInsets(
     inPip: Boolean,
     pill: Dp = UiLayout.PILL
 ): Modifier = this.layout { m, c ->
-    val resting = nav.getBottom(this) + pill.roundToPx()
+    val resting = pill.roundToPx()
     val ime = imeSettled()
     val pad = when {
         inPip -> 0

@@ -166,7 +166,9 @@ fun MenuSheet(
 fun PageMenu(
     tab: BrowserTab, expanded: Boolean, onDismiss: () -> Unit, onDesktop: () -> Unit,
     onTranslate: () -> Unit, onDownloads: () -> Unit, onSettings: () -> Unit,
-    onSummarize: () -> Unit = {}, onAskAi: () -> Unit = {}
+    onSummarize: () -> Unit = {}, onAskAi: () -> Unit = {},
+    onForward: (() -> Unit)? = null, onShare: (() -> Unit)? = null, onLibrary: (() -> Unit)? = null,
+    onTabs: (() -> Unit)? = null, onNewTab: (() -> Unit)? = null
 ) {
     val ios = LocalIos.current
     val ctx = LocalContext.current
@@ -180,6 +182,12 @@ fun PageMenu(
     ) {
         Column(Modifier.width(260.dp)) {
             if (!sub) {
+                onNewTab?.let { IosCell(L("تبويب جديد"), { act(it) }) }
+                onTabs?.let { IosCell(L("التبويبات"), { act(it) }) }
+                onLibrary?.let { IosCell(L("المفضلة والمكتبة"), { act(it) }) }
+                onShare?.let { IosCell(L("مشاركة"), { act(it) }, enabled = tab.url.isNotBlank()) }
+                onForward?.let { IosCell(L("الصفحة التالية"), { act(it) }, enabled = tab.canForward) }
+                if (onNewTab != null || onTabs != null) Box(Modifier.fillMaxWidth().height(6.dp).background(ios.fill4))
                 Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         Modifier.weight(1f).fillMaxHeight().clickable(enabled = Prefs.textZoom > 0) { Prefs.pickTextZoom(Prefs.textZoom - 1) },

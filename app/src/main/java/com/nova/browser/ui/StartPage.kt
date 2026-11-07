@@ -116,7 +116,7 @@ fun StartPage(
 
     Column(
         Modifier.fillMaxSize().background(ios.groupedBg)
-            .verticalScroll(rememberScrollState()).padding(bottom = 24.dp)
+            .verticalScroll(rememberScrollState()).padding(bottom = 24.dp + UiLayout.BAR_H.dp + 12.dp).navigationBarsPadding()
     ) {
         val searchSrc = remember { MutableInteractionSource() }
         Row(
