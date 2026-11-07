@@ -34,11 +34,6 @@ object Robust {
             StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog().build())
             StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().detectLeakedClosableObjects().detectLeakedSqlLiteObjects().penaltyLog().build())
         }
-        runCatching {
-            ProcessLifecycleOwner.get().lifecycle.addObserver(LifecycleEventObserver { _, e ->
-                if (e == Lifecycle.Event.ON_STOP) Perf.flushCookies(true)
-            })
-        }
     }
 
     inline fun <T> safe(default: T, block: () -> T): T =

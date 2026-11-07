@@ -2,7 +2,8 @@ package com.nova.browser
 
 import android.app.AlertDialog
 import android.content.*
-import android.webkit.*
+import android.webkit.MimeTypeMap
+import android.webkit.URLUtil
 import android.widget.Toast
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*

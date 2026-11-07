@@ -1,7 +1,6 @@
 package com.nova.browser
 
 import android.content.*
-import android.webkit.*
 import androidx.compose.foundation.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -10,6 +9,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.*
@@ -65,7 +65,7 @@ private fun MiniStartPage() {
 @Composable
 fun TabSwitcher(
     tabs: List<BrowserTab>, current: Int,
-    onSelect: (Int) -> Unit, onClose: (Int) -> Unit, onNew: () -> Unit, onCloseAll: () -> Unit, onBack: () -> Unit,
+    onSelect: (Int) -> Unit, onClose: (Int) -> Unit, onNew: (Int) -> Unit, onCloseAll: () -> Unit, onBack: () -> Unit,
     onDuplicate: (Int) -> Unit = {}, onCloseOthers: (Int) -> Unit = {}, onCloseTag: (Int) -> Unit = {},
     canReopen: Boolean = false, onReopen: () -> Unit = {}, onCloseDuplicates: () -> Unit = {}
 ) {
@@ -73,12 +73,15 @@ fun TabSwitcher(
     var picked by remember { mutableIntStateOf(-1) }
     val usedTags = tabs.map { it.tag }.filter { it > 0 }.distinct().sorted()
     val filter = if ((picked > 0 && picked !in usedTags) || (picked == -2 && tabs.none { it.pinned })) -1 else picked
+    var grp by remember { mutableIntStateOf(tabs.getOrNull(current)?.group ?: Groups.NONE) }
+    val gNow = if (grp > 0 && grp != Groups.PRIVATE && Groups.names.none { it.first == grp }) Groups.ALL else if (grp == Groups.NONE) Groups.ALL else grp
+    val inGroup: (BrowserTab) -> Boolean = { t -> when (gNow) { Groups.ALL -> !t.isPrivate; Groups.PRIVATE -> t.isPrivate; else -> !t.isPrivate && t.group == gNow } }
     var tabQuery by remember { mutableStateOf("") }
     val tq = tabQuery.trim()
-    val shown = tabs.withIndex().filter { (_, t) -> when (filter) { -1 -> true; -2 -> t.pinned; else -> t.tag == filter } }
+    val shown = tabs.withIndex().filter { (_, t) -> inGroup(t) }.filter { (_, t) -> when (filter) { -1 -> true; -2 -> t.pinned; else -> t.tag == filter } }
         .filter { (_, t) -> tq.isBlank() || t.title.contains(tq, true) || t.url.contains(tq, true) }
     val showSearch = tabs.size >= 4
-    val gridState = rememberLazyGridState(initialFirstVisibleItemIndex = (current / 2) * 2 + (if (showSearch) 1 else 0))
+    val gridState = rememberLazyGridState(initialFirstVisibleItemIndex = 0)
     var filterMenu by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     var opened by remember { mutableStateOf(false) }
@@ -91,6 +94,27 @@ fun TabSwitcher(
             horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp)
         ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 2.dp)) {
+                    item {
+                        GroupChip(L("الكل"), gNow == Groups.ALL, false, { grp = Groups.ALL }, null)
+                    }
+                    items(Groups.names.toList(), key = { it.first }) { g ->
+                        GroupChip(g.second, gNow == g.first, false, { grp = g.first }) {
+                            tabs.filter { it.group == g.first }.forEach { it.group = Groups.NONE }
+                            Groups.remove(g.first)
+                            grp = Groups.ALL
+                        }
+                    }
+                    item { GroupChip(L("خاص"), gNow == Groups.PRIVATE, true, { grp = Groups.PRIVATE }, null) }
+                    item { GroupChip("+", false, false, { grp = Groups.add(L("مجموعة") + " " + (Groups.names.size + 1)) }, null) }
+                }
+            }
+            if (shown.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                Box(Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
+                    Text(if (gNow == Groups.PRIVATE) L("التصفح الخاص: لا يُحفظ السجل ولا الكوكيز") else L("لا توجد تبويبات هنا"), color = ios.label2, fontSize = 14.sp)
+                }
+            }
             if (showSearch) item(span = { GridItemSpan(maxLineSpan) }) { PanelSearch(tabQuery, { tabQuery = it }, L("بحث في التبويبات")) }
             items(shown, key = { it.value.id }) { (i, t) ->
                 val blank = t.url.isBlank()
@@ -179,6 +203,8 @@ fun TabSwitcher(
                         Column(Modifier.width(240.dp)) {
                             IosCell(if (t.pinned) L("إلغاء التثبيت") else L("تثبيت"), { t.pinned = !t.pinned; menu = false })
                             IosCell(L("نسخ التبويب"), { menu = false; onDuplicate(i) })
+                            if (!t.isPrivate) Groups.names.toList().forEach { g -> IosCell(L("نقل إلى ") + g.second, { t.group = g.first; menu = false }, trailing = if (t.group == g.first) ({ IosIcon(IosGlyph.Check, ios.blue, 20.dp) }) else null) }
+            if (!t.isPrivate && t.group > 0) IosCell(L("إزالة من المجموعة"), { t.group = Groups.NONE; menu = false })
                             IosCell(L("إغلاق التبويبات الأخرى"), { menu = false; onCloseOthers(i) }, divider = t.tag > 0)
                             if (t.tag > 0) IosCell(L("إغلاق كل تبويبات هذا اللون"), { menu = false; onCloseTag(t.tag) }, divider = false)
                             IosDivider()
@@ -200,14 +226,14 @@ fun TabSwitcher(
             Modifier.fillMaxWidth().background(ios.chrome).iosHairlineTop(ios.separator).navigationBarsPadding().height(48.dp).padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(Modifier.size(44.dp).clickable(onClick = onNew), contentAlignment = Alignment.Center) { IosIcon(IosGlyph.Plus, ios.blue, 26.dp) }
+            Box(Modifier.size(44.dp).clickable { onNew(if (gNow == Groups.ALL) Groups.NONE else gNow) }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.Plus, ios.blue, 26.dp) }
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Row(
                     Modifier.height(32.dp).clip(CircleShape).background(ios.fill3).clickable { filterMenu = true }.padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "" + tabs.size + " " + L("التبويبات"), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = ios.label, maxLines = 1
+                        "" + tabs.count(inGroup) + " " + L("التبويبات"), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = ios.label, maxLines = 1
                     )
                     Spacer(Modifier.width(4.dp))
                     IosIcon(IosGlyph.ChevronDown, ios.label2, 11.dp, weight = 1.3f)
@@ -236,5 +262,23 @@ fun TabSwitcher(
             IosTextButton(L("إغلاق الكل"), onCloseAll, color = ios.red, enabled = tabs.any { !it.pinned })
             IosTextButton(L("تم"), onBack, bold = true)
         }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun GroupChip(label: String, selected: Boolean, lock: Boolean, onClick: () -> Unit, onLong: (() -> Unit)?) {
+    val ios = LocalIos.current
+    val haptic = LocalHapticFeedback.current
+    val bgc = if (selected) (if (lock) ios.label else ios.blue) else ios.fill3
+    val fg = if (selected) (if (lock) ios.bg else Color.White) else ios.label
+    Row(
+        Modifier.height(32.dp).clip(CircleShape).background(bgc)
+            .combinedClickable(onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onClick() }, onLongClick = onLong?.let { f -> { haptic.performHapticFeedback(HapticFeedbackType.LongPress); f() } })
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (lock) { IosIcon(IosGlyph.Lock, fg, 13.dp); Spacer(Modifier.width(5.dp)) }
+        Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = fg, maxLines = 1)
     }
 }

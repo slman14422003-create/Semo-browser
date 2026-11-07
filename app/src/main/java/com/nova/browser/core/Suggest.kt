@@ -149,7 +149,8 @@ fun SuggestionsPanel(query: String, onPick: (String) -> Unit, onFill: (String) -
     }
     // تسخين DNS لأول نتيجة محلية أو للنطاق المكتوب
     LaunchedEffect(local.firstOrNull()?.url, q) {
-        WebSupport.prefetchDns(local.firstOrNull()?.url?.let { hostOf(it) } ?: if (looksUrl) hostOf(normalize(q)) else null)
+        val h = local.firstOrNull()?.url?.let { hostOf(it) } ?: if (looksUrl) hostOf(normalize(q)) else null
+        if (!h.isNullOrBlank()) Work.net { runCatching { java.net.InetAddress.getByName(h) } }
     }
 
     val answer = remember(q, Prefs.smart) { if (Prefs.smart) SmartCalc.evaluate(q) else null }

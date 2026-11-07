@@ -14,7 +14,6 @@ import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.system.Os
-import android.webkit.CookieManager
 import android.webkit.MimeTypeMap
 import android.webkit.URLUtil
 import androidx.compose.runtime.*
@@ -253,7 +252,7 @@ object Downloader {
         val ua = t.ua.ifBlank { CookieBridge.userAgent }
         if (ua.isNotBlank()) c.setRequestProperty("User-Agent", ua)
         if (t.referer.isNotBlank()) c.setRequestProperty("Referer", t.referer)
-        val ck = CookieBridge.header(url) ?: CookieManager.getInstance().getCookie(url)
+        val ck = CookieBridge.header(url)
         if (!ck.isNullOrBlank()) c.setRequestProperty("Cookie", ck)
         if (range != null) c.setRequestProperty("Range", range)
         return c

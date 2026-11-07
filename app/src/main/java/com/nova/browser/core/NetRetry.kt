@@ -32,10 +32,10 @@ class NetRetry(ctx: Context, private val tabs: () -> List<BrowserTab>) {
 
     private fun retry() {
         for (t in tabs()) {
-            val w = t.webView ?: continue
+            val e = t.engine ?: continue
             if (!t.failed || t.url.isBlank() || !t.url.startsWith("http")) continue
             t.failed = false
-            if (t.yt) w.loadUrl(t.url) else w.loadUrl(t.url, Perf.privacyHeaders)
+            e.load(t.url)
         }
     }
 }

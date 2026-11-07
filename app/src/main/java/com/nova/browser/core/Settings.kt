@@ -44,12 +44,12 @@ object Prefs {
     var cleanUrls by mutableStateOf(true); private set      // إزالة معرّفات التتبع من الروابط
     var blockThirdCookies by mutableStateOf(true); private set
     var secureScreen by mutableStateOf(false); private set  // منع لقطات الشاشة
-    var fpStrict by mutableStateOf(false); private set
     var antiFingerprint by mutableStateOf(true); private set // الحماية من البصمة
     var shield by mutableStateOf(true); private set         // الحماية الفورية من الهجمات والتتبع (Shield)
     var lang by mutableIntStateOf(0); private set           // لغة التطبيق: 0 تلقائي، 1 عربية، 2 English
     var siteLang by mutableIntStateOf(0); private set       // لغة المواقع (فهرس في siteLangs)
     var textZoom by mutableIntStateOf(1); private set       // فهرس في zoomValues
+    var autoClose by mutableIntStateOf(0); private set
     var siteDark by mutableStateOf(false); private set      // الوضع الداكن للمواقع
     val siteLangs = listOf("" to "تلقائي", "ar" to "العربية", "en" to "English", "fr" to "Français", "es" to "Español",
         "de" to "Deutsch", "tr" to "Türkçe", "ru" to "Русский", "fa" to "فارسی", "ur" to "اردو", "id" to "Indonesia",
@@ -82,7 +82,6 @@ object Prefs {
     var pwaHaptics by mutableStateOf(true); private set     // اهتزاز خفيف على أزرار صفحات وضع التطبيق
     var boost by mutableStateOf(true); private set          // تسريع التنقل: جلب مسبق + تسخين DNS + إيقاف فيديو خارج الشاشة
     var smart by mutableStateOf(true); private set
-    var brain by mutableStateOf(true); private set
     var suggest by mutableStateOf(true); private set        // اقتراحات البحث أثناء الكتابة
     var notifDone by mutableStateOf(true); private set      // إشعار اكتمال التنزيل
     var notifUpdate by mutableStateOf(true); private set    // إشعار تحديث متاح
@@ -106,8 +105,9 @@ object Prefs {
         dataSaver = p.getBoolean("saver", false); lazyMedia = p.getBoolean("lazy", true); popups = p.getBoolean("popups", true)
         httpsFirst = p.getBoolean("https1", true); cleanUrls = p.getBoolean("cleanurl", true)
         blockThirdCookies = p.getBoolean("c3p", true); secureScreen = p.getBoolean("secscr", false)
-        antiFingerprint = p.getBoolean("antifp", true); fpStrict = p.getBoolean("fpstrict", false); shield = p.getBoolean("shield", true); pauseBg = p.getBoolean("pausebg", true)
+        antiFingerprint = p.getBoolean("antifp", true); shield = p.getBoolean("shield", true); pauseBg = p.getBoolean("pausebg", true)
         lang = p.getInt("lang", 0); siteLang = p.getInt("sitelang", 0).coerceIn(0, siteLangs.lastIndex)
+        autoClose = p.getInt("autoclose", 0).coerceIn(0, 3)
         textZoom = p.getInt("zoom", 1).coerceIn(0, zoomValues.lastIndex); siteDark = p.getBoolean("sitedark", false)
         pwMode = if (p.contains("pwmode")) p.getInt("pwmode", 0).coerceIn(0, 2) else defaultPwMode(c)
         autoPip = p.getBoolean("autopip", true); ytBg = p.getBoolean("ytbg", true)
@@ -117,7 +117,7 @@ object Prefs {
         ytCcSize = p.getInt("yccsize", 1).coerceIn(0, 3); ytCcBg = p.getInt("yccbg", 0).coerceIn(0, 2); ytCcPos = p.getInt("yccpos", 0).coerceIn(0, 2)
         ytNoShorts = p.getBoolean("ytnoshorts", false); ytAds = p.getBoolean("ytads", true)
         ytResume = p.getBoolean("ytresume", true); ytKeepRate = p.getBoolean("ytkeeprate", true); ytHold2x = p.getBoolean("ythold2x", true)
-        boost = p.getBoolean("boost", true); suggest = p.getBoolean("suggest", true); smart = p.getBoolean("smart", true); brain = p.getBoolean("brain", true)
+        boost = p.getBoolean("boost", true); suggest = p.getBoolean("suggest", true); smart = p.getBoolean("smart", true);
         notifDone = p.getBoolean("notifdone", true); notifUpdate = p.getBoolean("notifupd", true); notifAsked = p.getBoolean("notifasked", false)
     }
 
@@ -149,18 +149,18 @@ object Prefs {
     fun pickHttpsFirst(v: Boolean) { httpsFirst = v; sp?.putBoolean("https1", v) }
     fun pickCleanUrls(v: Boolean) { cleanUrls = v; sp?.putBoolean("cleanurl", v) }
     fun pickThirdCookies(v: Boolean) { blockThirdCookies = v; sp?.putBoolean("c3p", v) }
-    fun pickFpStrict(v: Boolean) { fpStrict = v; sp?.putBoolean("fpstrict", v) }
     fun pickAntiFingerprint(v: Boolean) { antiFingerprint = v; sp?.putBoolean("antifp", v) }
     fun pickShield(v: Boolean) { shield = v; sp?.putBoolean("shield", v) }
     fun pickLang(v: Int) { lang = v; sp?.putInt("lang", v) }
     fun pickSiteLang(v: Int) { siteLang = v; sp?.putInt("sitelang", v) }
     fun pickTextZoom(v: Int) { textZoom = v; sp?.putInt("zoom", v) }
+    fun pickAutoClose(v: Int) { autoClose = v; sp?.putInt("autoclose", v) }
+    val autoCloseMs = longArrayOf(0L, 86_400_000L, 7 * 86_400_000L, 30 * 86_400_000L)
     fun pickSiteDark(v: Boolean) { siteDark = v; sp?.putBoolean("sitedark", v) }
     fun pickPauseBg(v: Boolean) { pauseBg = v; sp?.putBoolean("pausebg", v) }
     fun pickSecureScreen(v: Boolean) { secureScreen = v; sp?.putBoolean("secscr", v) }
     fun pickPwMode(v: Int) { pwMode = v; sp?.putInt("pwmode", v) }
     fun pickSmart(v: Boolean) { smart = v; sp?.putBoolean("smart", v) }
-    fun pickBrain(v: Boolean) { brain = v; sp?.putBoolean("brain", v) }
     fun pickAutoPip(v: Boolean) { autoPip = v; sp?.putBoolean("autopip", v) }
     fun pickYtBg(v: Boolean) { ytBg = v; sp?.putBoolean("ytbg", v) }
     fun pickAutoUpdate(v: Boolean) { autoUpdate = v; sp?.putBoolean("autoupd", v) }
@@ -240,6 +240,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
     val themeNames = listOf(L("تلقائي (حسب النظام)"), L("فاتح"), L("داكن"))
     val langNames = listOf(L("تلقائي"), "العربية", "English")
     val zoomNames = listOf(L("صغير"), L("عادي"), L("كبير"), L("كبير جداً"))
+    val autoCloseNames = listOf(L("يدوياً"), L("بعد يوم"), L("بعد أسبوع"), L("بعد شهر"))
     val connOpts = listOf(0, 4, 8, 16)
     val connNames = listOf(L("تلقائي (حتى 16)"), "4", "8", "16")
     val ccSizeNames = listOf(L("صغير"), L("عادي"), L("كبير"), L("كبير جداً"))
@@ -282,8 +283,8 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
                 Icons.Default.Person, { gEmail = ""; gErr = false; dialog = "gacct" }),
             RowSpec(L("اقتراح الحساب عند تسجيل الدخول"), L("يعرض بريدك فوق الصفحة عندما يطلب الموقع تسجيل الدخول"), Icons.Default.Check,
                 { GoogleAccounts.pickSuggest(!GoogleAccounts.suggest) }, { IosSwitch(checked = GoogleAccounts.suggest, onCheckedChange = null) }),
-            RowSpec(L("تسجيل دخول Google عبر Chrome"), L("تفتح Google كثيراً صفحة الدخول بخطأ داخل المتصفحات المضمّنة؛ هذا الخيار يفتحها في Chrome Custom Tab"), Icons.Default.Lock,
-                { GoogleAccounts.pickUseChrome(!GoogleAccounts.useChrome) }, { IosSwitch(checked = GoogleAccounts.useChrome, onCheckedChange = null) })
+            RowSpec(L("تسجيل الخروج من Google"), L("يمسح جلسة Google ويوتيوب من المتصفح"), Icons.Default.Delete,
+                { GoogleAccounts.signOut(); toast(ctx, L("تم تسجيل الخروج من Google")) })
         )),
         SectionSpec("youtube", L("يوتيوب"), L("التشغيل في الخلفية • الترجمة • Shorts"), Icons.Default.PlayArrow, listOf(
             RowSpec(L("متابعة التشغيل في الخلفية"), L("مع أزرار التحكم في الإشعار وشاشة القفل"), Icons.Default.PlayArrow, { Prefs.pickYtBg(!Prefs.ytBg) },
@@ -322,20 +323,19 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
             RowSpec(L("لغة التطبيق"), langNames[Prefs.lang.coerceIn(0, 2)], Icons.Default.Settings, { dialog = "lang" }),
             RowSpec(L("لغة المواقع"), Prefs.siteLangs[Prefs.siteLang].let { if (it.first.isEmpty()) L(it.second) else it.second }, Icons.Default.Search, { dialog = "sitelang" }),
             RowSpec(L("حجم الخط في المواقع"), zoomNames[Prefs.textZoom], Icons.Default.Edit, { dialog = "zoom" }),
+            RowSpec(L("إغلاق التبويبات تلقائياً"), autoCloseNames[Prefs.autoClose.coerceIn(0, 3)], Icons.Default.Delete, { dialog = "autoclose" }),
             RowSpec(L("الوضع الداكن للمواقع"), L("يتبع وضع النظام الداكن"), Icons.Default.Star, { Prefs.pickSiteDark(!Prefs.siteDark) },
                 { IosSwitch(checked = Prefs.siteDark, onCheckedChange = null) })
         )),
         SectionSpec("security", L("الأمان"), L("الحماية الفورية • HTTPS • سجل الأمان"), Icons.Default.Check, listOfNotNull(
             RowSpec(L("الحماية الفورية"),
-                (if (Shield.version >= 0) L("تصدّي لهجمات الشبكة المحلية والتعدين الخفي والتتبع والروابط المخادعة وإغراق النوافذ — تم صدّ ") + Shield.total else ""),
+                (if (Shield.version >= 0) L("يحجب المتتبعات والروابط المخادعة وإغراق النوافذ والتنزيلات المتتابعة — تم صدّ ") + Shield.total else ""),
                 Icons.Default.Lock, { Prefs.pickShield(!Prefs.shield) },
                 { IosSwitch(checked = Prefs.shield, onCheckedChange = null) }),
             RowSpec(L("HTTPS أولاً"), L("ترقية الروابط إلى اتصال مشفّر مع رجوع تلقائي عند عدم الدعم"), Icons.Default.Lock, { Prefs.pickHttpsFirst(!Prefs.httpsFirst) },
                 { IosSwitch(checked = Prefs.httpsFirst, onCheckedChange = null) }),
             RowSpec(L("الحماية من البصمة"), L("توحيد وتشويش قيم Canvas وWebGL والصوت والجهاز (يُطبَّق على التبويبات الجديدة)"), Icons.Default.Lock, { Prefs.pickAntiFingerprint(!Prefs.antiFingerprint) },
                 { IosSwitch(checked = Prefs.antiFingerprint, onCheckedChange = null) }),
-            if (USE_GECKO) null else RowSpec(S(R.string.fp_strict_title), S(R.string.fp_strict_sub), Icons.Default.Lock, { Prefs.pickFpStrict(!Prefs.fpStrict) },
-                { IosSwitch(checked = Prefs.fpStrict, onCheckedChange = null) }),
             RowSpec(L("إزالة معرّفات التتبع"), L("utm و fbclid و gclid وغيرها من الروابط"), Icons.Default.Check, { Prefs.pickCleanUrls(!Prefs.cleanUrls) },
                 { IosSwitch(checked = Prefs.cleanUrls, onCheckedChange = null) }),
             RowSpec(L("حظر كوكيز الطرف الثالث"), L("قد تتأثر بعض مواقع تسجيل الدخول المشترك"), Icons.Default.Info, { Prefs.pickThirdCookies(!Prefs.blockThirdCookies) },
@@ -366,8 +366,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
                 { IosSwitch(checked = Prefs.pwaMode, onCheckedChange = null) }),
             RowSpec(L("اهتزاز الأزرار في وضع التطبيق"), L("لمسة اهتزاز خفيفة عند ضغط الأزرار داخل يوتيوب ومواقع الذكاء الاصطناعي"), Icons.Default.Face, { Prefs.pickPwaHaptics(!Prefs.pwaHaptics) },
                 { IosSwitch(checked = Prefs.pwaHaptics, onCheckedChange = null) }),
-            RowSpec(L("محرك العرض"), WebEngine.summary(), Icons.Default.Refresh,
-                { if (WebEngine.outdated) WebEngine.openStore(ctx) else WebEngine.checkLatest(ctx, true) }),
+            RowSpec(L("محرك العرض"), GeckoSettings.engineSummary(), Icons.Default.Info, {}),
             RowSpec(L("مسح الذاكرة المؤقتة الآن"), (L("الحجم الحالي: ") + cacheSize), Icons.Default.Delete, { dialog = "cache" }),
             RowSpec(L("إيقاف الصفحات في الخلفية"), L("يوفر المعالج والبطارية عند الخروج من التطبيق (يوقف الصوت أيضاً)"), Icons.Default.Refresh, { Prefs.pickPauseBg(!Prefs.pauseBg) },
                 { IosSwitch(checked = Prefs.pauseBg, onCheckedChange = null) }),
@@ -385,8 +384,6 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
                 { IosSwitch(checked = Prefs.cap60, onCheckedChange = null) }),
             RowSpec(L("حركات الواجهة"), L("إيقافها يجعل التنقل فورياً ويوفر الطاقة"), Icons.Default.Star, { Prefs.pickSmoothAnim(!Prefs.smoothAnim) },
                 { IosSwitch(checked = Prefs.smoothAnim, onCheckedChange = null) }),
-            if (USE_GECKO) null else RowSpec(L("Page brain"), L("Detects the page type and framework, applies matching fixes and speed tweaks, and updates its rules. Applies to new tabs"), Icons.Default.Star, { Prefs.pickBrain(!Prefs.brain) },
-                { IosSwitch(checked = Prefs.brain, onCheckedChange = null) })
         )),
         SectionSpec("downloads", L("التنزيلات"), L("الاتصالات • مكان الحفظ"), Icons.Default.KeyboardArrowDown, listOf(
             RowSpec(L("الحد الأقصى للاتصالات"), connNames[connOpts.indexOf(Prefs.maxConns).coerceAtLeast(0)], Icons.Default.KeyboardArrowDown, { dialog = "conns" }),
@@ -508,6 +505,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
         "pwmode" -> NovaChoiceDialog(L("وضع التعبئة التلقائية"), pwNames, Prefs.pwMode.coerceIn(0, 2), Icons.Default.Lock, { Prefs.pickPwMode(it) }) { dialog = null }
         "lang" -> NovaChoiceDialog(L("لغة التطبيق"), langNames, Prefs.lang.coerceIn(0, 2), Icons.Default.Settings, { Prefs.pickLang(it) }) { dialog = null }
         "sitelang" -> NovaChoiceDialog(L("لغة المواقع"), Prefs.siteLangs.map { if (it.first.isEmpty()) L(it.second) else it.second }, Prefs.siteLang, Icons.Default.Search, { Prefs.pickSiteLang(it) }) { dialog = null }
+        "autoclose" -> ChoiceDialog(L("إغلاق التبويبات تلقائياً"), autoCloseNames, Prefs.autoClose.coerceIn(0, 3), { Prefs.pickAutoClose(it) }) { dialog = null }
         "zoom" -> ChoiceDialog(L("حجم الخط في المواقع"), zoomNames, Prefs.textZoom, { Prefs.pickTextZoom(it) }) { dialog = null }
         "yccsize" -> ChoiceDialog(L("حجم الترجمة"), ccSizeNames, Prefs.ytCcSize.coerceIn(0, 3), { Prefs.pickYtCcSize(it) }) { dialog = null }
         "yccbg" -> ChoiceDialog(L("خلفية الترجمة"), ccBgNames, Prefs.ytCcBg.coerceIn(0, 2), { Prefs.pickYtCcBg(it) }) { dialog = null }
