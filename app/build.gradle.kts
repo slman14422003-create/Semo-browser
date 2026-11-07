@@ -43,7 +43,7 @@ android {
     }
     androidResources { localeFilters += listOf("ar", "en", "fr", "es", "de", "tr", "ru", "fa", "ur", "id", "zh", "ja", "ko", "hi", "pt", "it", "bn", "he", "th", "vi", "nl", "pl", "uk") }   // نصوص المكتبات (مربعات التاريخ/الحوارات…) باللغات الشائعة فقط لتبقى الحزمة صغيرة
     lint { abortOnError = false; checkReleaseBuilds = false }
-    packaging { jniLibs { pickFirsts += "**/libc++_shared.so" } }
+    packaging { jniLibs { pickFirsts += "**/libc++_shared.so"; useLegacyPackaging = true } }
     packaging { resources { excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "META-INF/DEPENDENCIES", "META-INF/LICENSE*", "META-INF/NOTICE*", "META-INF/INDEX.LIST") } }
     testOptions { unitTests.isReturnDefaultValues = true }
     buildTypes {
@@ -95,19 +95,17 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.2.0")   // 1.0.1 كان يُسقط أحياناً عند الخروج (NPE داخلي في مزامنة حركة الأيقونة)
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("org.mozilla.geckoview:geckoview-arm64-v8a:157.+")
-    implementation("androidx.webkit:webkit:1.17.0")             // حقن سكربت الحماية قبل الصفحة (1.16: أحدث مستقر، يدعم ميزات المحرك الجديدة)
-    implementation("androidx.browser:browser:1.8.0")              // Chrome Custom Tabs لصفحات تسجيل الدخول الحساسة
     implementation("com.squareup.okhttp3:okhttp:4.12.0")           // شبكة HTTP/2 مع كاش وإعادة استخدام الاتصالات (اقتراحات البحث)
     implementation("androidx.profileinstaller:profileinstaller:1.4.1") // ملفات Baseline لتسريع بدء التشغيل وتقليل التقطيع
     implementation("com.moizhassan.ffmpeg:ffmpeg-kit-16kb:6.1.1")   // تحويل الصوت إلى MP3 وغيره (FFmpeg)
     implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.5") // استخراج روابط الفيديو/الصوت من يوتيوب (مجاني ومفتوح المصدر)
     implementation("androidx.metrics:metrics-performance:1.0.0")   // JankStats: رصد الإطارات البطيئة (يُفعَّل في نسخة debug فقط)
-    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")   // كشف تسرّب الذاكرة (WebView/Activity) أثناء التطوير فقط؛ لا يدخل نسخة الإصدار
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")   // كشف تسرّب الذاكرة (Activity) أثناء التطوير فقط؛ لا يدخل نسخة الإصدار
     testImplementation("junit:junit:4.13.2")
 }
 
 val syncShieldList by tasks.registering(Copy::class) {
-    from("src/main/assets/blocklist.txt")
+    from("../tools/src/blocklist.txt")
     into("src/main/assets/extensions/semo")
 }
 tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(syncShieldList) }

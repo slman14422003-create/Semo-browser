@@ -17,7 +17,7 @@ jobs:
       - name: تنزيل وتحويل
         run: |
           set -e
-          F=app/src/main/assets/blocklist.txt
+          F=tools/src/blocklist.txt
           mkdir -p /tmp/bl
           curl -fsSL https://raw.githubusercontent.com/easylist/easylist/master/easylist/easylist_adservers.txt -o /tmp/bl/a.txt
           curl -fsSL https://raw.githubusercontent.com/easylist/easylist/master/easyprivacy/easyprivacy_trackingservers.txt -o /tmp/bl/b.txt
@@ -29,6 +29,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/assets/blocklist.txt
+          git add tools/src/blocklist.txt
           git diff --cached --quiet || git commit -m "تحديث قائمة الحجب"
           git push
