@@ -23,8 +23,16 @@ object GeckoSettings {
         val lc = Prefs.siteLangCode()
         s.setLocales(arrayOf(if (lc.isNotEmpty()) lc else java.util.Locale.getDefault().toLanguageTag()))
         s.setPreferredColorScheme(
-            if (Prefs.siteDark) GeckoRuntimeSettings.COLOR_SCHEME_SYSTEM else GeckoRuntimeSettings.COLOR_SCHEME_LIGHT
+            if (Prefs.siteDark && appIsDark()) GeckoRuntimeSettings.COLOR_SCHEME_DARK else GeckoRuntimeSettings.COLOR_SCHEME_LIGHT
         )
+    }
+
+    // الوضع الداكن للمواقع يتبع ثيم التطبيق نفسه (وليس نظام الأندرويد فقط)
+    fun appIsDark(): Boolean = when (Prefs.theme) {
+        1 -> false
+        2 -> true
+        else -> (android.content.res.Resources.getSystem().configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
     }
 
     fun update() {

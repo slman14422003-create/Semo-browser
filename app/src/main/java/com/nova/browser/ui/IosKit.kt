@@ -189,15 +189,15 @@ fun IosSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)? = null, mo
     val src = remember { MutableInteractionSource() }
     val down by src.collectIsPressedAsState()
     val thumbW by animateDpAsState(
-        if (down && onCheckedChange != null) 33.dp else 27.dp,
+        if (down && onCheckedChange != null) 46.dp else 40.dp,
         androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 700f), label = "swt"
     )
     val moveSpec: androidx.compose.animation.core.AnimationSpec<Dp> =
         if (Adaptive.level == 0) androidx.compose.animation.core.spring(dampingRatio = 0.78f, stiffness = 420f) else tween(Adaptive.ms(200))
-    val x by animateDpAsState(if (checked) 49.dp - thumbW else 2.dp, moveSpec, label = "sw")
+    val x by animateDpAsState(if (checked) 64.dp - thumbW - 2.dp else 2.dp, moveSpec, label = "sw")
     val track by animateColorAsState(if (checked) ios.green else ios.fill2, tween(Adaptive.ms(250)), label = "swc")
     Box(
-        modifier.size(width = 51.dp, height = 31.dp).clip(CircleShape).background(track)
+        modifier.size(width = 64.dp, height = 28.dp).clip(CircleShape).background(track)
             .then(
                 if (onCheckedChange != null) Modifier.clickable(interactionSource = src, indication = null) {
                     runCatching { haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove) }
@@ -205,7 +205,7 @@ fun IosSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)? = null, mo
                 } else Modifier
             )
     ) {
-        Box(Modifier.offset(x = x, y = 2.dp).size(width = thumbW, height = 27.dp).shadow(3.dp, CircleShape).background(Color.White, CircleShape))
+        Box(Modifier.offset(x = x, y = 2.dp).size(width = thumbW, height = 24.dp).shadow(4.dp, CircleShape).background(Color.White, CircleShape))
     }
 }
 
@@ -296,13 +296,13 @@ fun IosGroup(modifier: Modifier = Modifier, content: @Composable ColumnScope.() 
 @Composable
 fun IosNavBar(title: String?, onBack: (() -> Unit)?, backLabel: String? = null, trailing: @Composable RowScope.() -> Unit = {}) {
     val ios = LocalIos.current
-    Box(Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 6.dp)) {
+    Box(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 12.dp, vertical = 4.dp)) {
         if (onBack != null) Row(
-            Modifier.align(Alignment.CenterStart).fillMaxHeight().clip(RoundedCornerShape(8.dp)).clickable(onClick = onBack).padding(horizontal = 8.dp),
+            Modifier.align(Alignment.CenterStart).height(44.dp).liquidGlass().clickable(onClick = onBack).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IosIcon(IosGlyph.Back, ios.blue, 22.dp, weight = 1.15f)
-            if (backLabel != null) { Spacer(Modifier.width(2.dp)); Text(backLabel, style = MaterialTheme.typography.bodyLarge, color = ios.blue, maxLines = 1) }
+            IosIcon(IosGlyph.Back, ios.label, 22.dp, weight = 1.15f)
+            if (backLabel != null) { Spacer(Modifier.width(2.dp)); Text(backLabel, style = MaterialTheme.typography.bodyLarge, color = ios.label, maxLines = 1) }
         }
         if (title != null) Text(
             title, Modifier.align(Alignment.Center).padding(horizontal = 96.dp), style = MaterialTheme.typography.titleMedium,

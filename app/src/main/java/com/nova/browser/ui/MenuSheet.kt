@@ -127,7 +127,7 @@ fun MenuSheet(
     val reading = hasPage && Library.isInReadingList(tab.url)
     val startFav = hasPage && Library.isFavorite(tab.url)
     ModalBottomSheet(
-        onDismissRequest = onDismiss, sheetState = state, containerColor = ios.groupedBg, shape = IosShape.sheet,
+        onDismissRequest = onDismiss, sheetState = state, containerColor = ios.groupedBg.copy(alpha = 0.96f), shape = IosShape.sheet,
         dragHandle = { Box(Modifier.padding(top = 6.dp, bottom = 8.dp).size(width = 36.dp, height = 5.dp).clip(CircleShape).background(ios.gray3)) }
     ) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 20.dp)) {
