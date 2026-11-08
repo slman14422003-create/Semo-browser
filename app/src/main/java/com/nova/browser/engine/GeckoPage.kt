@@ -51,6 +51,7 @@ object GeckoPage {
         if (id >= 0) extTab[tab.id] = id
         when (body.optString("t")) {
             "tint" -> tab.topColor = PageTint.parse(body.optString("c"))
+            "bgb" -> tab.botColor = PageTint.parse(body.optString("c"))
             "noPull" -> tab.noPull = body.optBoolean("v")
             "icon" -> loadIcon(url, body.optString("u"))
         }
