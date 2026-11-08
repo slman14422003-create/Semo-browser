@@ -111,6 +111,8 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", run, { once: true });
   else run();
   window.addEventListener("load", soon, { once: true });
+  setTimeout(tint, 900);
+  setTimeout(tint, 2600);
   try {
     new MutationObserver(soon).observe(document.head || document.documentElement, {
       childList: true,
