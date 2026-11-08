@@ -117,7 +117,7 @@ fun StartPage(
     Box(Modifier.fillMaxSize().background(ios.groupedBg)) {
     Column(
         Modifier.fillMaxSize()
-            .verticalScroll(rememberScrollState()).padding(bottom = 24.dp + UiLayout.BAR_H.dp + 12.dp).navigationBarsPadding()
+            .verticalScroll(rememberScrollState()).padding(bottom = 24.dp)
     ) {
         Spacer(Modifier.height(12.dp))
         StartHeader(L("المفضلة"), Modifier.stagger(1, shown))
@@ -163,12 +163,5 @@ fun StartPage(
             ListRow(groupShape(4, 5), L("الإعدادات"), null, onSettings, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.gray) { Icon(Icons.Default.Settings, null, Modifier.size(18.dp)) } }
         }
     }
-    Box(
-        Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(170.dp).background(
-            androidx.compose.ui.graphics.Brush.verticalGradient(
-                listOf(Color.Transparent, ios.groupedBg.copy(alpha = 0.88f), ios.groupedBg)
-            )
-        )
-    )
     }
 }
