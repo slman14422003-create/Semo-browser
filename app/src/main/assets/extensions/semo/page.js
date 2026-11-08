@@ -1,6 +1,6 @@
 (function () {
   if (window.top !== window) return;
-  var last = { c: null, i: null, n: null };
+  var last = { c: null, i: null, n: null, b: null };
   var EDITOR =
     '.monaco-editor,.cm-editor,.CodeMirror,.ace_editor,.view-lines,.xterm,.CodeMirror-scroll,[contenteditable=""],[contenteditable="true"],textarea,canvas,iframe,[role="textbox"],[data-nova-noptr]';
   var timer = 0;
@@ -27,6 +27,18 @@
     return null;
   }
 
+  function botBg() {
+    try {
+      var el = document.elementFromPoint(Math.max(1, window.innerWidth / 2), Math.max(1, window.innerHeight - 3));
+      while (el) {
+        var c = usable(getComputedStyle(el).backgroundColor);
+        if (c) return c;
+        el = el.parentElement;
+      }
+    } catch (e) {}
+    return null;
+  }
+
   function tint() {
     try {
       var m = document.querySelector("meta[name=theme-color]");
@@ -44,6 +56,11 @@
       if (c !== last.c) {
         last.c = c;
         send({ t: "tint", c: c });
+      }
+      var bb = botBg() || c;
+      if (bb !== last.b) {
+        last.b = bb;
+        send({ t: "bgb", c: bb });
       }
     } catch (e) {}
   }
@@ -123,25 +140,3 @@
   } catch (e) {}
 })();
 
-(function () {
-  try {
-    if (window.top !== window) return;
-    var done = false;
-    function pad() {
-      try {
-        if (done || !document.body) return;
-        if (document.documentElement.scrollHeight > window.innerHeight * 1.25) {
-          var d = document.createElement("div");
-          d.setAttribute("data-semo-pad", "1");
-          d.style.cssText = "height:92px;width:1px;pointer-events:none;flex:none";
-          document.body.appendChild(d);
-          done = true;
-        }
-      } catch (e) {}
-    }
-    window.addEventListener("load", function () {
-      setTimeout(pad, 600);
-      setTimeout(pad, 2500);
-    });
-  } catch (e) {}
-})();
