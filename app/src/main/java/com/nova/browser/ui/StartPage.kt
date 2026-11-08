@@ -114,21 +114,12 @@ fun StartPage(
         else -> L("لا توجد تنزيلات بعد")
     }
 
+    Box(Modifier.fillMaxSize().background(ios.groupedBg)) {
     Column(
-        Modifier.fillMaxSize().background(ios.groupedBg)
+        Modifier.fillMaxSize()
             .verticalScroll(rememberScrollState()).padding(bottom = 24.dp + UiLayout.BAR_H.dp + 12.dp).navigationBarsPadding()
     ) {
-        val searchSrc = remember { MutableInteractionSource() }
-        Row(
-            Modifier.stagger(0, shown).padding(start = 16.dp, end = 16.dp, top = 16.dp).fillMaxWidth().height(48.dp)
-                .pressScale(searchSrc, 0.98f).clip(RoundedCornerShape(16.dp)).background(ios.cell)
-                .clickable(interactionSource = searchSrc, indication = null) { onSearchClick() }.padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.Search, null, Modifier.size(20.dp), tint = ios.label2)
-            Spacer(Modifier.width(10.dp))
-            Text(L("ابحث أو أدخل عنوان موقع"), style = MaterialTheme.typography.bodyLarge, color = ios.label2, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
+        Spacer(Modifier.height(12.dp))
         StartHeader(L("المفضلة"), Modifier.stagger(1, shown))
         Column(Modifier.stagger(2, shown).padding(horizontal = 12.dp)) {
             rows.forEach { row ->
@@ -171,5 +162,13 @@ fun StartPage(
             ListRow(groupShape(3, 5), L("المكتبة"), null, onLibrary, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.orange) { Icon(Icons.Default.Star, null, Modifier.size(18.dp)) } }
             ListRow(groupShape(4, 5), L("الإعدادات"), null, onSettings, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.gray) { Icon(Icons.Default.Settings, null, Modifier.size(18.dp)) } }
         }
+    }
+    Box(
+        Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(170.dp).background(
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                listOf(Color.Transparent, ios.groupedBg.copy(alpha = 0.88f), ios.groupedBg)
+            )
+        )
+    )
     }
 }
