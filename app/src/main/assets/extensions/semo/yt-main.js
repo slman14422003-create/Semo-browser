@@ -80,7 +80,7 @@ try {
     }
     addStyle('nova-yt-fix-style', CSS + SHORTS);
     addStyle('nova-yt-fix-style2', SHORTS2);
-    addStyle('nova-yt-inset', 'ytm-pivot-bar-renderer{box-sizing:content-box!important;padding-bottom:var(--nova-nav,0px)!important;background:var(--yt-spec-base-background,#0f0f0f)!important}');
+    addStyle('nova-yt-inset', 'ytm-pivot-bar-renderer{box-sizing:content-box!important;padding-bottom:var(--nova-nav,0px)!important;background:var(--yt-spec-base-background,#fff)!important}@media (prefers-color-scheme:dark){ytm-pivot-bar-renderer{background:var(--yt-spec-base-background,#0f0f0f)!important}}');
     window.__novaInset = function (px) {
       var r = root();
       if (!r) { setTimeout(function () { window.__novaInset(px); }, 30); return; }
