@@ -223,10 +223,10 @@ fun TabSwitcher(
             }
         }
         Row(
-            Modifier.fillMaxWidth().background(ios.chrome).iosHairlineTop(ios.separator).navigationBarsPadding().height(48.dp).padding(horizontal = 6.dp),
+            Modifier.navigationBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp).fillMaxWidth().height(52.dp).liquidGlass().padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(Modifier.size(44.dp).clickable { onNew(if (gNow == Groups.ALL) Groups.NONE else gNow) }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.Plus, ios.blue, 26.dp) }
+            Box(Modifier.size(44.dp).clickable { onNew(if (gNow == Groups.ALL) Groups.NONE else gNow) }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.Plus, ios.label, 26.dp) }
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Row(
                     Modifier.height(32.dp).clip(CircleShape).background(ios.fill3).clickable { filterMenu = true }.padding(horizontal = 14.dp),

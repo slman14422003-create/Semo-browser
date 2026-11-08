@@ -6,7 +6,7 @@ object PageTint {
     private val RGB = Regex("rgba?\\(\\s*(\\d+)[,\\s]+(\\d+)[,\\s]+(\\d+)(?:[,/\\s]+([\\d.]+))?")
 
     fun onStart(tab: BrowserTab, url: String) {
-        if (hostOf(tab.url) != hostOf(url)) tab.topColor = null
+        // نُبقي اللون السابق حتى يصل لون الصفحة الجديدة كي لا يومض شريط الحالة بالأسود
     }
 
     fun parse(raw: String?): Int? {
