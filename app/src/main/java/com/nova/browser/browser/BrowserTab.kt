@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 
 class BrowserTab(val id: Int, startUrl: String = "") {
     var topColor by mutableStateOf<Int?>(null)
+    var botColor by mutableStateOf<Int?>(null)
     var upgradedFrom: String? = null
     var upgradedTo: String? = null
     var noUpgradeHost: String? = null

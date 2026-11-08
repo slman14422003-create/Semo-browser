@@ -901,6 +901,15 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                         )
                     }
                 }
+                if (!inPip) {
+                    val botTarget = if (tab.url.isBlank()) iosC.groupedBg else ((tab.botColor ?: tab.topColor)?.let { Color(it) } ?: iosC.bg)
+                    val botColor by animateColorAsState(botTarget, tween(Adaptive.ms(220)), label = "botTint")
+                    SideEffect { activity.window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(botColor.toArgb())) }
+                    Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+                        Box(Modifier.fillMaxWidth().height(UiLayout.BAR_H.dp).background(botColor))
+                        Box(Modifier.fillMaxWidth().windowInsetsBottomHeight(WindowInsets.navigationBars).background(botColor))
+                    }
+                }
                 AnimatedVisibility(
                     visible = !inPip && !pageTyping, modifier = Modifier.align(Alignment.BottomCenter),
                     enter = androidx.compose.animation.slideInVertically(tween(Adaptive.ms(300), easing = NovaMotion.emphasized)) { it / 2 } + fadeIn(tween(Adaptive.ms(180))),
