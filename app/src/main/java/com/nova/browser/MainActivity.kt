@@ -901,9 +901,10 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                         )
                     }
                 }
+                val botTarget = if (tab.url.isBlank()) iosC.groupedBg else ((tab.botColor ?: tab.topColor)?.let { Color(it) } ?: iosC.bg)
+                val botColor by animateColorAsState(botTarget, tween(Adaptive.ms(220)), label = "botTint")
+                val barIos = if (botColor.luminance() < 0.5f) IosDark else IosLight
                 if (!inPip) {
-                    val botTarget = if (tab.url.isBlank()) iosC.groupedBg else ((tab.botColor ?: tab.topColor)?.let { Color(it) } ?: iosC.bg)
-                    val botColor by animateColorAsState(botTarget, tween(Adaptive.ms(220)), label = "botTint")
                     SideEffect { activity.window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(botColor.toArgb())) }
                     Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
                         Box(Modifier.fillMaxWidth().height(UiLayout.BAR_H.dp).background(botColor))
@@ -915,6 +916,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                     enter = androidx.compose.animation.slideInVertically(tween(Adaptive.ms(300), easing = NovaMotion.emphasized)) { it / 2 } + fadeIn(tween(Adaptive.ms(180))),
                     exit = androidx.compose.animation.slideOutVertically(tween(Adaptive.ms(180), easing = NovaMotion.emphasizedAccel)) { it / 3 } + fadeOut(tween(Adaptive.ms(110)))
                 ) {
+                CompositionLocalProvider(LocalIos provides barIos, LocalContentColor provides barIos.label) {
                 if (tab.finding) key(tab.id) { FindBar(tab) } else BottomPill(
                     tab = tab, tabCount = tabs.size, editing = editing, setEditing = { editing = it },
                     onGo = { go(tab, it) }, onTabs = { openTabs() }, onNewTab = { newTab() }, onHome = { home(tab) },
@@ -927,6 +929,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                     }, onAskAi = { askPage(tab) },
                     onSwitch = { d -> snap(tab); current = (current + d).coerceIn(0, tabs.lastIndex) }
                 )
+                }
                 }
                 // زر المنبثقة لا يعتمد على وضع التطبيق: يظهر فوق الشريط السفلي في صفحة فيديو يوتيوب حين يكون الشريط العلوي معطّلاً
                 if (site == null && !inPip && !pageTyping && tab.yt && isYtVideo(tab.url)) {
