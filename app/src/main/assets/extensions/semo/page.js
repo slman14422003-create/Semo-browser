@@ -29,12 +29,27 @@
 
   function botBg() {
     try {
-      var el = document.elementFromPoint(Math.max(1, window.innerWidth / 2), Math.max(1, window.innerHeight - 3));
-      while (el) {
-        var c = usable(getComputedStyle(el).backgroundColor);
-        if (c) return c;
-        el = el.parentElement;
+      var h = Math.max(1, window.innerHeight - 3);
+      var xs = [0.1, 0.3, 0.5, 0.7, 0.9];
+      var cnt = {};
+      for (var i = 0; i < xs.length; i++) {
+        var el = document.elementFromPoint(Math.max(1, window.innerWidth * xs[i]), h);
+        while (el) {
+          var tg = el.tagName;
+          if (tg !== "IMG" && tg !== "VIDEO" && tg !== "CANVAS" && tg !== "svg" && tg !== "SVG") {
+            var c = usable(getComputedStyle(el).backgroundColor);
+            if (c) {
+              cnt[c] = (cnt[c] || 0) + 1;
+              break;
+            }
+          }
+          el = el.parentElement;
+        }
       }
+      var best = null;
+      var bn = 0;
+      for (var k in cnt) if (cnt[k] > bn) { bn = cnt[k]; best = k; }
+      return best;
     } catch (e) {}
     return null;
   }
