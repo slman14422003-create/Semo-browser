@@ -1,0 +1,126 @@
+# سجل المهام والتعديلات
+
+## 2026-11-06 - Gecko: ميزات لا تعمل وصفحات لا تُعرض صحيحاً
+- السبب: حزمة content.js كانت تحقن السكربتات بوسم <script> مضمّن فتحجبه CSP الصفحة، وإعدادات كثيرة (Prefs) لم تكن تصل إلى Gecko أصلاً.
+- الإضافة: السكربتات صارت ملفات main-*.js تُسجَّل في عالم MAIN عبر scripting.registerContentScripts (background.js)، وملفات cfg-*.js تضبط window.__semoCfg. تُولَّد بـ tools/gen-ext.py من assets/*.js (شغّله بعد أي تعديل عليها). حُذف content.js.
+- engine/GeckoCfg.kt: يرسل Prefs إلى الإضافة (عند الاتصال وعند أي تغيير) فتعمل: Shield، الإعلانات، لافتات الكوكيز، تحسين العرض، التحميل الكسول، التسريع، التكبير، فك النسخ، المسودات، توفير البيانات (حجب الصور).
+- GeckoSettings: حجب الإعلانات/المتتبعات، حماية البصمة (ETP)، الكوكيز الخارجية، ولغة المواقع.
+- GeckoUi: حوار اختيار اللون. وضع القراءة: رسالة عند الفشل.
+- الإعدادات: صفا fpStrict وPage brain مخفيان في Gecko (تخص WebView). privacy.js وbrain.js وsafari.js وscrollguard.js وpwa.js لا تُحقن في Gecko.
+- ترجمة: أربع رسائل كانت تمرر نصاً إنجليزياً إلى L() (تظهر بالإنجليزية في الواجهة العربية)، وsmart_summarize_text في values-ar.
+- لم يُبنَ المشروع في الجلسة؛ شغّل Gradle أولاً.
+
+## 2026-10-24 (4) - back to the previous tab, visible Close all
+- BrowserTab.parentId: tabs opened from a page (Handlers.openTab, Ask AI, summarize links) remember the tab they came from (MainActivity.openChild).
+- MainActivity: visit history (last 30 tab ids). Back order: page history, then tab back (close a child tab and return to its parent, otherwise switch to the previously visited tab without closing), then the old start-page reset, then the app. Closed child tabs go to the reopen list.
+- browser/Tabs.kt: red "Close all" button in the bottom bar of the tab switcher (pinned tabs are kept, as before). The menu item stays.
+- Not compiled in the session; run a Gradle build first.
+
+## 2026-10-24 (3) - smoothness: script bundling, quieter download UI
+- perf/ScriptBundle.kt (new): document-start scripts of a tab are queued and registered as ONE script per segment (each wrapped in its own try/IIFE so one runtime error does not stop the rest). createWebView: begin, install everything up to WebCompat, flush, Pwa (own origin list, registered directly), begin, PageBrain and Passwords, flush. Without begin(), add() registers immediately, so other callers behave as before. SafariMode (needs a removable handler), Pwa and YtHub keep direct registration.
+- Downloader.updateProgress: the segment snapshot is rebuilt only when the Downloads screen is open (Downloader.uiVisible, set by DownloadsScreen) and only assigned when it really changed, so a running download no longer recomposes the segment bar every 400 ms in the background. Speed, byte count and notification data are unchanged.
+- project_check.py: runs node --check on every injected script (needed now that one syntax error would disable a whole bundle).
+- Already present and left alone: R8 with resource shrinking, profileinstaller, a wildcard baseline-prof.txt.
+- Not compiled in the session; run a Gradle build first.
+
+## 2026-10-24 (2) - downloads: real file type instead of .bin
+- download/FileKind.kt (new, pure Kotlin): Content-Disposition parser (filename*, quoted, plain, path stripping), file name from the URL (response-content-disposition, file/filename/name query keys, path segment with a real extension), magic-byte sniffing (pdf, png, jpg, gif, webp, mp4/mov/m4a/heic, mp3, ogg, flac, wav, avi, mkv/webm, 7z, rar, gz, bz2, xz, tar, exe, dex, sqlite, rtf, html, xml) and ZIP classification from the central directory (apk, aab, xapk, apks, apkm, docx, xlsx, pptx, jar, epub, zip).
+- Downloader.smartName uses the new parsers before URLUtil; names without a real extension get one from the MIME type when it is specific.
+- Downloader.finalizeName (called from markDone before IS_PENDING=0): when the final name is .bin, has no extension or a script extension, the first 64 KB and last 1 MB are sniffed, the MediaStore display name and MIME type are updated, and a second name-only update fixes the name if MediaStore appended an extension.
+- Downloader.repairOld runs once at init on the disk lane and renames already finished .bin downloads that can be identified.
+- Security.isRiskyName + MainActivity: the risky-file warning now also checks the resolved name (an apk served from an extensionless URL used to skip the warning).
+- Tests: FileKindTest.java. Not compiled in the session; run a Gradle build first.
+
+## 2026-10-24 - site compatibility pass (Firebase, Cloudflare, scripts, languages, YouTube Studio)
+- browser/SiteRules.kt (new): trusted host list (Firebase, Cloudflare, GitHub, Vercel, Netlify, Supabase, Stripe, PayPal, login providers, Google) plus auth/CAPTCHA host list, per-host SSL exception (session only, asked once per host) and a per-site "fix" flag. Relaxed hosts skip fingerprint spoofing, injected CSS, cosmetic filter, brain CSS, generic tracker path and label rules, and get third-party cookies.
+- SiteStore: new `f` field (fix). Page menu: "Fix this site" row. The flag is mirrored to the page as localStorage `__novaFix` so document-start scripts can skip themselves; WebFactory.onPageFinished re-sets it after site data is cleared.
+- privacy.js: canvas/WebGL/audio/font spoofing is now opt-in (`Prefs.fpStrict`, Settings row, default off); navigator-level protection stays on. Trusted hosts return early.
+- Cookies: WebCompat.applyCookies replaces the scattered toggles. Third-party cookies are allowed for relaxed hosts, challenge pages, maps, and for any tab whose sub-request hits an auth/CAPTCHA host (BrowserTab.thirdOn, reset on page start).
+- Popups: polyfills.js gives window.open calls to known OAuth endpoints popup features so WebView creates a dialog that keeps window.opener.
+- Shield/Perf: removed generic /collect /track /telemetry /pixel path rules; the first-label heuristic (ads., tracking., ...) now applies only to third-party requests on non-relaxed pages; per-site fix disables blocking.
+- SSL: main-frame certificate errors show a continue-anyway dialog once per host; allowed hosts proceed for the session. Safe Browsing hits unchanged.
+- Language: link navigations with a gesture reload with the site Accept-Language header; langfix.js detects 20 more scripts and splits Cyrillic into uk/be/kk/sr/bg/ru.
+- polyfills.js: Notification stub (permission denied), showOpenFilePicker via a file input.
+- smooth.js: removed global img/video max-width and text-wrap rules; fit CSS, popup hiding and heavy mode skip trusted hosts. brain-rules v2: fluid/heavy CSS reduced.
+- YtWeb: studio.youtube.com gets the file chooser and camera/mic permission handler.
+- Tests/tools: SiteRulesTest.java, docs/COMPAT_SITES.md manual checklist, project_check.py markers.
+- Not changed: YouTube rotation/fullscreen timers and yt.js selectors (need on-device testing first); GeckoView option not started.
+- Not compiled in the session; run a Gradle build first. tools/project_check.py passes.
+
+## 2026-10-20 (2) - in-app mini player, audio-only, next/prev, YouTube status bar
+- yt/YtAudio.kt (new): audio-only engine (NewPipe audio stream + MediaPlayer, runs on Work.media), autoplays the first related video when a track ends. Feeds YtMedia so the notification/lock screen work.
+- yt/YtMiniBar.kt (new): in-app mini player bar (thumbnail, title, play/pause, next, close, progress). AppActivity reserves space for it (WebView is padded up) and tapping it reopens the video at the same second.
+- YtMedia.pageChanged: in an installed app, leaving a video page while playing hands the sound over to YtAudio instead of stopping. Browser tabs keep the old behaviour.
+- App options sheet: new "Audio only" row on video pages (hands over and goes to the YouTube home page).
+- Next/previous: new `next`/`prev` commands in yt.js (__novaYtCtl), notification action + MediaSession skip actions.
+- Status bar: YtWeb now samples the page colour (PageTint) and AppActivity falls back to YouTube's own header colour; options handle is a short hint, then invisible.
+- Not compiled in the session; run a Gradle build first.
+
+## 2026-10-20 - thread lanes, web-app manifest, cosmetic filter, YouTube warm-up
+- core/Work.kt (new): named pools net / disk (single thread) / cpu / media + coroutine dispatchers (Work.netD...) + Work.ui. All 14 ad-hoc Thread() calls (MainActivity, AppActivity, WebEngine, Updater, Library, YtMedia, YtDownload mux) moved to a lane. Library read+save now share the single disk lane (no more two writers racing on library.tmp). NetImage loads on Work.netD (bounded) instead of Dispatchers.IO.
+- pwa/PwaManifest.kt (new): on install, reads the site's Web App Manifest in the background (4.5s deadline, https only, size caps): short_name/name, best PNG icon (192px, saved in filesDir/pwa), orientation (default only if the user has not chosen), theme_color (stored as pwa_t_<host>). Pwa.togglePin pins after the fetch and falls back to the favicon. Removing the app deletes the stored icon.
+- assets/cosmetic.js + Perf.installCosmetic: generic ad-container hiding at document start (only when Prefs.blockAds; skipped on YouTube/Google/Cloudflare/GitHub).
+- YtWeb.create: preconnect to i.ytimg.com and yt3.ggpht.com.
+- Not compiled in the session; run a Gradle build first. tools/project_check.py passes.
+
+## 2026-10-17 (2) - auto reload on reconnect, installed-app bottom gap
+- core/NetRetry.kt: on network available, reloads only tabs whose load failed (BrowserTab.failed set when the error page is shown; cleared by the next real navigation). Wired in MainActivity and AppActivity (start in onStart, stop in onStop). YtWeb and WebFactory mark failures.
+- AppActivity: with gesture navigation the bottom system-bar inset was reserved as an empty strip below the page (the gap in the screenshot, worse after rotation). Now only top/sides are padded with gesture nav; 3-button nav keeps the bottom padding.
+- Not compiled in the session.
+
+## 2026-10-17 - rotation gap fix, installed-app features, motion/perf
+- Rotation gap (YouTube): `yt.js` gets `__novaFit` (re-measures fixed bars/player, restores scroll, fires resize; also on orientationchange). `YtWeb.create` adds a layout-change listener (debounced 160ms) so ANY real size change notifies the page; `YtWeb.forceRemeasure` toggles the WebView height by 1px then back. `MainActivity` also refits non-YouTube pages after rotation and uses a crossfade rotation animation.
+- Installed apps (`AppActivity`): handle at the top edge opens `AppOptionsSheet` (reload/share/open in Nova, per-app screen orientation, keep screen on, full screen, pull-to-refresh, remove app). Settings are per host via `AppPrefs` (nova.conf keys pwa_o_/pwa_k_/pwa_i_/pwa_r_). Pull-to-refresh added for non-YouTube apps. Launcher long-press shows the 4 newest installed apps (dynamic shortcuts, `Pwa.publishShortcuts`). Open/close activity transitions.
+- Motion/perf: page switch no longer scales the live WebView (fade only); bottom bar slides with the emphasized curve; StartPage sections enter in a stagger (graphicsLayer only); rounder icons/search; app splash exit scales out.
+- Not compiled in the session; run a Gradle build first. `tools/project_check.py` passes.
+
+## 2026-10-16 - smart assistant, WebView support, smoothness audit
+- New: summarize.js + SmartAssist.kt (on-device page summary, Ask AI via Google AI Mode), SmartCalc.java (address-bar calculator), NovaWebView.kt (selection toolbar actions), WebBoost.kt (slow-network image deferral), Strings.kt + res/values(-ar)/strings.xml (resource strings that follow Prefs.lang).
+- Menus: Summarize page and Ask AI in the page menu; Close duplicate tabs in the tab overview menu.
+- Manifest: PROCESS_TEXT filter (select text in any app, open with Nova). Prefs.smart toggle in Settings.
+- Audit fixes: Suggest.local allocation and scan cap, Library filtering via derivedStateOf, stable LazyRow keys, earlier status-bar tint (onPageCommitVisible).
+- tools/project_check.py: checks R.string parity (values vs values-ar), Arabic-free new code files, PROCESS_TEXT filter.
+- Not compiled in the session; run a Gradle build first.
+
+## 2026-10-14 — البصمة (EFF) + مكتبات دعم الصفحات واللغات + استقرار
+- `assets/privacy.js` (إعادة كتابة): توحيد `platform`/`maxTouchPoints`/`hardwareConcurrency`، أبعاد الشاشة وdevicePixelRatio إلى قيم شائعة، إخفاء الخطوط غير الشائعة (measureText وقياس عناصر الاختبار)، وWebGL: حدود المعاملات والامتدادات وprecision وvendor/renderer بقيم شائعة، وزمن الصوت. `toString()` للدوال المعدّلة يُظهر الأصلية. فحص صفحة التحقق يخفّ بعد 5 ثوانٍ.
+- `assets/polyfills.js` (جديد): Array.at/findLast/toSorted…، Object.groupBy/hasOwn، Set.union…، Promise.withResolvers/any، structuredClone، AbortSignal.timeout/any، crypto.randomUUID، URL.canParse… (تعمل فقط عند غياب الميزة).
+- `assets/langfix.js` (جديد): يضبط `lang` للصفحات التي بلا lang من نص الصفحة (الصينية المبسّطة/التقليدية، اليابانية، الكورية، الهندية، التايلندية، العبرية، الفارسية، الأردية، الروسية…) فيختار المحرك نموذج الحروف الصحيح.
+- `browser/WebCompat.kt`: حقن polyfills ثم webcompat ثم langfix. `core/Settings.kt`: 13 لغة جديدة لـ«لغة المواقع» في نهاية القائمة. `res/xml/locales_config.xml` وlocaleFilters: 23 لغة.
+- `MainActivity.kt`: `onLowMemory` يحرّر تبويبات الخلفية كـ onTrimMemory. `proguard-rules.pro`: حذف Log.v/d من الإصدار.
+
+## 2026-10-13 — إصلاح النافذة المنبثقة (PiP) لمشغّل يوتيوب فقط
+- `assets/yt.js`: إعادة كتابة `__novaPip` (وسم بخاصية بدل class، إعادة تطبيق دورية، إلغاء خصائص الآباء، اختيار أفضل عنصر فيديو)، وإرسال `vw/vh` مع حالة التشغيل.
+- `yt/YtMedia.kt`: حفظ أبعاد الفيديو (`vw/vh`) وتصفيرها عند الإيقاف.
+- `yt/YtWeb.kt`: `onPip` يفعّل حماية التشغيل قبل نمط المنبثقة.
+- `MainActivity.kt`: نسبة المنبثقة من أبعاد الفيديو + تحديثها عند تغيّرها؛ فشل الدخول يُبلَّغ بدل الصمت؛ إصلاح التقاط «إغلاق المنبثقة» خطأً بعد التوسيع؛ الدخول التلقائي لا يشترط التشغيل الجاري؛ خلفية سوداء أثناء المنبثقة؛ زر منبثق عائم لا يعتمد على وضع التطبيق.
+- `pwa/SiteBar.kt`: `PipGlyph` صارت `internal` لاستعمالها في الزر العائم.
+- `core/I18n.kt`: ترجمتان إنجليزيتان لرسالتي الفشل.
+- لم يُمسّ أي كود خاص بالمتصفح العام؛ كل التعديلات محصورة بمشغّل يوتيوب والمنبثقة.
+
+## 2026-10-13 — سلاسة الواجهة والتنقل + توفير البطارية والمعالج
+- `perf/Smooth.kt` (Adaptive): البطارية ≤15% وغير موصولة بالشاحن تُدخل وضع التخفيف (أنيميشن أقصر، 60Hz، عدد تبويبات حيّة أقل) تلقائياً؛ يُقرأ الشحن ببث لاصق ويُحدَّث عند BATTERY_LOW/OKAY وتوصيل/فصل الشاحن.
+- `MainActivity.kt`: تحرير الـ WebView للتبويبات الخلفية الخاملة (15 دقيقة، و5 عند التخفيف) مع حفظ السجل والتمرير؛ لا يمسّ المثبّتة ولا قيد التحميل ولا يوتيوب الجاري. وقت الاستخدام يُسجَّل عند مغادرة التبويب. حكم «منع السحب للتحديث» يُحفظ لكل رابط بدل تحليل الرابط مع كل حركة لمس أثناء التمرير.
+- `download/DownloadService.kt`: القفل الجزئي (WakeLock) كان يُمسك 6 ساعات متواصلة؛ صار يُمسك فقط أثناء تنزيل فعلي ويُحرَّر عند الإيقاف المؤقت/الانتهاء. تحديث الإشعار كل 5ث بدل 1ث والشاشة مطفأة.
+- `browser/Popups.kt`: مراقبة عنوان النافذة المنبثقة كل 1000ms بدل 400ms.
+- `assets/yt.js`: قياس موضع الترجمة الدوري كل 1ث بدل 0.7ث ويتوقف مع إيقاف الفيديو.
+- ملاحظة: ميزة تحرير التبويبات الخاملة قد توقف صوتاً يعمل في تبويب خلفي لموقع غير يوتيوب بعد المهلة؛ المهلة قابلة للتعديل في `MainActivity.kt` (المتغيّر `idle`).
+
+## 2026-10-13 — كاش الصفحات + إصلاح تنزيل apk باسم .bin
+- السبب: `URLUtil.guessFileName` يستبدل امتداد الملف بامتداد نوع المحتوى إن اختلفا؛ الخوادم تعيد apk بنوع octet-stream فيصير `.bin`، وتسجيل MediaStore بنوع عام قد يُلحق `.bin` أيضاً.
+- `download/Downloader.kt`: دالتان `smartName` و`smartMime`: الاسم الحقيقي مقدَّم على نوع المحتوى، والبحث عن اسم apk داخل الرابط (`?file=x.apk`) للسكربتات والأنواع العامة، ونوع apk الصحيح (`application/vnd.android.package-archive`) يُسجَّل في MediaStore ويُستعمل عند الفتح (يفتح المثبّت). وإن أضاف النظام `.bin` يُعاد الاسم المطلوب. الملفات المنزَّلة سابقاً باسم `.bin` لا تتغيّر (تُعاد تسميتها يدوياً أو تُنزَّل من جديد).
+- `core/Settings.kt`: «مسح الكاش عند كل تشغيل» صار معطّلاً افتراضياً (كان يمحو كاش HTTP وكود الصفحات والرسوميات مع كل فتح فتبدأ كل صفحة باردة). من فعّله يدوياً يبقى مفعّلاً.
+- `MainActivity.kt`: عند الإيقاف يُقاس حجم الكاش في خيط خلفي (كل 10 دقائق كحدّ أقصى)، وعند التشغيل التالي يُنظَّف فقط إن تجاوز 300MB (`CacheCleaner.cleanLarge`) مع إبقاء كاش الشيفرة والرسوميات.
+- `browser/WebSupport.kt`: `cacheFirst` (تحميل واحد يفضّل الكاش) و`prepareLoad` (بلا اتصال تُفتح الصفحة من الكاش). تُستعمل لاستعادة التبويبات المحرَّرة (غير يوتيوب) فتعود فوراً، ولكل تحميل يبدؤه التطبيق.
+
+## 2026-10-13 — توافق Cloudflare/صفحات التحقق + الصفحات ذات الأكواد الضخمة + مربع البحث والحوارات
+- السبب المرجّح لتعطّل Cloudflare: الحماية من البصمة (`privacy.js`) كانت تضيف ضجيجاً لـ Canvas/WebGL/الصوت وتبدّل `navigator.*` على صفحة التحقق وإطار Turnstile، فيفشل التحقق أو يدور. الآن: لا تدخّل إطلاقاً في نطاقات التحقق (challenges.cloudflare.com وhCaptcha وreCAPTCHA وDataDome…)، وفي صفحة التحقق نفسها تُعاد القيم الحقيقية بعد اكتشافها (`inChallenge`: عنوان الصفحة/`_cf_chl_opt`/سكربتات challenge-platform).
+- `security/Shield.kt`: نطاقات التحقق ومسارات `/cdn-cgi/` لا تُحجب. `browser/WebCompat.kt`: عنوان صفحة التحقق يفعّل كوكيز الطرف الثالث مؤقتاً ويرفع حدّ كاشف حلقات إعادة التحميل من 8 إلى 24 ويمهل الصفحة وقتاً أطول، ثم تعود الإعدادات تلقائياً.
+- `browser/WebSupport.kt`: عملية العرض غير المستجيبة كانت تُقتل بعد 10 ثوانٍ؛ صارت 30ث (60ث لصفحات التحقق) مع إشعار «الصفحة ثقيلة… يرجى الانتظار» عند 8ث.
+- `assets/privacy.js`: الخطافات الثقيلة (measureText وgetImageData وtoDataURL/toBlob وreadPixels) تُطبَّق كاملة على أول استدعاءات ثم على واحد من كل N، فلا تُثقل صفحات الأكواد والمحررات والألعاب؛ وأُضيفت مواقع التطوير (github وgitlab وvscode.dev وstackblitz وcodesandbox وcodepen وreplit وغيرها) للحماية الخفيفة.
+- `assets/smooth.js`: «وضع الصفحات الثقيلة» (DOM فوق 5000 عنصر أو أكثر من 20 كتلة `pre` أو كتلة فوق 60 ألف حرف): نص أسرع بلا ligatures/kerning، وتأجيل تخطيط كتل الأكواد البعيدة (`content-visibility`).
+- `ui/Bars.kt` (مربع البحث): الحقل داخل كبسولة بنفس شكل شريط العنوان، زر مسح يظهر فقط مع وجود نص، وزر «لصق» عند الفراغ (يقرأ الحافظة عند الضغط فقط)، وبلا حروف كبيرة تلقائية. `core/Suggest.kt`: عند فتح الشريط قبل الكتابة تظهر آخر 6 صفحات مزارة، وحركة سلسة لتغيّر حجم القائمة.
+- `core/Settings.kt` (الحوارات): نص سجل الأعطال وسجل الأمان قابل للتحديد والنسخ، وسجل الأعطال بخط ثابت العرض.
+- `download/Downloads.kt`: سطر تفاصيل الملف صار «التاريخ • النوع • الموقع» فلا يُقطع التاريخ.
+- `core/I18n.kt`: ترجمتان («لصق»، «الصفحة ثقيلة…»).
+- لا ضمان بأن كل صفحة Cloudflare ستمرّ: قد يرفض Cloudflare متصفحات WebView بحسب تقييمه، لكن أسباب الفشل التي يتحكم بها التطبيق أُزيلت.
