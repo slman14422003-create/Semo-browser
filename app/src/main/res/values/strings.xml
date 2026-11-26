@@ -26,4 +26,27 @@
     <string name="x_copy_sub">Lets you select and copy text on pages that block it (applies to new tabs)</string>
     <string name="x_draft_title">Draft rescue</string>
     <string name="x_draft_sub">Keeps long text typed in text boxes for 30 minutes if the page reloads or closes (applies to new tabs)</string>
+    <string name="a11y_back">Back</string>
+    <string name="a11y_menu">More options</string>
+    <string name="a11y_clear_text">Clear text</string>
+    <string name="a11y_reload">Reload page</string>
+    <string name="a11y_stop">Stop loading</string>
+    <string name="a11y_downloads">Downloads</string>
+    <string name="a11y_close_tab">Close tab</string>
+    <string name="a11y_new_tab">New tab</string>
+    <string name="a11y_tab_color">Tab color</string>
+    <string name="a11y_no_color">No color</string>
+    <string name="a11y_find_prev">Previous match</string>
+    <string name="a11y_find_next">Next match</string>
+    <string name="a11y_add">Add</string>
+    <string name="site_js">Site JavaScript</string>
+    <string name="site_js_on">JavaScript on</string>
+    <string name="site_js_off">JavaScript off</string>
+    <string name="site_desktop">Site desktop mode</string>
+    <string name="site_desktop_on">Desktop</string>
+    <string name="site_desktop_off">Mobile</string>
+    <string name="site_clear">Clear site data</string>
+    <string name="site_cleared">Site data cleared</string>
+    <string name="site_reset">Reset site settings</string>
+    <string name="site_reset_done">Site settings reset</string>
 </resources>

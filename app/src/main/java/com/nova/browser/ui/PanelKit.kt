@@ -45,9 +45,9 @@ fun PanelMenu(content: @Composable ColumnScope.(close: () -> Unit) -> Unit) {
     val ios = LocalIos.current
     var open by remember { mutableStateOf(false) }
     Box {
-        RoundBtn(onClick = { open = true }) { IosIcon(IosGlyph.EllipsisCircle, ios.blue, 26.dp) }
+        RoundBtn(onClick = { open = true }, label = S(R.string.a11y_menu)) { IosIcon(IosGlyph.EllipsisCircle, ios.blue, 26.dp) }
         IosMenu(
-            expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(14.dp),
+            expanded = open, onDismissRequest = { open = false }, shape = IosShape.menuCompact,
             tonalElevation = 0.dp, shadowElevation = 12.dp
         ) {
             content({ open = false })
@@ -59,7 +59,7 @@ fun PanelMenu(content: @Composable ColumnScope.(close: () -> Unit) -> Unit) {
 fun PanelSearch(value: String, onChange: (String) -> Unit, placeholder: String) {
     val ios = LocalIos.current
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).height(36.dp).clip(RoundedCornerShape(10.dp)).background(ios.fill3).padding(horizontal = 8.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).height(36.dp).clip(IosShape.control).background(ios.fill3).padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IosIcon(IosGlyph.Magnifier, ios.label2, 16.dp)
@@ -75,8 +75,8 @@ fun PanelSearch(value: String, onChange: (String) -> Unit, placeholder: String) 
                 }
             }
         )
-        if (value.isNotEmpty()) Box(Modifier.size(28.dp).clickable { onChange("") }, contentAlignment = Alignment.Center) {
-            IosIcon(IosGlyph.XCircleFill, ios.label3, 16.dp, accent = if (ios.dark) Color(0xFF3A3A3C) else Color.White)
+        if (value.isNotEmpty()) Box(Modifier.width(44.dp).fillMaxHeight().clickable { onChange("") }.iosButton(S(R.string.a11y_clear_text)), contentAlignment = Alignment.Center) {
+            IosIcon(IosGlyph.XCircleFill, ios.label3, 16.dp, accent = ios.clearGlyph)
         }
     }
 }
@@ -89,7 +89,7 @@ fun IosField(
     val ios = LocalIos.current
     Column(modifier.fillMaxWidth()) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = ios.label2, modifier = Modifier.padding(start = 2.dp, bottom = 4.dp))
-        Box(Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(9.dp)).background(ios.fill3).padding(horizontal = 10.dp), contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.fillMaxWidth().height(40.dp).clip(IosShape.control).background(ios.fill3).padding(horizontal = 10.dp), contentAlignment = Alignment.CenterStart) {
             BasicTextField(
                 value = value, onValueChange = onChange, singleLine = true, keyboardOptions = keyboardOptions,
                 visualTransformation = if (password) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
@@ -108,19 +108,19 @@ fun IosField(
 fun PanelSegments(items: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     val ios = LocalIos.current
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).height(32.dp).clip(RoundedCornerShape(9.dp)).background(ios.fill3).padding(2.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).height(32.dp).clip(IosShape.control).background(ios.fill3).padding(2.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         items.forEachIndexed { i, t ->
             val on = i == selected
-            val bg by animateColorAsState(if (on) (if (ios.dark) Color(0xFF636366) else Color.White) else Color.Transparent, tween(Adaptive.ms(160)), label = "seg")
+            val bg by animateColorAsState(if (on) ios.segThumb else Color.Transparent, tween(Adaptive.ms(160)), label = "seg")
             Box(
                 Modifier.weight(1f).fillMaxHeight().then(if (on) Modifier.shadow(1.dp, RoundedCornerShape(7.dp)) else Modifier)
                     .clip(RoundedCornerShape(7.dp)).background(bg)
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(i) },
                 contentAlignment = Alignment.Center
             ) {
-                Text(t, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, color = ios.label, modifier = Modifier.padding(horizontal = 4.dp))
+                Text(t, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, color = ios.label, modifier = Modifier.padding(horizontal = 4.dp))
             }
         }
     }

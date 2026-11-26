@@ -34,6 +34,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
 import kotlin.math.PI
@@ -43,15 +49,21 @@ import kotlin.math.sin
 enum class IosGlyph {
     Back, Forward, Disclosure, ChevronDown, ChevronUp, Share, Book, Tabs, Reload, Close, Plus, Magnifier, Lock,
     Ellipsis, EllipsisCircle, Check, ShieldFill, ArrowUpLeft, Copy, PlusSquare, Printer, XCircleFill, Download,
-    Trash, Play, Pause
+    Trash, Play, Pause, Warning, Gear
 }
+
+fun Modifier.iosLabel(label: String?): Modifier =
+    if (label == null) this else this.semantics { contentDescription = label }
+
+fun Modifier.iosButton(label: String? = null): Modifier =
+    this.semantics { role = Role.Button; if (label != null) contentDescription = label }
 
 private fun IosGlyph.mirrors() = this == IosGlyph.Back || this == IosGlyph.Forward || this == IosGlyph.Disclosure || this == IosGlyph.ArrowUpLeft
 
 @Composable
-fun IosIcon(kind: IosGlyph, tint: Color, size: Dp = 24.dp, modifier: Modifier = Modifier, accent: Color = Color.White, weight: Float = 1f) {
+fun IosIcon(kind: IosGlyph, tint: Color, size: Dp = 24.dp, modifier: Modifier = Modifier, accent: Color = Color.White, weight: Float = 1f, description: String? = null) {
     val mir = LocalLayoutDirection.current == LayoutDirection.Rtl && kind.mirrors()
-    Canvas(modifier.size(size)) {
+    Canvas(modifier.size(size).iosLabel(description)) {
         val s = this.size.minDimension / 24f
         val sw = 2.2f * s * weight
         val st = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round)
@@ -173,6 +185,22 @@ fun IosIcon(kind: IosGlyph, tint: Color, size: Dp = 24.dp, modifier: Modifier = 
                 drawRoundRect(tint, Offset(6f * s, 4.5f * s), Size(4f * s, 15f * s), CornerRadius(1.6f * s))
                 drawRoundRect(tint, Offset(14f * s, 4.5f * s), Size(4f * s, 15f * s), CornerRadius(1.6f * s))
             }
+            IosGlyph.Warning -> {
+                val tri = Path()
+                tri.m(12f, 4f); tri.l(21f, 19.5f); tri.l(3f, 19.5f); tri.close()
+                drawPath(tri, tint, style = st)
+                line(12f, 10f, 12f, 14.2f)
+                drawCircle(tint, 1.1f * s, P(12f, 17f))
+            }
+            IosGlyph.Gear -> {
+                drawCircle(tint, radius = 6.2f * s, center = P(12f, 12f), style = st)
+                drawCircle(tint, radius = 2.4f * s, center = P(12f, 12f), style = st)
+                for (k in 0 until 8) {
+                    val a = k * PI / 4
+                    val ca = cos(a).toFloat(); val sa = sin(a).toFloat()
+                    line(12f + 8f * ca, 12f + 8f * sa, 12f + 10.2f * ca, 12f + 10.2f * sa)
+                }
+            }
             IosGlyph.XCircleFill -> {
                 drawCircle(tint, radius = 10f * s, center = P(12f, 12f))
                 drawLine(accent, P(8.6f, 8.6f), P(15.4f, 15.4f), strokeWidth = 2f * s, cap = StrokeCap.Round)
@@ -198,6 +226,7 @@ fun IosSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)? = null, mo
     val track by animateColorAsState(if (checked) ios.green else ios.fill2, tween(Adaptive.ms(250)), label = "swc")
     Box(
         modifier.size(width = 64.dp, height = 28.dp).clip(CircleShape).background(track)
+            .semantics { role = Role.Switch; toggleableState = if (checked) ToggleableState.On else ToggleableState.Off }
             .then(
                 if (onCheckedChange != null) Modifier.clickable(interactionSource = src, indication = null) {
                     runCatching { haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove) }
@@ -298,7 +327,7 @@ fun IosNavBar(title: String?, onBack: (() -> Unit)?, backLabel: String? = null, 
     val ios = LocalIos.current
     Box(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 12.dp, vertical = 4.dp)) {
         if (onBack != null) Row(
-            Modifier.align(Alignment.CenterStart).height(44.dp).liquidGlass().clickable(onClick = onBack).padding(horizontal = 12.dp),
+            Modifier.align(Alignment.CenterStart).height(44.dp).liquidGlass().clickable(onClick = onBack).iosButton(if (backLabel == null) S(R.string.a11y_back) else null).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IosIcon(IosGlyph.Back, ios.label, 22.dp, weight = 1.15f)

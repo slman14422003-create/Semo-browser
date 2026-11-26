@@ -64,11 +64,11 @@ private fun FavoriteItem(st: Site, modifier: Modifier, onRemove: (() -> Unit)? =
         Box(Modifier.size(60.dp).clip(RoundedCornerShape(16.dp)).background(if (fav != null) Color.White else (st.tint ?: Color(st.color))), contentAlignment = Alignment.Center) {
             if (favImage != null) Image(favImage, null, Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)))
             else if (st.icon != null) Icon(st.icon, null, Modifier.size(28.dp), tint = Color.White)
-            else Text(st.glyph, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            else Text(st.glyph, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = Color.White)
         }
         Spacer(Modifier.height(6.dp))
         Text(st.name, style = MaterialTheme.typography.labelMedium, color = ios.label, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-        if (onRemove != null) IosMenu(expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(22.dp), tonalElevation = 0.dp) {
+        if (onRemove != null) IosMenu(expanded = menu, onDismissRequest = { menu = false }, shape = IosShape.menu, tonalElevation = 0.dp) {
             DropdownMenuItem(text = { Text(L("حذف")) }, onClick = { menu = false; onRemove() })
         }
     }
@@ -139,7 +139,7 @@ fun StartPage(
         IosGroup(Modifier.stagger(3, shown)) {
             IosCell(
                 L("وضع الذكاء الاصطناعي"), onAi, sub = L("اسأل Google أي شيء"), chevron = true, divider = false,
-                leading = { IosTile(ios.indigo) { Text("✦", fontSize = 15.sp, color = Color.White) } }
+                leading = { IosTile(ios.indigo) { Text("✦", style = MaterialTheme.typography.bodyMedium, color = Color.White) } }
             )
         }
         StartHeader(L("تقرير الخصوصية"), Modifier.stagger(3, shown))
@@ -159,8 +159,8 @@ fun StartPage(
             ListRow(groupShape(0, 5), L("التنزيلات"), dlSub, onDownloads, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.blue) { IosIcon(IosGlyph.Download, Color.White, 18.dp) } }
             ListRow(groupShape(1, 5), L("التبويبات"), ("" + tabsCount + L(" مفتوحة")), onTabs, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.gray) { IosIcon(IosGlyph.Tabs, Color.White, 18.dp) } }
             ListRow(groupShape(2, 5), L("قائمة القراءة"), (Library.readingList.size.toString() + L(" صفحة")), { Library.initialTab = 2; onLibrary() }, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.blue) { IosIcon(IosGlyph.Book, Color.White, 18.dp) } }
-            ListRow(groupShape(3, 5), L("المكتبة"), null, onLibrary, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.orange) { Icon(Icons.Default.Star, null, Modifier.size(18.dp)) } }
-            ListRow(groupShape(4, 5), L("الإعدادات"), null, onSettings, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.gray) { Icon(Icons.Default.Settings, null, Modifier.size(18.dp)) } }
+            ListRow(groupShape(3, 5), L("المكتبة"), null, onLibrary, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.orange) { IosIcon(IosGlyph.Book, Color.White, 18.dp) } }
+            ListRow(groupShape(4, 5), L("الإعدادات"), null, onSettings, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.gray) { IosIcon(IosGlyph.Gear, Color.White, 18.dp) } }
         }
     }
     }

@@ -74,7 +74,7 @@ fun PasswordsScreen(onBack: () -> Unit) {
     Surface(Modifier.fillMaxSize(), color = ios.groupedBg) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             PanelTopBar(L("كلمات المرور"), null, onBack) {
-                RoundBtn(onClick = { edit = Cred("", "", "", "", 0L) }) { IosIcon(IosGlyph.Plus, ios.blue, 24.dp) }
+                RoundBtn(onClick = { edit = Cred("", "", "", "", 0L) }, label = S(R.string.a11y_add)) { IosIcon(IosGlyph.Plus, ios.blue, 24.dp) }
             }
             PanelSearch(query, { query = it }, L("بحث"))
             if (list.isEmpty()) {

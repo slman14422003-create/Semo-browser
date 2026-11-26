@@ -109,7 +109,7 @@ private fun Chip(text: String, strong: Boolean) {
     val cs = MaterialTheme.colorScheme
     Surface(shape = CircleShape, color = if (strong) cs.tertiary.copy(alpha = 0.15f) else cs.surfaceContainerHighest) {
         Text(
-            text, Modifier.padding(horizontal = 10.dp, vertical = 3.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+            text, Modifier.padding(horizontal = 10.dp, vertical = 3.dp), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
             color = if (strong) cs.tertiary else cs.onSurfaceVariant
         )
     }

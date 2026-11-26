@@ -39,13 +39,13 @@ import kotlinx.coroutines.delay
 
 private fun hostColor(host: String): Color = Color.hsv((host.hashCode().toLong().let { if (it < 0) -it else it } % 360).toFloat(), 0.55f, 0.72f)
 
-val TabTagColors = listOf(Color.Transparent, Color(0xFFFF3B30), Color(0xFFFF9500), Color(0xFF34C759), Color(0xFF007AFF), Color(0xFFAF52DE), Color(0xFFFF2D55))
+val TabTagColors = listOf(Color.Transparent, IosLight.red, IosLight.orange, IosLight.green, IosLight.blue, IosLight.purple, IosLight.pink)
 
 /** معاينة مصغّرة لصفحة البداية (كما يفعل سفاري) بدل نص «صفحة البداية». */
 @Composable
 private fun MiniStartPage() {
     val ios = LocalIos.current
-    val cols = listOf(Color(0xFF34C759), Color(0xFF007AFF), Color(0xFFFF3B30), Color(0xFFEA4335), Color(0xFF8E8E93), Color(0xFF3A3A3C))
+    val cols = listOf(IosLight.green, IosLight.blue, IosLight.red, IosBrand.gmail, IosLight.gray, IosDark.gray4)
     Column(Modifier.fillMaxSize().background(ios.groupedBg).padding(horizontal = 10.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.width(44.dp).height(6.dp).clip(CircleShape).background(ios.fill2))
         cols.chunked(4).forEach { row ->
@@ -112,7 +112,7 @@ fun TabSwitcher(
             }
             if (shown.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
                 Box(Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
-                    Text(if (gNow == Groups.PRIVATE) L("التصفح الخاص: لا يُحفظ السجل ولا الكوكيز") else L("لا توجد تبويبات هنا"), color = ios.label2, fontSize = 14.sp)
+                    Text(if (gNow == Groups.PRIVATE) L("التصفح الخاص: لا يُحفظ السجل ولا الكوكيز") else L("لا توجد تبويبات هنا"), color = ios.label2, style = MaterialTheme.typography.bodyMedium)
                 }
             }
             if (showSearch) item(span = { GridItemSpan(maxLineSpan) }) { PanelSearch(tabQuery, { tabQuery = it }, L("بحث في التبويبات")) }
@@ -150,12 +150,12 @@ fun TabSwitcher(
                         }
                 ) {
                     Column(
-                        Modifier.fillMaxSize().shadow(if (i == current) 10.dp else 4.dp, cardShape).clip(cardShape).background(ios.cell)
-                            .border(if (i == current) 2.5.dp else 0.dp, ios.blue, cardShape)
+                        Modifier.fillMaxSize().then(if (i == current && Adaptive.level < 2) Modifier.shadow(8.dp, cardShape) else Modifier).clip(cardShape).background(ios.cell)
+                            .border(if (i == current) 2.5.dp else hairlineDp(), if (i == current) ios.blue else ios.separator, cardShape)
                             .combinedClickable(interactionSource = cardSrc, indication = null, onClick = { onSelect(i) }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menu = true })
                     ) {
                         if (t.tag > 0) Box(Modifier.fillMaxWidth().height(3.dp).background(TabTagColors[t.tag]))
-                        Row(Modifier.fillMaxWidth().height(34.dp).padding(start = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().height(44.dp).padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             val fvTick = Favicons.version
                             val ic = if (blank) null else remember(host, fvTick) { Favicons.get(host) }
                             if (t.loading) NovaSpinner(size = 17.dp, color = ios.blue)
@@ -163,15 +163,15 @@ fun TabSwitcher(
                                 if (ic != null) {
                                     val ib = remember(ic) { ic.asImageBitmap() }
                                     Image(ib, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                                } else Text(host.take(1).uppercase(), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                } else Text(host.take(1).uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
                             }
                             Spacer(Modifier.width(6.dp))
                             Text(
                                 if (blank) L("صفحة البداية") else if (t.title.isBlank() || t.title == L("تبويب جديد")) host else t.title, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                fontSize = 13.sp, fontWeight = FontWeight.Medium, color = ios.label, modifier = Modifier.weight(1f)
+                                style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, color = ios.label, modifier = Modifier.weight(1f)
                             )
-                            Box(Modifier.size(30.dp).clickable { onClose(i) }, contentAlignment = Alignment.Center) {
-                                Box(Modifier.size(20.dp).clip(CircleShape).background(ios.fill2), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(44.dp).clickable { onClose(i) }.iosButton(S(R.string.a11y_close_tab)), contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(22.dp).clip(CircleShape).background(ios.fill2), contentAlignment = Alignment.Center) {
                                     IosIcon(IosGlyph.Close, ios.label2, 10.dp, weight = 1.3f)
                                 }
                             }
@@ -191,16 +191,16 @@ fun TabSwitcher(
                                             val ib2 = remember(ic2) { ic2.asImageBitmap() }
                                             Image(ib2, null, Modifier.fillMaxSize().padding(8.dp), contentScale = ContentScale.Fit)
                                         }
-                                    } else Text(host.take(1).uppercase(), fontSize = 34.sp, color = accent, fontWeight = FontWeight.Bold)
+                                    } else Text(host.take(1).uppercase(), style = MaterialTheme.typography.displayLarge, color = accent)
                                 }
                             }
                         }
                     }
                     IosMenu(
-                        expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(22.dp),
+                        expanded = menu, onDismissRequest = { menu = false }, shape = IosShape.menu,
                         tonalElevation = 0.dp, shadowElevation = 12.dp
                     ) {
-                        Column(Modifier.width(240.dp)) {
+                        Column(Modifier.width(menuWidth(280.dp))) {
                             IosCell(if (t.pinned) L("إلغاء التثبيت") else L("تثبيت"), { t.pinned = !t.pinned; menu = false })
                             IosCell(L("نسخ التبويب"), { menu = false; onDuplicate(i) })
                             if (!t.isPrivate) Groups.names.toList().forEach { g -> IosCell(L("نقل إلى ") + g.second, { t.group = g.first; menu = false }, trailing = if (t.group == g.first) ({ IosIcon(IosGlyph.Check, ios.blue, 20.dp) }) else null) }
@@ -208,14 +208,19 @@ fun TabSwitcher(
                             IosCell(L("إغلاق التبويبات الأخرى"), { menu = false; onCloseOthers(i) }, divider = t.tag > 0)
                             if (t.tag > 0) IosCell(L("إغلاق كل تبويبات هذا اللون"), { menu = false; onCloseTag(t.tag) }, divider = false)
                             IosDivider()
-                            Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 for (g in 0..6) Box(
-                                    Modifier.size(26.dp).clip(CircleShape)
-                                        .background(if (g == 0) ios.fill2 else TabTagColors[g])
-                                        .border(if (t.tag == g) 2.dp else 0.dp, ios.blue, CircleShape)
-                                        .clickable { t.tag = g; menu = false },
+                                    Modifier.weight(1f).height(44.dp).clickable { t.tag = g; menu = false }
+                                        .iosButton(S(if (g == 0) R.string.a11y_no_color else R.string.a11y_tab_color)),
                                     contentAlignment = Alignment.Center
-                                ) { if (g == 0) IosIcon(IosGlyph.Close, ios.label2, 12.dp) }
+                                ) {
+                                    Box(
+                                        Modifier.size(26.dp).clip(CircleShape)
+                                            .background(if (g == 0) ios.fill2 else TabTagColors[g])
+                                            .border(if (t.tag == g) 2.dp else 0.dp, ios.blue, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) { if (g == 0) IosIcon(IosGlyph.Close, ios.label2, 12.dp) }
+                                }
                             }
                         }
                     }
@@ -226,23 +231,23 @@ fun TabSwitcher(
             Modifier.navigationBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp).fillMaxWidth().height(52.dp).liquidGlass().padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(Modifier.size(44.dp).clickable { onNew(if (gNow == Groups.ALL) Groups.NONE else gNow) }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.Plus, ios.label, 26.dp) }
+            Box(Modifier.size(44.dp).clickable { onNew(if (gNow == Groups.ALL) Groups.NONE else gNow) }.iosButton(S(R.string.a11y_new_tab)), contentAlignment = Alignment.Center) { IosIcon(IosGlyph.Plus, ios.label, 26.dp) }
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Row(
                     Modifier.height(32.dp).clip(CircleShape).background(ios.fill3).clickable { filterMenu = true }.padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "" + tabs.count(inGroup) + " " + L("التبويبات"), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = ios.label, maxLines = 1
+                        "" + tabs.count(inGroup) + " " + L("التبويبات"), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = ios.label, maxLines = 1
                     )
                     Spacer(Modifier.width(4.dp))
                     IosIcon(IosGlyph.ChevronDown, ios.label2, 11.dp, weight = 1.3f)
                 }
                 IosMenu(
-                    expanded = filterMenu, onDismissRequest = { filterMenu = false }, shape = RoundedCornerShape(22.dp),
+                    expanded = filterMenu, onDismissRequest = { filterMenu = false }, shape = IosShape.menu,
                     tonalElevation = 0.dp, shadowElevation = 12.dp
                 ) {
-                    Column(Modifier.width(240.dp)) {
+                    Column(Modifier.width(menuWidth(240.dp))) {
                         IosCell(L("الكل"), { picked = -1; filterMenu = false }, trailing = if (filter == -1) ({ IosIcon(IosGlyph.Check, ios.blue, 20.dp) }) else null)
                         if (tabs.any { it.pinned }) IosCell(L("المثبّتة"), { picked = -2; filterMenu = false }, trailing = if (filter == -2) ({ IosIcon(IosGlyph.Check, ios.blue, 20.dp) }) else null)
                         usedTags.forEach { g ->
@@ -279,6 +284,6 @@ private fun GroupChip(label: String, selected: Boolean, lock: Boolean, onClick: 
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (lock) { IosIcon(IosGlyph.Lock, fg, 13.dp); Spacer(Modifier.width(5.dp)) }
-        Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = fg, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = fg, maxLines = 1)
     }
 }

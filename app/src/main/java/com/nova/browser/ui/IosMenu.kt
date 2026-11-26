@@ -43,7 +43,7 @@ fun IosMenu(
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset(0.dp, 0.dp),
     properties: PopupProperties = PopupProperties(focusable = true),
-    shape: Shape = RoundedCornerShape(14.dp),
+    shape: Shape = IosShape.menuCompact,
     tonalElevation: Dp = 0.dp,
     shadowElevation: Dp = 12.dp,
     content: @Composable ColumnScope.() -> Unit

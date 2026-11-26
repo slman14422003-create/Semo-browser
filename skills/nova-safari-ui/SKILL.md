@@ -19,7 +19,11 @@ Full UI pass done: every screen, color, and layout moved to iOS Safari (iOS 18 l
 
 - IosLight / IosDark in LocalIos: system colors, label levels, fills, separators, chrome bar, menu, tabsBg, alert.
 - Read with `val ios = LocalIos.current`.
-- Radii: field 12dp, group 10dp, alert 14dp, sheet top 12dp, app tile 22.5% of size.
+- Radii (IosShape in ui/Theme.kt is the source of truth): field 22dp, card 26dp, group 24dp, alert 30dp, sheet top 34dp, menu 22dp (IosShape.menu), compact menu 14dp (IosShape.menuCompact), control 10dp (IosShape.control), app tile 22.5% of size.
+- Never write RoundedCornerShape(22.dp), Color(0xFF...) or fontSize = N.sp inside screens: use IosShape, IosColors fields, IosText and MaterialTheme.typography.
+- Menu and alert widths go through menuWidth(base), never a fixed .width(N.dp).
+- Every icon-only clickable needs a 44dp hit area and a label: .iosButton(S(R.string.a11y_x)); IosIcon takes description for non-clickable icons.
+- Icons come from IosGlyph; do not mix Material icons into new UI.
 - Type: 34 / 28 / 22 / 20 / 17 / 15 / 13 / 12 / 11 sp, letterSpacing 0 (Arabic joining).
 
 # Shared kit (ui/IosKit.kt)
@@ -52,3 +56,7 @@ IosIcon (Canvas glyphs: Back, Forward, Disclosure, Share, Book, Tabs, Reload, Cl
 - No zoom transition from page to tab grid (scale + fade used).
 - Switch thumb mirrors in RTL by design.
 - Verify visually on device: aA menu width, tab card aspect (0.74), glyph stroke weights.
+
+# Design pass 1 (2026-11-26)
+
+liquidGlass reworked without blur, touch targets 44dp, gesture thresholds in dp, content descriptions, shape/colour/font tokens, menuWidth, site tools submenu localized. Details in docs/TASKS.md. Not compiled yet.

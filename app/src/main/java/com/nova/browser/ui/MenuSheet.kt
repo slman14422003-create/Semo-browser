@@ -93,7 +93,7 @@ private fun ShareApps(url: String, title: String, act: (() -> Unit) -> Unit) {
                     else Text(t.label.take(1).uppercase(), style = MaterialTheme.typography.titleMedium, color = ios.label2)
                 }
                 Spacer(Modifier.height(5.dp))
-                Text(t.label, fontSize = 11.sp, color = ios.label2, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                Text(t.label, style = MaterialTheme.typography.labelSmall, color = ios.label2, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
             }
         }
         item {
@@ -105,7 +105,7 @@ private fun ShareApps(url: String, title: String, act: (() -> Unit) -> Unit) {
                     IosIcon(IosGlyph.Ellipsis, ios.label, 24.dp)
                 }
                 Spacer(Modifier.height(5.dp))
-                Text(L("المزيد"), fontSize = 11.sp, color = ios.label2, maxLines = 1)
+                Text(L("المزيد"), style = MaterialTheme.typography.labelSmall, color = ios.label2, maxLines = 1)
             }
         }
     }
@@ -177,10 +177,10 @@ fun PageMenu(
     val zoomNames = listOf(L("صغير"), L("عادي"), L("كبير"), L("كبير جداً"))
     fun act(a: () -> Unit) { onDismiss(); a() }
     IosMenu(
-        expanded = expanded, onDismissRequest = onDismiss, shape = RoundedCornerShape(22.dp),
+        expanded = expanded, onDismissRequest = onDismiss, shape = IosShape.menu,
         tonalElevation = 0.dp, shadowElevation = 12.dp
     ) {
-        Column(Modifier.width(260.dp)) {
+        Column(Modifier.width(menuWidth(260.dp))) {
             if (!sub) {
                 onNewTab?.let { IosCell(L("تبويب جديد"), { act(it) }) }
                 onTabs?.let { IosCell(L("التبويبات"), { act(it) }) }
@@ -192,12 +192,12 @@ fun PageMenu(
                     Box(
                         Modifier.weight(1f).fillMaxHeight().clickable(enabled = Prefs.textZoom > 0) { Prefs.pickTextZoom(Prefs.textZoom - 1) },
                         contentAlignment = Alignment.Center
-                    ) { Text("A", fontSize = 14.sp, color = if (Prefs.textZoom > 0) ios.label else ios.label3) }
+                    ) { Text("A", fontSize = IosText.zoomSmall, color = if (Prefs.textZoom > 0) ios.label else ios.label3) }
                     Text(zoomNames.getOrElse(Prefs.textZoom) { "" }, style = MaterialTheme.typography.bodyMedium, color = ios.label2, maxLines = 1)
                     Box(
                         Modifier.weight(1f).fillMaxHeight().clickable(enabled = Prefs.textZoom < zoomNames.lastIndex) { Prefs.pickTextZoom(Prefs.textZoom + 1) },
                         contentAlignment = Alignment.Center
-                    ) { Text("A", fontSize = 24.sp, color = if (Prefs.textZoom < zoomNames.lastIndex) ios.label else ios.label3) }
+                    ) { Text("A", fontSize = IosText.zoomLarge, color = if (Prefs.textZoom < zoomNames.lastIndex) ios.label else ios.label3) }
                 }
                 IosDivider()
                 IosCell(L("نسخة سطح المكتب"), { act(onDesktop) }, trailing = if (tab.desktop) ({ IosIcon(IosGlyph.Check, ios.blue, 20.dp) }) else null)
@@ -224,20 +224,20 @@ fun PageMenu(
                 if (tab.url.startsWith("http")) {
                     val sh = hostOf(tab.url)
                     IosCell(
-                        "Site JavaScript",
-                        { act { val on = SiteStore.toggleJs(sh); SiteStore.apply(tab, sh); toast(ctx, if (on) "JavaScript on" else "JavaScript off") } }
+                        S(R.string.site_js),
+                        { act { val on = SiteStore.toggleJs(sh); SiteStore.apply(tab, sh); toast(ctx, if (on) S(R.string.site_js_on) else S(R.string.site_js_off)) } }
                     )
                     IosCell(
-                        "Site desktop mode",
-                        { act { val on = SiteStore.toggleDesktop(sh, tab.desktop); SiteStore.apply(tab, sh); toast(ctx, if (on) "Desktop" else "Mobile") } }
+                        S(R.string.site_desktop),
+                        { act { val on = SiteStore.toggleDesktop(sh, tab.desktop); SiteStore.apply(tab, sh); toast(ctx, if (on) S(R.string.site_desktop_on) else S(R.string.site_desktop_off)) } }
                     )
                     IosCell(
-                        "Clear site data",
-                        { act { SiteStore.clearData(sh); tab.engine?.reload(); toast(ctx, "Site data cleared") } }
+                        S(R.string.site_clear),
+                        { act { SiteStore.clearData(sh); tab.engine?.reload(); toast(ctx, S(R.string.site_cleared)) } }
                     )
                     if (SiteStore.get(sh).custom) IosCell(
-                        "Reset site settings",
-                        { act { SiteStore.reset(sh); toast(ctx, "Site settings reset") } }
+                        S(R.string.site_reset),
+                        { act { SiteStore.reset(sh); toast(ctx, S(R.string.site_reset_done)) } }
                     )
                 }
                 IosCell(L("الأعلى"), { act { tab.engine?.scrollTop() } }, divider = false)

@@ -14,6 +14,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,7 +35,8 @@ class IosColors(
     val fill: Color, val fill2: Color, val fill3: Color, val fill4: Color,
     val separator: Color, val opaqueSeparator: Color,
     val bg: Color, val bg2: Color, val groupedBg: Color, val cell: Color,
-    val chrome: Color, val menu: Color, val tabsBg: Color, val alert: Color
+    val chrome: Color, val menu: Color, val tabsBg: Color, val alert: Color,
+    val clearGlyph: Color, val segThumb: Color
 )
 
 val IosLight = IosColors(
@@ -44,7 +48,8 @@ val IosLight = IosColors(
     fill = Color(0x33787880), fill2 = Color(0x28787880), fill3 = Color(0x1F767680), fill4 = Color(0x14747480),
     separator = Color(0x4A3C3C43), opaqueSeparator = Color(0xFFC6C6C8),
     bg = Color(0xFFFFFFFF), bg2 = Color(0xFFF2F2F7), groupedBg = Color(0xFFF2F2F7), cell = Color(0xFFFFFFFF),
-    chrome = Color(0xF0F9F9F9), menu = Color(0xF2F7F7F9), tabsBg = Color(0xFFE8E8ED), alert = Color(0xFFF2F2F2)
+    chrome = Color(0xF0F9F9F9), menu = Color(0xF2F7F7F9), tabsBg = Color(0xFFE8E8ED), alert = Color(0xFFF2F2F2),
+    clearGlyph = Color.White, segThumb = Color.White
 )
 
 val IosDark = IosColors(
@@ -56,7 +61,8 @@ val IosDark = IosColors(
     fill = Color(0x5C787880), fill2 = Color(0x52787880), fill3 = Color(0x3D767680), fill4 = Color(0x2E767680),
     separator = Color(0xA6545458), opaqueSeparator = Color(0xFF38383A),
     bg = Color(0xFF000000), bg2 = Color(0xFF1C1C1E), groupedBg = Color(0xFF000000), cell = Color(0xFF1C1C1E),
-    chrome = Color(0xF01C1C1E), menu = Color(0xF22C2C2E), tabsBg = Color(0xFF2C2C2E), alert = Color(0xFF2C2C2E)
+    chrome = Color(0xF01C1C1E), menu = Color(0xF22C2C2E), tabsBg = Color(0xFF2C2C2E), alert = Color(0xFF2C2C2E),
+    clearGlyph = Color(0xFF3A3A3C), segThumb = Color(0xFF636366)
 )
 
 val LocalIos = staticCompositionLocalOf { IosLight }
@@ -128,20 +134,57 @@ object IosShape {
     val card = RoundedCornerShape(26.dp)
     val field = RoundedCornerShape(22.dp)
     val sheet = RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp)
+    val alert = RoundedCornerShape(30.dp)
+    val menu = RoundedCornerShape(22.dp)
+    val menuCompact = RoundedCornerShape(14.dp)
+    val control = RoundedCornerShape(10.dp)
+}
+
+object IosText {
+    val zoomSmall = 14.sp
+    val zoomLarge = 24.sp
+}
+
+object IosBrand {
+    val gmail = Color(0xFFEA4335)
+}
+
+@Composable
+fun menuWidth(base: Dp): Dp {
+    val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+    return androidx.compose.ui.unit.min(base * cfg.fontScale.coerceIn(1f, 1.3f), (cfg.screenWidthDp - 32).dp)
 }
 
 @Composable
 fun Modifier.liquidGlass(shape: androidx.compose.ui.graphics.Shape = IosShape.pill): Modifier {
     val ios = LocalIos.current
-    val tint = if (ios.dark) Color(0xC71C1C1E) else Color(0xCCF6F6F8)
-    val top = if (ios.dark) Color(0x55FFFFFF) else Color(0xE6FFFFFF)
-    val bottom = if (ios.dark) Color(0x0DFFFFFF) else Color(0x0F000000)
+    val lite = Adaptive.level >= 2
+    val fill = remember(ios.dark) {
+        Brush.verticalGradient(
+            if (ios.dark) listOf(Color(0xD6202022), Color(0xC2161618)) else listOf(Color(0xDBFBFBFD), Color(0xC7EFEFF3))
+        )
+    }
+    val sheen = remember(ios.dark) {
+        Brush.verticalGradient(
+            0f to (if (ios.dark) Color(0x24FFFFFF) else Color(0x8CFFFFFF)),
+            0.5f to Color.Transparent,
+            1f to Color.Transparent
+        )
+    }
+    val rim = remember(ios.dark) {
+        Brush.verticalGradient(
+            0f to (if (ios.dark) Color(0x70FFFFFF) else Color(0xF2FFFFFF)),
+            0.5f to (if (ios.dark) Color(0x14FFFFFF) else Color(0x0A000000)),
+            1f to (if (ios.dark) Color(0x33FFFFFF) else Color(0x26000000))
+        )
+    }
     val shadow = if (ios.dark) Color(0x80000000) else Color(0x33000000)
-    return this
-        .shadow(8.dp, shape, ambientColor = shadow, spotColor = shadow)
+    val lifted = if (lite) this else this.shadow(7.dp, shape, ambientColor = shadow, spotColor = shadow)
+    return lifted
         .clip(shape)
-        .background(tint, shape)
-        .border(0.5.dp, androidx.compose.ui.graphics.Brush.verticalGradient(listOf(top, bottom)), shape)
+        .background(fill, shape)
+        .then(if (lite) Modifier else Modifier.drawBehind { drawRect(sheen) })
+        .border(0.75.dp, rim, shape)
 }
 
 @Composable

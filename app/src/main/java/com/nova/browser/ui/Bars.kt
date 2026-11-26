@@ -61,7 +61,7 @@ fun FindBar(tab: BrowserTab) {
     Column(Modifier.imePadding().fillMaxWidth().background(ios.chrome).iosHairlineTop(ios.separator)) {
         Row(Modifier.navigationBarsPadding().height(52.dp).padding(start = 12.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(
-                Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(10.dp)).background(ios.fill3).padding(horizontal = 8.dp),
+                Modifier.weight(1f).height(36.dp).clip(IosShape.control).background(ios.fill3).padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IosIcon(IosGlyph.Magnifier, ios.label2, 16.dp)
@@ -79,8 +79,8 @@ fun FindBar(tab: BrowserTab) {
                 )
                 if (tab.findInfo.isNotEmpty()) Text(tab.findInfo, style = MaterialTheme.typography.bodySmall, color = ios.label2, maxLines = 1)
             }
-            Box(Modifier.size(40.dp).clickable { tab.engine?.findNext(false) }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.ChevronUp, ios.blue, 22.dp) }
-            Box(Modifier.size(40.dp).clickable { tab.engine?.findNext(true) }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.ChevronDown, ios.blue, 22.dp) }
+            Box(Modifier.size(44.dp).clickable { tab.engine?.findNext(false) }.iosButton(S(R.string.a11y_find_prev)), contentAlignment = Alignment.Center) { IosIcon(IosGlyph.ChevronUp, ios.blue, 22.dp) }
+            Box(Modifier.size(44.dp).clickable { tab.engine?.findNext(true) }.iosButton(S(R.string.a11y_find_next)), contentAlignment = Alignment.Center) { IosIcon(IosGlyph.ChevronDown, ios.blue, 22.dp) }
             IosTextButton(L("تم"), { tab.engine?.clearFind(); tab.finding = false }, bold = true)
         }
     }
@@ -108,10 +108,10 @@ private fun RowScope.ToolbarBtn(
         val tbTint by animateColorAsState(if (enabled) ios.label else ios.label3, tween(Adaptive.ms(200)), label = "tbTint")
         IosIcon(kind, tbTint, 25.dp, Modifier.pressScale(src, 0.86f))
         if (menu != null) IosMenu(
-            expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(22.dp),
+            expanded = open, onDismissRequest = { open = false }, shape = IosShape.menu,
             tonalElevation = 0.dp, shadowElevation = 12.dp
         ) {
-            Column(Modifier.width(260.dp)) { menu({ open = false }) }
+            Column(Modifier.width(menuWidth(260.dp))) { menu({ open = false }) }
         }
     }
 }
@@ -199,17 +199,17 @@ fun BottomPill(
                                 }
                             )
                             if (field.text.isNotEmpty()) Box(
-                                Modifier.size(32.dp).clickable { field = TextFieldValue(""); query = "" }, contentAlignment = Alignment.Center
-                            ) { IosIcon(IosGlyph.XCircleFill, ios.label3, 18.dp, accent = if (ios.dark) Color(0xFF3A3A3C) else Color.White) }
+                                Modifier.width(44.dp).fillMaxHeight().clickable { field = TextFieldValue(""); query = "" }.iosButton(S(R.string.a11y_clear_text)), contentAlignment = Alignment.Center
+                            ) { IosIcon(IosGlyph.XCircleFill, ios.label3, 18.dp, accent = ios.clearGlyph) }
                             else Text(
                                 L("لصق"), style = MaterialTheme.typography.bodyMedium, color = ios.blue,
-                                modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable {
+                                modifier = Modifier.fillMaxHeight().clip(IosShape.control).clickable(role = androidx.compose.ui.semantics.Role.Button) {
                                     val t = runCatching {
                                         (ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
                                             .primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString().orEmpty().trim()
                                     }.getOrDefault("")
                                     if (t.isNotEmpty()) { field = TextFieldValue(t, TextRange(t.length)); query = t }
-                                }.padding(horizontal = 8.dp, vertical = 6.dp)
+                                }.padding(horizontal = 12.dp).wrapContentHeight(Alignment.CenterVertically)
                             )
                         }
                         IosTextButton(L("إلغاء"), { setEditing(false); focus.clearFocus() })
@@ -229,7 +229,8 @@ fun BottomPill(
                                 menu = if (tab.canBack) ({ close ->
                                     val items = historyItems(tab, true)
                                     items.forEachIndexed { n, p -> IosCell(p.first, { close(); tab.engine?.goRelative(p.second) }, divider = n < items.lastIndex) }
-                                }) else null
+                                }) else null,
+                                label = S(R.string.a11y_back)
                             ) { IosIcon(IosGlyph.Back, ios.label, 22.dp) }
                             Box(
                                 Modifier.weight(1f).fillMaxHeight().liquidGlass()
@@ -239,9 +240,9 @@ fun BottomPill(
                                             onDragStart = { dx = 0f; dy = 0f },
                                             onDrag = { _, a -> dx += a.x; dy += a.y },
                                             onDragEnd = {
-                                                if (dy < -60f && kotlin.math.abs(dy) > kotlin.math.abs(dx)) {
+                                                if (dy < -24.dp.toPx() && kotlin.math.abs(dy) > kotlin.math.abs(dx)) {
                                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress); onTabs()
-                                                } else if (kotlin.math.abs(dx) > 120f) {
+                                                } else if (kotlin.math.abs(dx) > 48.dp.toPx()) {
                                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onSwitch(if (dx < 0) 1 else -1)
                                                 }
                                             }
@@ -257,7 +258,7 @@ fun BottomPill(
                                     ) {
                                         val insecure = tab.url.startsWith("http://")
                                         if (hasPage) {
-                                            if (insecure) Icon(Icons.Default.Warning, L("اتصال غير مشفّر"), Modifier.size(13.dp), tint = ios.red)
+                                            if (insecure) IosIcon(IosGlyph.Warning, ios.red, 14.dp, description = L("اتصال غير مشفّر"))
                                             else if (tab.url.startsWith("https")) IosIcon(IosGlyph.Lock, ios.label2, 12.dp)
                                             Spacer(Modifier.width(5.dp))
                                         } else {
@@ -271,16 +272,16 @@ fun BottomPill(
                                     }
                                     val dlActive = Downloader.tasks.count { it.status == Downloader.DOWNLOADING || it.status == Downloader.PREPARING }
                                     if (hasPage && dlActive > 0) Box(
-                                        Modifier.width(36.dp).fillMaxHeight().clickable { onDownloads() }, contentAlignment = Alignment.Center
+                                        Modifier.width(44.dp).fillMaxHeight().clickable { onDownloads() }.iosButton(S(R.string.a11y_downloads)), contentAlignment = Alignment.Center
                                     ) { IosIcon(IosGlyph.Download, ios.blue, 19.dp) }
                                     if (hasPage) Box(
-                                        Modifier.width(44.dp).fillMaxHeight().clickable { if (tab.loading) tab.engine?.stop() else tab.engine?.reload() },
+                                        Modifier.width(44.dp).fillMaxHeight().clickable { if (tab.loading) tab.engine?.stop() else tab.engine?.reload() }.iosButton(if (tab.loading) S(R.string.a11y_stop) else S(R.string.a11y_reload)),
                                         contentAlignment = Alignment.Center
                                     ) { IosIcon(if (tab.loading) IosGlyph.Close else IosGlyph.Reload, ios.label, 17.dp) } else Spacer(Modifier.width(44.dp))
                                 }
                                 Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(animatedProgress).height(2.dp).background(ios.blue))
                             }
-                            GlassCircle(true, { pageMenu = true }) {
+                            GlassCircle(true, { pageMenu = true }, label = S(R.string.a11y_menu)) {
                                 IosIcon(IosGlyph.Ellipsis, ios.label, 22.dp)
                                 PageMenu(
                                     tab, pageMenu, { pageMenu = false }, onDesktop, onTranslate, onDownloads, onSettings, onSummarize, onAskAi,
@@ -300,13 +301,14 @@ fun BottomPill(
 @Composable
 fun GlassCircle(
     enabled: Boolean, onClick: () -> Unit, menu: (@Composable ColumnScope.(close: () -> Unit) -> Unit)? = null,
+    label: String? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
     val src = remember { MutableInteractionSource() }
     val haptic = LocalHapticFeedback.current
     var open by remember { mutableStateOf(false) }
     Box(
-        Modifier.size(48.dp).pressScale(src, 0.9f).alpha(if (enabled) 1f else 0.45f).liquidGlass(androidx.compose.foundation.shape.CircleShape)
+        Modifier.size(48.dp).pressScale(src, 0.9f).alpha(if (enabled) 1f else 0.45f).liquidGlass(androidx.compose.foundation.shape.CircleShape).iosButton(label)
             .combinedClickable(
                 interactionSource = src, indication = null, enabled = enabled, onClick = onClick,
                 onLongClick = if (menu != null) ({ haptic.performHapticFeedback(HapticFeedbackType.LongPress); open = true }) else null
@@ -315,20 +317,20 @@ fun GlassCircle(
     ) {
         content()
         if (menu != null) IosMenu(
-            expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(22.dp),
+            expanded = open, onDismissRequest = { open = false }, shape = IosShape.menu,
             tonalElevation = 0.dp, shadowElevation = 12.dp
         ) {
-            Column(Modifier.width(260.dp)) { menu({ open = false }) }
+            Column(Modifier.width(menuWidth(260.dp))) { menu({ open = false }) }
         }
     }
 }
 
 @Composable
-fun RoundBtn(onClick: () -> Unit, enabled: Boolean = true, content: @Composable () -> Unit) {
+fun RoundBtn(onClick: () -> Unit, enabled: Boolean = true, label: String? = null, content: @Composable () -> Unit) {
     val ios = LocalIos.current
     val src = remember { MutableInteractionSource() }
     Box(
-        Modifier.size(44.dp).pressScale(src, 0.88f).alpha(if (enabled) 1f else 0.4f)
+        Modifier.size(44.dp).pressScale(src, 0.88f).alpha(if (enabled) 1f else 0.4f).iosLabel(label)
             .clickable(interactionSource = src, indication = null, enabled = enabled, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center
     ) { CompositionLocalProvider(LocalContentColor provides ios.blue) { content() } }

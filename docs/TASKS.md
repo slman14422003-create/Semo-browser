@@ -1,5 +1,15 @@
 # سجل المهام والتعديلات
 
+## 2026-11-26 - UI design fixes (pass 1)
+- ui/Theme.kt: liquidGlass() reworked (vertical tint gradient, top sheen, three-stop rim light, shadow dropped at Adaptive.level 2). Still no backdrop blur: the bars sit over the Gecko page, so opacity stays high for legibility. New tokens: IosShape.menu/menuCompact/control/alert, IosText, IosBrand, IosColors.clearGlyph/segThumb, menuWidth() (scales with font size, capped to screen width).
+- ui/IosKit.kt: IosIcon(description), iosLabel/iosButton semantics helpers, Role.Switch on IosSwitch, new glyphs Warning and Gear.
+- ui/Bars.kt: 44dp hit areas (clear, paste, reload/stop, downloads, find prev/next), address-pill swipe thresholds now 24dp/48dp instead of raw 60px/120px, content descriptions on icon-only buttons, Warning glyph instead of the Material icon.
+- ui/PanelKit.kt, ui/MenuSheet.kt, ui/Dialogs.kt, ui/IosMenu.kt, browser/Tabs.kt, ui/StartPage.kt: shape, colour and font-size tokens instead of literals; menus use menuWidth().
+- browser/Tabs.kt: tab close button 44dp (header row 44dp), colour-tag cells 44dp tall in a 7-cell row, shadow only on the selected card, hairline border on the others.
+- ui/MenuSheet.kt: page-tools submenu strings and toasts moved to res/values and values-ar.
+- Not compiled in this session (no compiler). First step next time: Gradle build, then verify on device the glass look in light and dark, the tab menu tag row, and TalkBack on the bottom bar.
+- Not done: GroupChip in the tab overview is still 32dp tall; Material icons remain in Library, Downloads, Settings rows and dialogs.
+
 ## 2026-11-06 - Gecko: ميزات لا تعمل وصفحات لا تُعرض صحيحاً
 - السبب: حزمة content.js كانت تحقن السكربتات بوسم <script> مضمّن فتحجبه CSP الصفحة، وإعدادات كثيرة (Prefs) لم تكن تصل إلى Gecko أصلاً.
 - الإضافة: السكربتات صارت ملفات main-*.js تُسجَّل في عالم MAIN عبر scripting.registerContentScripts (background.js)، وملفات cfg-*.js تضبط window.__semoCfg. تُولَّد بـ tools/gen-ext.py من assets/*.js (شغّله بعد أي تعديل عليها). حُذف content.js.
