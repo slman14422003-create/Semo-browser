@@ -95,7 +95,7 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.2.0")   // 1.0.1 كان يُسقط أحياناً عند الخروج (NPE داخلي في مزامنة حركة الأيقونة)
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("org.mozilla.geckoview:geckoview-arm64-v8a:157.+")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")           // شبكة HTTP/2 مع كاش وإعادة استخدام الاتصالات (اقتراحات البحث)
+    implementation("com.squareup.okhttp3:okhttp:5.5.1")           // شبكة HTTP/2 مع كاش وإعادة استخدام الاتصالات (اقتراحات البحث)
     implementation("androidx.profileinstaller:profileinstaller:1.4.1") // ملفات Baseline لتسريع بدء التشغيل وتقليل التقطيع
     implementation("androidx.metrics:metrics-performance:1.0.0")   // JankStats: رصد الإطارات البطيئة (يُفعَّل في نسخة debug فقط)
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")   // كشف تسرّب الذاكرة (Activity) أثناء التطوير فقط؛ لا يدخل نسخة الإصدار
