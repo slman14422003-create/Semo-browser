@@ -132,7 +132,10 @@ class MainActivity : ComponentActivity() {
                 }
             })
         }
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = androidx.activity.SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = androidx.activity.SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+        )
         FrameLog.attach(window)
         // تدوير بتلاشٍ متقاطع بدل القفزة
         window.attributes = window.attributes.apply {
@@ -628,7 +631,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
         mainAct?.tabProvider = { tabs.getOrNull(current) }
         mainAct?.netTabs = { tabs.toList() }
     }
-    LaunchedEffect(Prefs.js, Prefs.textZoom, Prefs.siteDark, Prefs.theme, LocalIos.current.dark, GeckoCfg.key()) { runCatching { GeckoSettings.update(); GeckoCfg.push() } }
+    LaunchedEffect(Prefs.js, Prefs.textZoom, Prefs.darkMode, Prefs.theme, LocalIos.current.dark, GeckoCfg.key()) { runCatching { GeckoSettings.update(); GeckoCfg.push() } }
     DisposableEffect(Unit) {
         GeckoPage.register(activity) { u ->
             tabs.firstOrNull { it.engine != null && it.url == u } ?: tabs.getOrNull(current)?.takeIf { it.engine != null }
@@ -683,8 +686,9 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                 }
             }
             val stColor = animateColorAsState(tintTarget, Motion.timed(Motion.MEDIUM), label = "statusTint")
-            SideEffect {
-                WindowInsetsControllerCompat(activity.window, activity.window.decorView).isAppearanceLightStatusBars = tintTarget.luminance() > 0.5f
+            LaunchedEffect(stColor) {
+                val ctl = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
+                snapshotFlow { stColor.value }.collect { c -> ctl.isAppearanceLightStatusBars = BarTint.darkIcons(c) }
             }
             if (!inPip) Box(
                 Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).drawBehind { drawRect(stColor.value) }
@@ -730,15 +734,19 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                     }
                 }
                 val botTarget = BarTint.resolve(Prefs.botMode, Prefs.botCustom, tab.botColor ?: tab.topColor, tab.url.isBlank(), iosC.bg, iosC.groupedBg)
-                val barIos = (if (botTarget.luminance() < 0.5f) IosDark else IosLight).accented()
-                SideEffect {
-                    WindowInsetsControllerCompat(activity.window, activity.window.decorView).isAppearanceLightNavigationBars = botTarget.luminance() > 0.5f
+                val botAnim = animateColorAsState(botTarget, Motion.timed(Motion.MEDIUM), label = "botTint")
+                val barIos = (if (BarTint.darkIcons(botTarget)) IosLight else IosDark).accented()
+                LaunchedEffect(botAnim) {
+                    val ctl = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
+                    snapshotFlow { botAnim.value }.collect { c -> ctl.isAppearanceLightNavigationBars = BarTint.darkIcons(c) }
                 }
-                LaunchedEffect(tintTarget, botTarget) {
-                    val st = tintTarget.toArgb(); val bt = botTarget.toArgb()
-                    val gd = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(st, st, bt, bt))
-                    gd.setColors(intArrayOf(st, st, bt, bt), floatArrayOf(0f, 0.5f, 0.5f, 1f))
-                    activity.window.setBackgroundDrawable(gd)
+                LaunchedEffect(stColor, botAnim) {
+                    snapshotFlow { stColor.value to botAnim.value }.collect { (sc, bc) ->
+                        val st = sc.toArgb(); val bt = bc.toArgb()
+                        val gd = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(st, st, bt, bt))
+                        gd.setColors(intArrayOf(st, st, bt, bt), floatArrayOf(0f, 0.5f, 0.5f, 1f))
+                        activity.window.setBackgroundDrawable(gd)
+                    }
                 }
                 AnimatedVisibility(
                     visible = !inPip && !pageTyping, modifier = Modifier.align(Alignment.BottomCenter),
@@ -746,7 +754,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                     exit = androidx.compose.animation.slideOutVertically(Motion.timed(Motion.SHORT, easing = Motion.emphasizedAccelerate)) { it / 3 } + fadeOut(Motion.timed(Motion.QUICK))
                 ) {
                 CompositionLocalProvider(LocalIos provides barIos, LocalContentColor provides barIos.label) {
-                if (tab.finding) key(tab.id) { FindBar(tab) } else Box(Modifier.fillMaxWidth().then(if (editing) Modifier else Modifier.background(botTarget))) { BottomPill(
+                if (tab.finding) key(tab.id) { FindBar(tab) } else Box(Modifier.fillMaxWidth().then(if (editing) Modifier else Modifier.drawBehind { drawRect(botAnim.value) })) { BottomPill(
                     tab = tab, collapse = barCollapse, tabCount = tabs.size, tabIndex = current.coerceIn(0, tabs.lastIndex), editing = editing, setEditing = { editing = it },
                     onGo = { go(tab, it) }, onTabs = { openTabs() }, onNewTab = { newTab() }, onHome = { home(tab) },
                     onFind = { tab.findInfo = ""; tab.finding = true },

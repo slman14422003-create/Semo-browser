@@ -229,6 +229,9 @@ fun geckoContainer(ctx: Context, tb: BrowserTab, h: Handlers, primary: Int): Vie
         EngineTab(tb.id, GeckoBridge(tb, h), st, tb.desktop, GeckoUi(h, { tb.url }, { tb.isPrivate }), GeckoSelection(h.activity) { id, text -> SmartAssist.onSelection(h.activity, id, text, h.openTab) }, GeckoMedia(tb), true, tb.isPrivate).also { tb.engine = it }
     }
     e.attach(view)
+    if (fresh) runCatching {
+        view.coverUntilFirstPaint(if (GeckoSettings.appIsDark() && Prefs.darkMode != 0) 0xFF000000.toInt() else 0xFFFFFFFF.toInt())
+    }
     if (fresh && !e.restored) {
         if (tb.holdLoad) {
             tb.holdLoad = false

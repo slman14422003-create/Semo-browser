@@ -24,7 +24,7 @@ MAIN = [
     "polyfills", "webcompat", "shield",
     "langfix", "enhance", "perfboost", "cosmetic",
     "fit", "lazy", "boost", "pop", "heavy",
-    "zoom", "copy", "draft",
+    "zoom", "copy", "draft", "darkforce", "dark",
 ]
 KEEP = {"__NEXT_DATA__", "__NUXT__"}
 

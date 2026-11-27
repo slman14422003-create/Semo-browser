@@ -15,6 +15,7 @@ object GeckoCfg {
         .put("copy", Prefs.unlockCopy)
         .put("draft", Prefs.draftSave)
         .put("dataSaver", Prefs.dataSaver)
+        .put("dark", if (GeckoSettings.appIsDark()) Prefs.darkMode else 0)
 
     /** مفتاح يتغير عند تغير أي إعداد مؤثر (للاستخدام في LaunchedEffect). */
     fun key(): String = json().toString() + Prefs.blockThirdCookies + Prefs.antiFingerprint + Prefs.siteLang

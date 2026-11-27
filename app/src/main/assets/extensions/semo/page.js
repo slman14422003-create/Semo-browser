@@ -11,12 +11,8 @@
     } catch (e) {}
   }
 
-  function usable(c) {
-    return c && c !== "transparent" && c !== "rgba(0, 0, 0, 0)" ? c : null;
-  }
-
   var cvs = null;
-  // يحوّل أي صيغة لون (oklch, color(), lab…) إلى rgb عبر canvas؛ عند الفشل يعيد النص كما هو
+  // Convert any CSS color syntax to rgb() through a canvas; return the input when conversion fails
   function norm(c) {
     try {
       if (!c || /^(#|rgb)/i.test(c)) return c;
@@ -34,7 +30,75 @@
     return c;
   }
 
-  // أول meta theme-color يطابق media الحالية (نسخة الداكن/الفاتح)، ثم أي meta بدون media
+  function rgba(c) {
+    var m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+)(%?))?/i.exec(c || "");
+    if (!m) return null;
+    var a = m[4] === undefined ? 1 : parseFloat(m[4]) / (m[5] ? 100 : 1);
+    return [parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3]), a];
+  }
+
+  function lum(r, g, b) {
+    function f(v) {
+      v /= 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    }
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  }
+
+  function cl(v) {
+    return Math.max(0, Math.min(255, Math.round(v)));
+  }
+
+  function forced() {
+    return document.documentElement && document.documentElement.hasAttribute("data-semo-dark");
+  }
+
+  function canvasBase() {
+    try {
+      var cs = (getComputedStyle(document.documentElement).colorScheme || "").toLowerCase();
+      if (cs.indexOf("dark") >= 0 && window.matchMedia("(prefers-color-scheme: dark)").matches) return [18, 18, 18];
+    } catch (e) {}
+    return [255, 255, 255];
+  }
+
+  // Composite the translucent background layers from the element up to the root over the canvas color
+  function effBg(el) {
+    var layers = [];
+    var acc = 0;
+    while (el && el.nodeType === 1) {
+      var p = rgba(getComputedStyle(el).backgroundColor);
+      if (p && p[3] > 0.01) {
+        layers.push(p);
+        acc = acc + (1 - acc) * p[3];
+        if (acc >= 0.99) break;
+      }
+      el = el.parentElement;
+    }
+    var out = canvasBase();
+    for (var i = layers.length - 1; i >= 0; i--) {
+      var l = layers[i];
+      out = [out[0] * (1 - l[3]) + l[0] * l[3], out[1] * (1 - l[3]) + l[1] * l[3], out[2] * (1 - l[3]) + l[2] * l[3]];
+    }
+    return out;
+  }
+
+  // What the user actually sees when the page is inverted by the force-dark filter
+  function seen(rgb, el) {
+    if (!rgb || !forced()) return rgb;
+    try { if (el && el.closest && el.closest("[data-semo-keep]")) return rgb; } catch (e) {}
+    var r = 255 - rgb[0], g = 255 - rgb[1], b = 255 - rgb[2];
+    return [
+      cl(-0.574 * r + 1.43 * g + 0.144 * b),
+      cl(0.426 * r + 0.43 * g + 0.144 * b),
+      cl(0.426 * r + 1.43 * g - 0.856 * b)
+    ];
+  }
+
+  function str(rgb) {
+    return rgb ? "rgb(" + cl(rgb[0]) + ", " + cl(rgb[1]) + ", " + cl(rgb[2]) + ")" : null;
+  }
+
+  // First meta theme-color that matches the current media (dark/light variant), then any meta without media
   function themeColor() {
     try {
       var ms = document.querySelectorAll("meta[name=theme-color]");
@@ -53,12 +117,8 @@
 
   function topBg() {
     try {
-      var el = document.elementFromPoint(Math.max(1, window.innerWidth / 2), 1);
-      while (el) {
-        var c = usable(getComputedStyle(el).backgroundColor);
-        if (c) return c;
-        el = el.parentElement;
-      }
+      var el = document.elementFromPoint(Math.max(1, window.innerWidth / 2), 1) || document.body || document.documentElement;
+      return seen(effBg(el), el);
     } catch (e) {}
     return null;
   }
@@ -68,23 +128,23 @@
       var h = Math.max(1, window.innerHeight - 3);
       var xs = [0.1, 0.3, 0.5, 0.7, 0.9];
       var cnt = {};
+      var val = {};
       for (var i = 0; i < xs.length; i++) {
         var el = document.elementFromPoint(Math.max(1, window.innerWidth * xs[i]), h);
-        while (el) {
+        while (el && el.nodeType === 1) {
           var tg = el.tagName;
-          if (tg !== "IMG" && tg !== "VIDEO" && tg !== "CANVAS" && tg !== "svg" && tg !== "SVG") {
-            var c = usable(getComputedStyle(el).backgroundColor);
-            if (c) {
-              cnt[c] = (cnt[c] || 0) + 1;
-              break;
-            }
-          }
+          if (tg !== "IMG" && tg !== "VIDEO" && tg !== "CANVAS" && tg !== "svg" && tg !== "SVG") break;
           el = el.parentElement;
         }
+        if (!el) continue;
+        var c = seen(effBg(el), el);
+        var k = str(c);
+        cnt[k] = (cnt[k] || 0) + 1;
+        val[k] = k;
       }
       var best = null;
       var bn = 0;
-      for (var k in cnt) if (cnt[k] > bn) { bn = cnt[k]; best = k; }
+      for (var key in cnt) if (cnt[key] > bn) { bn = cnt[key]; best = key; }
       return best;
     } catch (e) {}
     return null;
@@ -92,23 +152,26 @@
 
   function tint() {
     try {
-      var c = themeColor();
-      if (!c) c = topBg();
-      if (!c) {
-        var h = getComputedStyle(document.documentElement).backgroundColor;
-        var b = document.body ? getComputedStyle(document.body).backgroundColor : null;
-        c = usable(b) || usable(h);
+      var real = topBg();
+      var c = null;
+      var tc = forced() ? null : themeColor();
+      if (tc) {
+        var tp = rgba(norm(tc));
+        var rp = rgba(str(real));
+        // A declared theme color that disagrees strongly with what the page really shows loses
+        if (tp && rp) {
+          var dl = Math.abs(lum(tp[0], tp[1], tp[2]) - lum(rp[0], rp[1], rp[2]));
+          c = dl > 0.45 ? str(real) : tc;
+        } else c = tc;
       }
-      if (!c) {
-        var cs = (getComputedStyle(document.documentElement).colorScheme || "").toLowerCase();
-        c = cs.indexOf("dark") >= 0 && cs.indexOf("light") < 0 ? "#121212" : "#ffffff";
-      }
+      if (!c) c = str(real);
+      if (!c) c = "#ffffff";
       c = norm(c);
       if (c !== last.c) {
         last.c = c;
         send({ t: "tint", c: c });
       }
-      var bb = norm(botBg()) || c;
+      var bb = botBg() || c;
       if (bb !== last.b) {
         last.b = bb;
         send({ t: "bgb", c: bb });
@@ -183,7 +246,7 @@
   setTimeout(tint, 2600);
   // مواقع كثيرة تبدّل الداكن/الفاتح عبر class أو data-theme على html/body (لا يظهر في <head>)
   try {
-    var themeAttrs = ["class", "style", "data-theme", "data-mode", "data-color-mode", "data-bs-theme"];
+    var themeAttrs = ["class", "style", "data-theme", "data-mode", "data-color-mode", "data-bs-theme", "data-semo-dark"];
     var watchEl = function (el) {
       if (el) new MutationObserver(soon).observe(el, { attributes: true, attributeFilter: themeAttrs });
     };
@@ -195,6 +258,7 @@
     var mq = window.matchMedia("(prefers-color-scheme: dark)");
     if (mq.addEventListener) mq.addEventListener("change", soon);
   } catch (e) {}
+  document.addEventListener("semo-tint", soon);
   var scrollTimer = 0;
   window.addEventListener(
     "scroll",

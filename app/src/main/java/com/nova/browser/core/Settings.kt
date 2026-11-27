@@ -55,7 +55,8 @@ object Prefs {
     var siteLang by mutableIntStateOf(0); private set       // لغة المواقع (فهرس في siteLangs)
     var textZoom by mutableIntStateOf(1); private set       // فهرس في zoomValues
     var autoClose by mutableIntStateOf(0); private set
-    var siteDark by mutableStateOf(true); private set      // الوضع الداكن للمواقع
+    var darkMode by mutableIntStateOf(1); private set      // site dark mode: 0 off, 1 auto, 2 force all
+    val siteDark: Boolean get() = darkMode != 0
     val siteLangs = listOf("" to "تلقائي", "ar" to "العربية", "en" to "English", "fr" to "Français", "es" to "Español",
         "de" to "Deutsch", "tr" to "Türkçe", "ru" to "Русский", "fa" to "فارسی", "ur" to "اردو", "id" to "Indonesia",
         // أُضيفت في النهاية عمداً: الفهرس محفوظ في الإعدادات فلا يتغيّر اختيار المستخدمين الحاليين
@@ -107,7 +108,7 @@ object Prefs {
         antiFingerprint = p.getBoolean("antifp", true); shield = p.getBoolean("shield", true); pauseBg = p.getBoolean("pausebg", true)
         lang = p.getInt("lang", 0); siteLang = p.getInt("sitelang", 0).coerceIn(0, siteLangs.lastIndex)
         autoClose = p.getInt("autoclose", 0).coerceIn(0, 3)
-        textZoom = p.getInt("zoom", 1).coerceIn(0, zoomValues.lastIndex); siteDark = p.getBoolean("sitedark", true)
+        textZoom = p.getInt("zoom", 1).coerceIn(0, zoomValues.lastIndex); darkMode = if (p.contains("darkmode")) p.getInt("darkmode", 1).coerceIn(0, 2) else if (p.getBoolean("sitedark", true)) 1 else 0
         pwMode = if (p.contains("pwmode")) p.getInt("pwmode", 0).coerceIn(0, 2) else defaultPwMode(c)
         autoUpdate = p.getBoolean("autoupd", true); adaptive = p.getBoolean("adaptive", true)
         smoothAnim = p.getBoolean("anim", true); cap60 = p.getBoolean("cap60", true)
@@ -154,7 +155,7 @@ object Prefs {
     fun pickTextZoom(v: Int) { textZoom = v; sp?.putInt("zoom", v) }
     fun pickAutoClose(v: Int) { autoClose = v; sp?.putInt("autoclose", v) }
     val autoCloseMs = longArrayOf(0L, 86_400_000L, 7 * 86_400_000L, 30 * 86_400_000L)
-    fun pickSiteDark(v: Boolean) { siteDark = v; sp?.putBoolean("sitedark", v) }
+    fun pickDarkMode(v: Int) { darkMode = v.coerceIn(0, 2); sp?.putInt("darkmode", darkMode) }
     fun pickPauseBg(v: Boolean) { pauseBg = v; sp?.putBoolean("pausebg", v) }
     fun pickSecureScreen(v: Boolean) { secureScreen = v; sp?.putBoolean("secscr", v) }
     fun pickPwMode(v: Int) { pwMode = v; sp?.putInt("pwmode", v) }
@@ -246,6 +247,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
     LaunchedEffect(cacheTick) {
         cacheSize = kotlinx.coroutines.withContext(Work.ioD) { CacheCleaner.format(CacheCleaner.size(ctx)) }
     }
+    val darkNames = listOf(S(R.string.dark_site_off), S(R.string.dark_site_auto), S(R.string.dark_site_all))
     val themeNames = listOf(L("تلقائي (حسب النظام)"), L("فاتح"), L("داكن"))
     val barModeNames = listOf(L("لون الصفحة (تلقائي)"), L("لون التطبيق"), L("أسود"), L("لون مخصص"))
     val langNames = listOf(L("تلقائي"), "العربية", "English")
@@ -316,8 +318,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
             RowSpec(L("لغة المواقع"), Prefs.siteLangs[Prefs.siteLang].let { if (it.first.isEmpty()) L(it.second) else it.second }, Icons.Default.Search, { dialog = "sitelang" }),
             RowSpec(L("حجم الخط في المواقع"), zoomNames[Prefs.textZoom], Icons.Default.Edit, { dialog = "zoom" }),
             RowSpec(L("إغلاق التبويبات تلقائياً"), autoCloseNames[Prefs.autoClose.coerceIn(0, 3)], Icons.Default.Delete, { dialog = "autoclose" }),
-            RowSpec(L("الوضع الداكن للمواقع"), L("يتبع ثيم التطبيق"), Icons.Default.Star, { Prefs.pickSiteDark(!Prefs.siteDark) },
-                { IosSwitch(checked = Prefs.siteDark, onCheckedChange = null) })
+            RowSpec(L("الوضع الداكن للمواقع"), darkNames[Prefs.darkMode.coerceIn(0, 2)], Icons.Default.Star, { dialog = "sitedark" })
         )),
         SectionSpec("security", L("الأمان"), L("الحماية الفورية • HTTPS • سجل الأمان"), Icons.Default.Check, listOfNotNull(
             RowSpec(L("الحماية الفورية"),
@@ -538,6 +539,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
         "autoclose" -> ChoiceDialog(L("إغلاق التبويبات تلقائياً"), autoCloseNames, Prefs.autoClose.coerceIn(0, 3), { Prefs.pickAutoClose(it) }) { dialog = null }
         "zoom" -> ChoiceDialog(L("حجم الخط في المواقع"), zoomNames, Prefs.textZoom, { Prefs.pickTextZoom(it) }) { dialog = null }
         "engine" -> NovaChoiceDialog(L("محرك البحث"), Prefs.engines.map { it.first }, Prefs.engine, Icons.Default.Search, { Prefs.pickEngine(it) }) { dialog = null }
+        "sitedark" -> NovaChoiceDialog(L("الوضع الداكن للمواقع"), darkNames, Prefs.darkMode, Icons.Default.Star, { Prefs.pickDarkMode(it) }) { dialog = null }
         "theme" -> NovaChoiceDialog(L("المظهر"), themeNames, Prefs.theme, Icons.Default.Star, { Prefs.pickTheme(it, ctx) }) { dialog = null }
         "conns" -> ChoiceDialog(L("الحد الأقصى للاتصالات"), connNames, connOpts.indexOf(Prefs.maxConns).coerceAtLeast(0), { Prefs.pickMaxConns(connOpts[it]) }) { dialog = null }
         "crash" -> NovaDialog(

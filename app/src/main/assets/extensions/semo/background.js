@@ -1,6 +1,6 @@
 const hosts = new Set();
 // إعدادات التطبيق (Prefs) تصل عبر المنفذ الأصلي وتُحفظ ليعمل الحقن فور بدء التشغيل
-const DEFAULT_CFG = { shield: true, ads: true, fit: true, lazy: true, boost: true, pop: true, zoom: true, copy: true, draft: true, dataSaver: false };
+const DEFAULT_CFG = { shield: true, ads: true, fit: true, lazy: true, boost: true, pop: true, zoom: true, copy: true, draft: true, dataSaver: false, dark: 0 };
 let cfg = Object.assign({}, DEFAULT_CFG);
 fetch(browser.runtime.getURL("blocklist.txt"))
   .then(r => r.text())
@@ -157,6 +157,8 @@ function topFiles() {
   if (cfg.zoom) js.push("main-zoom.js");
   if (cfg.copy) js.push("main-copy.js");
   if (cfg.draft) js.push("main-draft.js");
+  if (cfg.dark === 2) js.push("main-darkforce.js");
+  if (cfg.dark === 1 || cfg.dark === 2) js.push("main-dark.js");
   return js;
 }
 

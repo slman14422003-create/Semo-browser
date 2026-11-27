@@ -29,7 +29,7 @@ object MenuScrim {
 @Composable
 fun Modifier.menuScrim(): Modifier {
     val p = animateFloatAsState(if (MenuScrim.open > 0) 1f else 0f, Motion.timed(Motion.SHORT), label = "menuScrim")
-    val peak = if (LocalIos.current.dark) 0.34f else 0.2f
+    val peak = if (LocalAppIos.current.dark) 0.34f else 0.2f
     return this.drawWithContent {
         drawContent()
         val v = p.value
@@ -47,7 +47,7 @@ fun ScrimBehind(active: Boolean = true) {
 
 @Composable
 fun menuSurface(): Color {
-    val ios = LocalIos.current
+    val ios = LocalAppIos.current
     val base = ios.menu.copy(alpha = 1f)
     return if (ios.dark) lerp(base, Color.Black, 0.35f) else lerp(base, Color.Black, 0.03f)
 }
@@ -65,9 +65,16 @@ fun IosMenu(
     content: @Composable ColumnScope.() -> Unit
 ) {
     ScrimBehind(expanded)
+    val appIos = LocalAppIos.current
     DropdownMenu(
         expanded = expanded, onDismissRequest = onDismissRequest, modifier = modifier, offset = offset,
         properties = properties, shape = shape, containerColor = menuSurface(),
-        tonalElevation = tonalElevation, shadowElevation = shadowElevation, content = content
+        tonalElevation = tonalElevation, shadowElevation = shadowElevation,
+        content = {
+            androidx.compose.runtime.CompositionLocalProvider(
+                LocalIos provides appIos,
+                androidx.compose.material3.LocalContentColor provides appIos.label
+            ) { content() }
+        }
     )
 }

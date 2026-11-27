@@ -1,6 +1,7 @@
 package com.nova.browser
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 
 /** يحدّد لون شريط الحالة / الشريط السفلي حسب اختيار المستخدم (مثل ثيمات كروم). */
 object BarTint {
@@ -14,6 +15,9 @@ object BarTint {
         Color(0xFF1C1C1E), Color(0xFFFFFFFF), Color(0xFF0A84FF), Color(0xFF5E5CE6),
         Color(0xFFBF5AF2), Color(0xFFFF375F), Color(0xFFFF9F0A), Color(0xFF30B0C7)
     )
+
+    /** true when dark system-bar icons give better contrast on this background (WCAG crossover at 0.179). */
+    fun darkIcons(bg: Color): Boolean = bg.luminance() > 0.179f
 
     fun resolve(mode: Int, custom: Int, page: Int?, blank: Boolean, appBg: Color, startBg: Color): Color = when (mode) {
         BLACK -> Color.Black

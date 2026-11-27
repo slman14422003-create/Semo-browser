@@ -104,4 +104,7 @@
     <string name="gk_https_continue">Continue anyway</string>
     <string name="gk_https_back">Go back</string>
     <string name="https_first_sub">Opens sites over an encrypted connection and asks before using an insecure one</string>
+    <string name="dark_site_off">Off</string>
+    <string name="dark_site_auto">Auto (dark when supported, otherwise force)</string>
+    <string name="dark_site_all">Force dark on all sites</string>
 </resources>

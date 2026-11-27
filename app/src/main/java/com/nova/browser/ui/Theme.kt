@@ -65,7 +65,10 @@ val IosDark = IosColors(
     clearGlyph = Color(0xFF3A3A3C), segThumb = Color(0xFF636366)
 )
 
-val LocalIos = staticCompositionLocalOf { IosLight }
+val LocalIos = compositionLocalOf { IosLight }
+
+/** Palette of the app theme itself, unaffected by page-tinted bars; popups use it. */
+val LocalAppIos = compositionLocalOf { IosLight }
 
 val AccentChoices = listOf(
     IosLight.blue to IosDark.blue, IosLight.indigo to IosDark.indigo, IosLight.purple to IosDark.purple,
@@ -205,6 +208,8 @@ fun NovaTheme(activity: ComponentActivity, content: @Composable () -> Unit) {
             statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { dark },
             navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { dark }
         )
+        activity.window.isStatusBarContrastEnforced = false
+        activity.window.isNavigationBarContrastEnforced = false
     }
     val accent = Prefs.accent
     val ios = remember(dark, accent) { (if (dark) IosDark else IosLight).accented() }
@@ -212,6 +217,7 @@ fun NovaTheme(activity: ComponentActivity, content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = scheme, typography = NovaTypography, shapes = NovaShapes) {
         CompositionLocalProvider(
             LocalIos provides ios,
+            LocalAppIos provides ios,
             LocalContentColor provides ios.label,
             LocalLayoutDirection provides if (I18n.isEnglish()) LayoutDirection.Ltr else LayoutDirection.Rtl
         ) {

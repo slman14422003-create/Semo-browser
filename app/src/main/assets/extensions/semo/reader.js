@@ -115,12 +115,19 @@
     var sp = document.createElement('div'); sp.className = 'sp';
 
     var size = 19, modes = ['', 'sepia', 'dark'], mi = 0;
-    var dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
+    var dark = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) || document.documentElement.hasAttribute('data-semo-dark');
+    var HB = { '': '#ffffff', sepia: '#f4ecd8', dark: '#121214' };
+    function paint() {
+      host.style.backgroundColor = HB[modes[mi]] || '#ffffff';
+      try { document.dispatchEvent(new CustomEvent('semo-tint')); } catch (e) { }
+    }
+    host.setAttribute('data-semo-keep', '1');
     if (dark) { mi = 2; host.className = 'dark'; }
+    paint();
     function setSize(d) { size = Math.max(14, Math.min(34, size + d)); host.style.setProperty('--fs', size + 'px'); }
 
     var prevOv = document.documentElement.style.overflow, closed = false, pushed = false;
-    function cleanup() { closed = true; window.removeEventListener('popstate', onPop); host.remove(); document.documentElement.style.overflow = prevOv; }
+    function cleanup() { closed = true; try { document.dispatchEvent(new CustomEvent('semo-tint')); } catch (e) { }  window.removeEventListener('popstate', onPop); host.remove(); document.documentElement.style.overflow = prevOv; }
     function onPop() { if (!closed) cleanup(); }
     function close() {
       if (closed) return;
@@ -133,7 +140,7 @@
     bar.appendChild(sp);
     bar.appendChild(btn('A−', function () { setSize(-2); }, ar ? 'تصغير الخط' : 'Smaller'));
     bar.appendChild(btn('A+', function () { setSize(2); }, ar ? 'تكبير الخط' : 'Larger'));
-    bar.appendChild(btn('◐', function () { mi = (mi + 1) % 3; host.className = modes[mi]; }, ar ? 'السمة' : 'Theme'));
+    bar.appendChild(btn('◐', function () { mi = (mi + 1) % 3; host.className = modes[mi]; paint(); }, ar ? 'السمة' : 'Theme'));
     wrap.appendChild(bar); wrap.appendChild(article); sh.appendChild(wrap);
 
     document.documentElement.style.overflow = 'hidden';

@@ -23,7 +23,7 @@ object GeckoSettings {
         val lc = Prefs.siteLangCode()
         s.setLocales(arrayOf(if (lc.isNotEmpty()) lc else java.util.Locale.getDefault().toLanguageTag()))
         s.setPreferredColorScheme(
-            if (Prefs.siteDark && appIsDark()) GeckoRuntimeSettings.COLOR_SCHEME_DARK else GeckoRuntimeSettings.COLOR_SCHEME_LIGHT
+            if (Prefs.darkMode == 1 && appIsDark()) GeckoRuntimeSettings.COLOR_SCHEME_DARK else GeckoRuntimeSettings.COLOR_SCHEME_LIGHT
         )
     }
 

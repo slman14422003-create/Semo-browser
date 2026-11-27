@@ -12,7 +12,11 @@ object PageTint {
     private val OK = Regex("(oklab|oklch)\\(\\s*([\\d.]+)(%?)\\s+(-?[\\d.]+)\\s+(-?[\\d.]+)(?:deg)?(?:\\s*/\\s*([\\d.]+)(%?))?")
 
     fun onStart(tab: BrowserTab, url: String) {
-        // نُبقي اللون السابق حتى يصل لون الصفحة الجديدة كي لا يومض شريط الحالة بالأسود
+        // Keep the previous color for http(s) pages until the new one arrives; internal and error pages never report a color
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            tab.topColor = null
+            tab.botColor = null
+        }
     }
 
     private fun alpha(v: String, pct: String): Float {

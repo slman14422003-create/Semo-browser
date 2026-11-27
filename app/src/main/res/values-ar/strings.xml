@@ -104,4 +104,7 @@
     <string name="gk_https_continue">المتابعة على أي حال</string>
     <string name="gk_https_back">رجوع</string>
     <string name="https_first_sub">يفتح المواقع عبر اتصال مشفّر ويسألك قبل استخدام اتصال غير آمن</string>
+    <string name="dark_site_off">إيقاف</string>
+    <string name="dark_site_auto">تلقائي (داكن عند الدعم وإلا يُفرض)</string>
+    <string name="dark_site_all">فرض الداكن على كل المواقع</string>
 </resources>
