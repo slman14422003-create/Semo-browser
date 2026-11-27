@@ -9,11 +9,16 @@ try{(function(){
 
     var seen = {}, count = 0, timer = 0, target = null;
     var SKIP_FILE = /\.(zip|apk|pdf|exe|mp4|mp3|mkv|rar|7z|iso|dmg|torrent)$/i;
-    var SKIP_PATH = /(logout|signout|sign-out|log-out|delete|remove|unsubscribe|checkout|cart|payment|\/pay\b|confirm|activate|verify)/i;
+    var SKIP_PATH = /(logout|signout|sign-out|log-out|delete|remove|unsubscribe|checkout|cart|payment|\/pay\b|confirm|activate|verify|download|install)/i;
+    var noPrefetch = false;
+    try {
+      var T = ["firebase.google.com", "firebaseapp.com", "web.app", "firebaseio.com", "cloud.google.com", "console.cloud.google.com", "cloudflare.com", "cloudflareaccess.com", "pages.dev", "workers.dev", "cloudflarestorage.com", "github.com", "github.dev", "gitlab.com", "bitbucket.org", "vercel.com", "vercel.app", "netlify.com", "netlify.app", "supabase.com", "supabase.co", "render.com", "onrender.com", "heroku.com", "herokuapp.com", "railway.app", "fly.io", "digitalocean.com", "amazon.com", "aws.amazon.com", "amazonaws.com", "azure.com", "azurewebsites.net", "microsoft.com", "microsoftonline.com", "live.com", "office.com", "atlassian.net", "atlassian.com", "slack.com", "notion.so", "figma.com", "stripe.com", "paypal.com", "auth0.com", "okta.com", "apple.com", "facebook.com", "linkedin.com", "x.com", "twitter.com", "discord.com", "openai.com", "chatgpt.com", "claude.ai", "anthropic.com", "huggingface.co", "expo.dev", "mongodb.com", "neon.tech", "sentry.io", "datadoghq.com", "codepen.io", "jsfiddle.net", "stackblitz.com", "codesandbox.io", "replit.com", "glitch.com", "glitch.me", "google.com", "googleusercontent.com", "gstatic.com"], h = String(location.hostname).toLowerCase();
+      for (var ti = 0; ti < T.length; ti++) if (h === T[ti] || h.slice(-T[ti].length - 1) === '.' + T[ti]) noPrefetch = true;
+    } catch (e) { }
 
     function prefetch(a) {
       try {
-        if (slow || count >= 12 || !a || !a.href) return;
+        if (slow || noPrefetch || count >= 12 || !a || !a.href) return;
         var u = new URL(a.href, location.href);
         if (u.origin !== location.origin) return;
         if (u.href.split('#')[0] === location.href.split('#')[0]) return;

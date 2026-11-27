@@ -41,33 +41,51 @@ function hostFast(u) {
   return h.toLowerCase();
 }
 
-browser.webRequest.onBeforeRequest.addListener(
-  d => {
-    try {
-      if (cfg.dataSaver && (d.type === "image" || d.type === "imageset")) return { cancel: true };
-      if (!cfg.ads) return {};
-      const host = hostFast(d.url);
-      if (!host) return {};
-      const doc = d.documentUrl || d.originUrl || "";
-      const key = (doc ? hostFast(doc) : "") + ">" + host;
-      let v = verdict.get(key);
-      if (v === undefined) {
-        v = false;
-        if (listed(host)) {
-          const dh = doc ? hostFast(doc) : "";
-          v = !(dh && baseOf(dh) === baseOf(host));
-        }
-        if (verdict.size > 4000) verdict.clear();
-        verdict.set(key, v);
+function adListener(d) {
+  try {
+    if (!cfg.ads) return {};
+    const host = hostFast(d.url);
+    if (!host) return {};
+    const doc = d.documentUrl || d.originUrl || "";
+    const key = (doc ? hostFast(doc) : "") + ">" + host;
+    let v = verdict.get(key);
+    if (v === undefined) {
+      v = false;
+      if (listed(host)) {
+        const dh = doc ? hostFast(doc) : "";
+        v = !(dh && baseOf(dh) === baseOf(host));
       }
-      return v ? { cancel: true } : {};
-    } catch (e) {
-      return {};
+      if (verdict.size > 4000) verdict.clear();
+      verdict.set(key, v);
     }
-  },
-  { urls: ["http://*/*", "https://*/*"], types: ["script", "sub_frame", "image", "imageset", "xmlhttprequest", "ping", "beacon"] },
+    return v ? { cancel: true } : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function imageListener() {
+  return { cancel: true };
+}
+
+const WEB_FILTER = ["http://*/*", "https://*/*"];
+
+browser.webRequest.onBeforeRequest.addListener(
+  adListener,
+  { urls: WEB_FILTER, types: ["script", "sub_frame", "xmlhttprequest", "ping", "beacon"] },
   ["blocking"]
 );
+
+function syncImageBlock() {
+  try {
+    const on = browser.webRequest.onBeforeRequest.hasListener(imageListener);
+    if (cfg.dataSaver && !on) {
+      browser.webRequest.onBeforeRequest.addListener(imageListener, { urls: WEB_FILTER, types: ["image", "imageset"] }, ["blocking"]);
+    } else if (!cfg.dataSaver && on) {
+      browser.webRequest.onBeforeRequest.removeListener(imageListener);
+    }
+  } catch (e) {}
+}
 
 let nativePort = null;
 let nativeRetry = 0;
@@ -107,6 +125,7 @@ function nativeConnect() {
     } else if (m.type === "cfg") {
       cfg = Object.assign({}, DEFAULT_CFG, m.cfg || {});
       try { browser.storage.local.set({ cfg }).catch(() => {}); } catch (e) {}
+      syncImageBlock();
       applyMain();
     } else if (m.type === "fill") {
       browser.tabs.sendMessage(m.tab, { pwFill: true, host: m.host, u: m.u, p: m.p }, { frameId: 0 }).catch(() => {});
@@ -187,7 +206,7 @@ try {
       if (r && r.cfg) cfg = Object.assign({}, DEFAULT_CFG, r.cfg);
     })
     .catch(() => {})
-    .then(applyMain);
+    .then(() => { syncImageBlock(); applyMain(); });
 } catch (e) {
   applyMain();
 }

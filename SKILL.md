@@ -14,12 +14,19 @@
 ## Changed
 - app/src/main/baseline-prof.txt: removed stale androidx/webkit rule, added core, startup, coroutines, collections, okhttp, okio, geckoview and app class rules
 
+- gradle.properties: android.r8.optimizedResourceShrinking=true (release already had isMinifyEnabled and isShrinkResources)
+- extensions/semo/background.js: ad blocking listener no longer receives image requests (types now script, sub_frame, xmlhttprequest, ping, beacon); image blocking is a separate listener registered only when dataSaver is on (syncImageBlock)
+- tools/src/boost.js (regenerated via tools/gen-ext.py): no link prefetch on trusted hosts, and download/install paths are skipped
+
 ## Findings not changed
 - 354 hardcoded dp values outside UiLayout.kt (largest: Bars.kt 52, Tabs.kt 48, MenuSheet.kt 36, IosKit.kt 35); moving them needs a compile to verify
 - Downloader.resume polls with Thread.sleep(50) on a pool thread until active segments stop
 - IntentAuth.token uses commit() once on first token creation (intended)
 - usesCleartextTraffic is true (HTTPS gate handles upgrades)
 - duplicate packaging blocks in app/build.gradle.kts (harmless, can be merged)
+
+## Site issues reported
+- GitHub and APKMirror lag and partly broken; causes not profiled on device. Next step: Logcat or remote debugging on those two sites
 
 ## Next
 - Build with gradle and fix any compile errors
