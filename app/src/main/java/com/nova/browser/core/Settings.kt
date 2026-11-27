@@ -8,6 +8,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.*
@@ -75,6 +77,10 @@ object Prefs {
     var smart by mutableStateOf(true); private set
     var haptics by mutableStateOf(true); private set
     var accent by mutableIntStateOf(0); private set
+    var statusMode by mutableIntStateOf(0); private set     // لون شريط الحالة: 0 لون الصفحة، 1 لون التطبيق، 2 أسود، 3 مخصص
+    var botMode by mutableIntStateOf(0); private set        // لون الشريط السفلي (نفس الخيارات)
+    var statusCustom by mutableIntStateOf(0); private set
+    var botCustom by mutableIntStateOf(0); private set
     var suggest by mutableStateOf(true); private set        // اقتراحات البحث أثناء الكتابة
     var notifDone by mutableStateOf(true); private set      // إشعار اكتمال التنزيل
     var notifUpdate by mutableStateOf(true); private set    // إشعار تحديث متاح
@@ -109,6 +115,8 @@ object Prefs {
         boost = p.getBoolean("boost", true); suggest = p.getBoolean("suggest", true); smart = p.getBoolean("smart", true);
         notifDone = p.getBoolean("notifdone", true); notifUpdate = p.getBoolean("notifupd", true); notifAsked = p.getBoolean("notifasked", false)
         haptics = p.getBoolean("haptics", true); accent = p.getInt("accent", 0).coerceIn(0, 5)
+        statusMode = p.getInt("stmode", 0).coerceIn(0, 3); botMode = p.getInt("botmode", 0).coerceIn(0, 3)
+        statusCustom = p.getInt("stcolor", 0).coerceIn(0, BarTint.customColors.lastIndex); botCustom = p.getInt("botcolor", 0).coerceIn(0, BarTint.customColors.lastIndex)
     }
 
     /** إن كانت خدمة تعبئة (Samsung Pass مثلاً) مفعّلة في النظام نبدأ بها تلقائياً، وإلا نستخدم المدير المدمج. */
@@ -152,6 +160,10 @@ object Prefs {
     fun pickPwMode(v: Int) { pwMode = v; sp?.putInt("pwmode", v) }
     fun pickHaptics(v: Boolean) { haptics = v; sp?.putBoolean("haptics", v) }
     fun pickAccent(v: Int) { accent = v; sp?.putInt("accent", v) }
+    fun pickStatusMode(v: Int) { statusMode = v; sp?.putInt("stmode", v) }
+    fun pickBotMode(v: Int) { botMode = v; sp?.putInt("botmode", v) }
+    fun pickStatusCustom(v: Int) { statusCustom = v; sp?.putInt("stcolor", v) }
+    fun pickBotCustom(v: Int) { botCustom = v; sp?.putInt("botcolor", v) }
     fun pickSmart(v: Boolean) { smart = v; sp?.putBoolean("smart", v) }
     fun pickAutoUpdate(v: Boolean) { autoUpdate = v; sp?.putBoolean("autoupd", v) }
     fun pickAdaptive(v: Boolean) { adaptive = v; sp?.putBoolean("adaptive", v); Adaptive.refresh() }
@@ -235,6 +247,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
         cacheSize = kotlinx.coroutines.withContext(Work.ioD) { CacheCleaner.format(CacheCleaner.size(ctx)) }
     }
     val themeNames = listOf(L("تلقائي (حسب النظام)"), L("فاتح"), L("داكن"))
+    val barModeNames = listOf(L("لون الصفحة (تلقائي)"), L("لون التطبيق"), L("أسود"), L("لون مخصص"))
     val langNames = listOf(L("تلقائي"), "العربية", "English")
     val zoomNames = listOf(L("صغير"), L("عادي"), L("كبير"), L("كبير جداً"))
     val autoCloseNames = listOf(L("يدوياً"), L("بعد يوم"), L("بعد أسبوع"), L("بعد شهر"))
@@ -258,6 +271,8 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
             RowSpec(L("المظهر"), themeNames[Prefs.theme], Icons.Default.Star, { dialog = "theme" }),
             RowSpec(S(R.string.set_accent), null, Icons.Default.Star, { dialog = "accent" },
                 { Box(Modifier.size(22.dp).clip(CircleShape).background(LocalIos.current.blue)) }),
+            RowSpec(L("لون شريط الحالة"), barModeNames[Prefs.statusMode], Icons.Default.Star, { dialog = "statusbar" }),
+            RowSpec(L("لون الشريط السفلي"), barModeNames[Prefs.botMode], Icons.Default.Star, { dialog = "botbar" }),
             RowSpec(L("المكتبة"), L("المفضلة") + " " + Library.bookmarks.size + " • " + L("السجل") + " " + Library.history.size, Icons.Default.Favorite, { Library.show = true }),
             RowSpec(L("نسخة سطح المكتب افتراضياً"), L("للتبويبات الجديدة"), Icons.Default.Build, { Prefs.pickDesktop(!Prefs.desktop) },
                 { IosSwitch(checked = Prefs.desktop, onCheckedChange = null) })
@@ -445,6 +460,30 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
     }
 
     when (dialog) {
+        "statusbar" -> NovaChoiceDialog(L("لون شريط الحالة"), barModeNames, Prefs.statusMode, Icons.Default.Star, {
+            Prefs.pickStatusMode(it); if (it == BarTint.CUSTOM) dialog = "statuscolor"
+        }) { if (dialog == "statusbar") dialog = null }
+        "botbar" -> NovaChoiceDialog(L("لون الشريط السفلي"), barModeNames, Prefs.botMode, Icons.Default.Star, {
+            Prefs.pickBotMode(it); if (it == BarTint.CUSTOM) dialog = "botcolor"
+        }) { if (dialog == "botbar") dialog = null }
+        "statuscolor", "botcolor" -> {
+            val forStatus = dialog == "statuscolor"
+            NovaDialog(title = if (forStatus) L("لون شريط الحالة") else L("لون الشريط السفلي"), onDismiss = { dialog = null }) {
+                Row(Modifier.fillMaxWidth()) {
+                    BarTint.customColors.forEachIndexed { i, c ->
+                        Box(
+                            Modifier.weight(1f).height(44.dp).tapClickable { if (forStatus) Prefs.pickStatusCustom(i) else Prefs.pickBotCustom(i) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                Modifier.size(26.dp).clip(CircleShape).background(c).border(0.75.dp, Color.Gray, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) { if ((if (forStatus) Prefs.statusCustom else Prefs.botCustom) == i) IosIcon(IosGlyph.Check, if (c.luminance() > 0.5f) Color.Black else Color.White, 14.dp) }
+                        }
+                    }
+                }
+            }
+        }
         "accent" -> NovaDialog(title = S(R.string.set_accent), onDismiss = { dialog = null }) {
             Row(Modifier.fillMaxWidth()) {
                 AccentChoices.forEachIndexed { i, pair ->

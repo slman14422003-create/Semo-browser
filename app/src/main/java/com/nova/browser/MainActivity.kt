@@ -672,9 +672,9 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
     }
     Box(Modifier.fillMaxSize()) {
         Surface(Modifier.fillMaxSize().menuScrim(), color = if (inPip) Color.Black else iosC.bg) {
-            val tintTarget = if (tab.url.isBlank()) iosC.groupedBg else ((tab.botColor ?: tab.topColor)?.let { Color(it) } ?: iosC.bg)
+            val tintTarget = BarTint.resolve(Prefs.statusMode, Prefs.statusCustom, tab.topColor ?: tab.botColor, tab.url.isBlank(), iosC.bg, iosC.groupedBg)
             LaunchedEffect(tab.id, tab.url, tab.loading) {
-                if (tab.url.isNotBlank()) for (wait in longArrayOf(400, 1200, 2500)) {
+                if (tab.url.isNotBlank()) for (wait in longArrayOf(1500, 3500)) {
                     kotlinx.coroutines.delay(wait)
                     PageSampler.sample(tab)
                 }
@@ -726,7 +726,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                         }
                     }
                 }
-                val botTarget = if (tab.url.isBlank()) iosC.groupedBg else ((tab.botColor ?: tab.topColor)?.let { Color(it) } ?: iosC.bg)
+                val botTarget = BarTint.resolve(Prefs.botMode, Prefs.botCustom, tab.botColor ?: tab.topColor, tab.url.isBlank(), iosC.bg, iosC.groupedBg)
                 val barIos = (if (botTarget.luminance() < 0.5f) IosDark else IosLight).accented()
                 SideEffect {
                     WindowInsetsControllerCompat(activity.window, activity.window.decorView).isAppearanceLightNavigationBars = botTarget.luminance() > 0.5f

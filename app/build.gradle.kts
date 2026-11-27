@@ -74,6 +74,9 @@ kotlin {
     }
 }
 
+// نسخة GeckoView: ثبّتها برقم دقيق في gradle.properties (geckoVersion=157.0.2026...) ليصبح البناء قابلاً للتكرار؛ الافتراضي 157.+ كما كان
+val geckoVersion = (findProperty("geckoVersion") as String?)?.takeIf { it.isNotBlank() } ?: "157.+"
+
 dependencies {
     val bom = platform("androidx.compose:compose-bom:2025.06.01")
     implementation(bom)
@@ -94,7 +97,7 @@ dependencies {
     implementation("androidx.compose.animation:animation")
     implementation("androidx.core:core-splashscreen:1.2.0")   // 1.0.1 كان يُسقط أحياناً عند الخروج (NPE داخلي في مزامنة حركة الأيقونة)
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
-    implementation("org.mozilla.geckoview:geckoview-arm64-v8a:157.+")
+    implementation("org.mozilla.geckoview:geckoview-arm64-v8a:$geckoVersion")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")           // شبكة HTTP/2 مع كاش وإعادة استخدام الاتصالات (اقتراحات البحث)
     implementation("androidx.profileinstaller:profileinstaller:1.4.1") // ملفات Baseline لتسريع بدء التشغيل وتقليل التقطيع
     implementation("androidx.metrics:metrics-performance:1.0.0")   // JankStats: رصد الإطارات البطيئة (يُفعَّل في نسخة debug فقط)

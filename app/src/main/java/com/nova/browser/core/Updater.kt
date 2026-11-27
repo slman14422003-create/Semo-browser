@@ -75,7 +75,8 @@ object Updater {
     }
 
     private fun verifyHash(f: File, expected: String): String? =
-        if (expected.isEmpty() || sha256Hex(f) == expected) null else "checksum mismatch"
+        if (expected.isEmpty()) "checksum missing"   // لا نثبّت ملفاً بلا بصمة SHA-256 منشورة مع الإصدار
+        else if (sha256Hex(f) == expected) null else "checksum mismatch"
 
     private fun fetchSha(url: String): String {
         val cn = open(url, null, null, 8000, 8000)

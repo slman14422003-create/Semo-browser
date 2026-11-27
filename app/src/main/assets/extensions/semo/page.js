@@ -15,6 +15,42 @@
     return c && c !== "transparent" && c !== "rgba(0, 0, 0, 0)" ? c : null;
   }
 
+  var cvs = null;
+  // يحوّل أي صيغة لون (oklch, color(), lab…) إلى rgb عبر canvas؛ عند الفشل يعيد النص كما هو
+  function norm(c) {
+    try {
+      if (!c || /^(#|rgb)/i.test(c)) return c;
+      if (!cvs) cvs = document.createElement("canvas");
+      cvs.width = cvs.height = 1;
+      var x = cvs.getContext("2d", { willReadFrequently: true });
+      x.clearRect(0, 0, 1, 1);
+      x.fillStyle = "#010203";
+      x.fillStyle = c;
+      x.fillRect(0, 0, 1, 1);
+      var d = x.getImageData(0, 0, 1, 1).data;
+      if (d[3] < 128) return c;
+      return "rgb(" + d[0] + ", " + d[1] + ", " + d[2] + ")";
+    } catch (e) {}
+    return c;
+  }
+
+  // أول meta theme-color يطابق media الحالية (نسخة الداكن/الفاتح)، ثم أي meta بدون media
+  function themeColor() {
+    try {
+      var ms = document.querySelectorAll("meta[name=theme-color]");
+      var plain = null;
+      for (var i = 0; i < ms.length; i++) {
+        var md = ms[i].getAttribute("media");
+        var v = ms[i].content;
+        if (!v) continue;
+        if (!md) { if (!plain) plain = v; continue; }
+        if (window.matchMedia(md).matches) return v;
+      }
+      return plain;
+    } catch (e) {}
+    return null;
+  }
+
   function topBg() {
     try {
       var el = document.elementFromPoint(Math.max(1, window.innerWidth / 2), 1);
@@ -56,8 +92,7 @@
 
   function tint() {
     try {
-      var m = document.querySelector("meta[name=theme-color]");
-      var c = m && m.content;
+      var c = themeColor();
       if (!c) c = topBg();
       if (!c) {
         var h = getComputedStyle(document.documentElement).backgroundColor;
@@ -68,11 +103,12 @@
         var cs = (getComputedStyle(document.documentElement).colorScheme || "").toLowerCase();
         c = cs.indexOf("dark") >= 0 && cs.indexOf("light") < 0 ? "#121212" : "#ffffff";
       }
+      c = norm(c);
       if (c !== last.c) {
         last.c = c;
         send({ t: "tint", c: c });
       }
-      var bb = botBg() || c;
+      var bb = norm(botBg()) || c;
       if (bb !== last.b) {
         last.b = bb;
         send({ t: "bgb", c: bb });
@@ -145,6 +181,29 @@
   window.addEventListener("load", soon, { once: true });
   setTimeout(tint, 900);
   setTimeout(tint, 2600);
+  // مواقع كثيرة تبدّل الداكن/الفاتح عبر class أو data-theme على html/body (لا يظهر في <head>)
+  try {
+    var themeAttrs = ["class", "style", "data-theme", "data-mode", "data-color-mode", "data-bs-theme"];
+    var watchEl = function (el) {
+      if (el) new MutationObserver(soon).observe(el, { attributes: true, attributeFilter: themeAttrs });
+    };
+    watchEl(document.documentElement);
+    if (document.body) watchEl(document.body);
+    else document.addEventListener("DOMContentLoaded", function () { watchEl(document.body); }, { once: true });
+  } catch (e) {}
+  try {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", soon);
+  } catch (e) {}
+  var scrollTimer = 0;
+  window.addEventListener(
+    "scroll",
+    function () {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(tint, 300);
+    },
+    { passive: true }
+  );
   try {
     new MutationObserver(soon).observe(document.head || document.documentElement, {
       childList: true,

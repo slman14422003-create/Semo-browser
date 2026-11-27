@@ -424,7 +424,7 @@ class GeckoUi(
                 h.sitePerm(perm.uri, S(R.string.gk_perm_storage), emptyList()) { ok -> res.complete(if (ok) allow else deny) }
                 res
             }
-            GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE,
+            GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE -> GeckoResult.fromValue(deny)   // لا نمنح تخزيناً دائماً للمواقع بصمت
             GeckoSession.PermissionDelegate.PERMISSION_MEDIA_KEY_SYSTEM_ACCESS,
             GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_INAUDIBLE -> GeckoResult.fromValue(allow)
             else -> GeckoResult.fromValue(deny)
