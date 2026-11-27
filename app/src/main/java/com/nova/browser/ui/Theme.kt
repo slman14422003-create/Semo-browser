@@ -203,7 +203,7 @@ fun Modifier.liquidGlass(shape: androidx.compose.ui.graphics.Shape = IosShape.pi
 @Composable
 fun NovaTheme(activity: ComponentActivity, content: @Composable () -> Unit) {
     val dark = when (Prefs.theme) { 1 -> false; 2 -> true; else -> isSystemInDarkTheme() }
-    SideEffect {
+    LaunchedEffect(dark) {
         activity.enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { dark },
             navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { dark }

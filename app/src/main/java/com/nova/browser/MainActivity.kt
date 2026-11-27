@@ -689,7 +689,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                 }
             }
             val stColor = animateColorAsState(tintTarget, Motion.timed(Motion.MEDIUM), label = "statusTint")
-            LaunchedEffect(stColor) {
+            LaunchedEffect(stColor, iosC.dark) {
                 val ctl = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
                 snapshotFlow { BarTint.darkIcons(stColor.value) }.distinctUntilChanged().collect { d -> ctl.isAppearanceLightStatusBars = d }
             }
@@ -739,7 +739,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                 val botTarget = BarTint.resolve(Prefs.botMode, Prefs.botCustom, tab.botColor ?: tab.topColor, tab.url.isBlank(), iosC.bg, iosC.groupedBg)
                 val botAnim = animateColorAsState(botTarget, Motion.timed(Motion.MEDIUM), label = "botTint")
                 val barIos = (if (BarTint.darkIcons(botTarget)) IosLight else IosDark).accented()
-                LaunchedEffect(botAnim) {
+                LaunchedEffect(botAnim, iosC.dark) {
                     val ctl = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
                     snapshotFlow { BarTint.darkIcons(botAnim.value) }.distinctUntilChanged().collect { d -> ctl.isAppearanceLightNavigationBars = d }
                 }

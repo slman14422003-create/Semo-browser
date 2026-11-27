@@ -4,6 +4,11 @@
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowBackground">@color/nova_bg</item>
+        <item name="android:windowLightStatusBar">@bool/nova_light_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/nova_light_bars</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">always</item>
     </style>
     <style name="Theme.Nova.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/nova_bg</item>

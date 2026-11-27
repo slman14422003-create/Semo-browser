@@ -1,11 +1,17 @@
-# Baseline Profile عام: يُترجَم مسبقاً عند تثبيت التطبيق فيقلّ التقطيع وزمن البدء
 HSPLandroidx/compose/**;->**(**)**
 HSPLandroidx/activity/**;->**(**)**
 HSPLandroidx/lifecycle/**;->**(**)**
-HSPLandroidx/webkit/**;->**(**)**
 HSPLandroidx/core/**;->**(**)**
+HSPLandroidx/startup/**;->**(**)**
+HSPLkotlinx/coroutines/**;->**(**)**
+HSPLkotlinx/collections/immutable/**;->**(**)**
+HSPLokhttp3/**;->**(**)**
+HSPLokio/**;->**(**)**
+HSPLorg/mozilla/geckoview/**;->**(**)**
 HSPLcom/nova/browser/**;->**(**)**
 Landroidx/compose/**;
 Landroidx/activity/**;
 Landroidx/lifecycle/**;
+Lkotlinx/coroutines/**;
+Lorg/mozilla/geckoview/**;
 Lcom/nova/browser/**;
