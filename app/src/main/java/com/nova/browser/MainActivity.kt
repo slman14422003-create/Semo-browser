@@ -672,7 +672,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
     }
     Box(Modifier.fillMaxSize()) {
         Surface(Modifier.fillMaxSize().menuScrim(), color = if (inPip) Color.Black else iosC.bg) {
-            val tintTarget = if (tab.url.isBlank()) iosC.groupedBg else (tab.topColor?.let { Color(it) } ?: iosC.bg)
+            val tintTarget = if (tab.url.isBlank()) iosC.groupedBg else ((tab.botColor ?: tab.topColor)?.let { Color(it) } ?: iosC.bg)
             LaunchedEffect(tab.id, tab.url, tab.loading) {
                 if (tab.url.isNotBlank()) for (wait in longArrayOf(400, 1200, 2500)) {
                     kotlinx.coroutines.delay(wait)

@@ -85,7 +85,10 @@ fun StartPage(
 ) {
     val ios = LocalIos.current
     var shown by remember { mutableStateOf(false) }
-    LaunchedEffect(SplashGate.revealed) { if (SplashGate.revealed) shown = true }
+    LaunchedEffect(SplashGate.revealed) {
+        if (!SplashGate.revealed) kotlinx.coroutines.delay(800)
+        shown = true
+    }
     val defaultSites = remember {
         listOf(
             Site(L("الخرائط"), "maps.google.com", "https://maps.google.com", "", 0xFF34C759, Icons.Default.Place),
