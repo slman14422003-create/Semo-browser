@@ -50,6 +50,7 @@ object UiLayout {
     const val ARC_DIAMETER_DP = 26
     const val ARC_STROKE_DP = 2.5f
     const val ARC_REST_DP = 52
+    const val REFRESH_TIMEOUT_MS = 8000L
 }
 
 /**

@@ -75,12 +75,12 @@ class ArcRefreshLayout(ctx: Context, color: Int) : SwipeRefreshLayout(ctx) {
                 if (raw > 0f && !isRefreshing) {
                     dragging = true
                     pull = (raw * DRAG_RATE / triggerPx).coerceIn(0f, 1.5f)
-                    postInvalidateOnAnimation()
+                    invalidateArc()
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 dragging = false
-                postInvalidateOnAnimation()
+                invalidateArc()
             }
         }
         return r
@@ -118,7 +118,13 @@ class ArcRefreshLayout(ctx: Context, color: Int) : SwipeRefreshLayout(ctx) {
             sweep = 300f * p
         }
         if (sweep > 0f) canvas.drawArc(oval, start, sweep, false, paint)
-        postInvalidateOnAnimation()
+        invalidateArc()
+    }
+
+    private fun invalidateArc() {
+        val pad = (radius + paint.strokeWidth + 2f).toInt()
+        val cx = width / 2
+        postInvalidateOnAnimation(cx - pad, 0, cx + pad, (restY + pad).toInt())
     }
 
     private companion object {

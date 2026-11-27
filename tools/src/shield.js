@@ -7,6 +7,7 @@
 (function () {
   'use strict';
   function safe(f) { try { f(); } catch (e) {} }
+  if (/(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net|captcha-delivery\.com|datadome\.co|arkoselabs\.com|geetest\.com)$/.test(String(location.hostname))) return;
 
   // ───────── عناوين خاصة (نفس منطق Shield.kt) ─────────
   function v4(h) {

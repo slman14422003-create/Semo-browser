@@ -242,9 +242,14 @@ fun geckoContainer(ctx: Context, tb: BrowserTab, h: Handlers, primary: Int): Vie
     tb.engineView = box
     var judgedUrl: String? = null
     var judged = false
+    val stopSpin = Runnable { box.isRefreshing = false }
     box.apply {
         addView(view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        setOnRefreshListener { e.reload() }
+        setOnRefreshListener {
+            e.reload()
+            removeCallbacks(stopSpin)
+            postDelayed(stopSpin, UiLayout.REFRESH_TIMEOUT_MS)
+        }
         setOnChildScrollUpCallback { _, _ ->
             if (view.pagePullBlocked() != false || e.scrollY > 0 || tb.noPull) true
             else {

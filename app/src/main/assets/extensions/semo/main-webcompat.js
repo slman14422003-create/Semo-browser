@@ -7,7 +7,7 @@ try{(function(){
 (function () {
   try {
     if (!/^https?:$/.test(location.protocol)) return;
-    if (/(^|\.)(youtube\.com|youtu\.be|googlevideo\.com|google\.[a-z.]+|gstatic\.com)$/.test(location.hostname)) return;
+    if (/(^|\.)(youtube\.com|youtu\.be|googlevideo\.com|google\.[a-z.]+|gstatic\.com|challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net|captcha-delivery\.com|datadome\.co|arkoselabs\.com|geetest\.com)$/.test(location.hostname)) return;
 
     var ALLOW = ['autoplay', 'fullscreen', 'encrypted-media', 'picture-in-picture'];
     var fixed = new WeakSet();
