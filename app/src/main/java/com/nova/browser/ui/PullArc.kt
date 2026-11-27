@@ -47,7 +47,7 @@ class ArcRefreshLayout(ctx: Context, color: Int) : SwipeRefreshLayout(ctx) {
                 val v = getChildAt(i)
                 if (v is ImageView) {
                     v.setImageDrawable(null)
-                    v.background = null
+                    v.background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
                     v.outlineProvider = null
                     v.elevation = 0f
                     v.alpha = 0f

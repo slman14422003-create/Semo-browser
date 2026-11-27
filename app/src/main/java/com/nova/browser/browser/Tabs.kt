@@ -1,5 +1,7 @@
 package com.nova.browser
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import android.content.*
 import androidx.compose.foundation.*
 import androidx.compose.animation.core.Spring
@@ -89,12 +91,15 @@ fun TabSwitcher(
     val gridState = rememberLazyGridState(initialFirstVisibleItemIndex = 0)
     var filterMenu by remember { mutableStateOf(false) }
     val haptic = rememberHaptics()
-        Column(Modifier.fillMaxSize().background(ios.tabsBg)) {
+        val backdrop = rememberBackdrop()
+        val barShape = RoundedCornerShape(28.dp)
+        val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             state = gridState, columns = GridCells.Fixed(2),
-            modifier = Modifier.weight(1f).statusBarsPadding(),
+            modifier = Modifier.fillMaxSize().backdropSource(backdrop).background(ios.tabsBg).statusBarsPadding(),
             horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp)
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp + navBottom)
         ) {
             item(key = "groups", contentType = "groups", span = { GridItemSpan(maxLineSpan) }) {
                 val names = Groups.names.toList()
@@ -246,7 +251,9 @@ fun TabSwitcher(
             }
         }
         Row(
-            Modifier.navigationBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp).fillMaxWidth().height(52.dp).liquidGlass().padding(horizontal = 6.dp),
+            Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth().height(56.dp)
+                .backdropBlur(backdrop, barShape).background(ios.cell.copy(alpha = 0.62f))
+                .border(0.5.dp, ios.label.copy(alpha = 0.10f), barShape).padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(Modifier.size(44.dp).tapClickable { onNew(if (gNow == Groups.ALL) Groups.NONE else gNow) }.iosButton(S(R.string.a11y_new_tab)), contentAlignment = Alignment.Center) { IosIcon(IosGlyph.Plus, ios.label, 26.dp) }

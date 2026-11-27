@@ -1,5 +1,9 @@
 package com.nova.browser
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.runtime.snapshotFlow
 import android.content.*
@@ -368,8 +372,10 @@ private fun BarCapsule(
     val glow = remember { GlowState() }
     fun lit(key: String, action: () -> Unit): () -> Unit = { glow.active = key; action() }
     Row(
-        modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 8.dp).height(48.dp)
-            .liquidGlass().glowHost(glow, ios.blue).padding(horizontal = 4.dp),
+        modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 2.dp, bottom = 2.dp).height(56.dp)
+            .shadow(10.dp, RoundedCornerShape(28.dp)).clip(RoundedCornerShape(28.dp)).background(ios.cell.copy(alpha = 0.97f))
+            .border(0.5.dp, ios.label.copy(alpha = 0.10f), RoundedCornerShape(28.dp))
+            .glowHost(glow, ios.blue).padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         BarButton(
@@ -399,15 +405,13 @@ private fun BarCapsule(
         }
         AddressSlot(tab, hasPage, tabIndex, tabCount, onEdit, onTabs, onSwitch, onDownloads)
         BarButton(enabled = true, modifier = Modifier.glowAnchor(glow, "tabs"), onClick = lit("tabs", onTabs), label = S(R.string.a11y_tabs) + " " + tabCount) {
-            IosIcon(IosGlyph.Tabs, ios.label, 24.dp)
             Box(
-                Modifier.align(Alignment.TopEnd).offset(x = (-2).dp, y = 5.dp).defaultMinSize(minWidth = 16.dp, minHeight = 16.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape).background(ios.blue).padding(horizontal = 4.dp),
+                Modifier.size(24.dp).border(1.8.dp, ios.label, RoundedCornerShape(7.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     if (tabCount > 99) "99+" else tabCount.toString(), style = MaterialTheme.typography.labelSmall,
-                    color = Color.White, maxLines = 1
+                    fontWeight = FontWeight.Bold, color = ios.label, maxLines = 1
                 )
             }
         }

@@ -676,7 +676,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
     }
     Box(Modifier.fillMaxSize()) {
         Surface(Modifier.fillMaxSize().menuScrim(), color = if (inPip) Color.Black else iosC.bg) {
-            val tintTarget = if (tab.url.isBlank()) iosC.groupedBg else if (iosC.dark) iosC.bg else (tab.topColor?.let { Color(it) } ?: iosC.bg)
+            val tintTarget = if (tab.url.isBlank()) iosC.groupedBg else (tab.topColor?.let { Color(it) } ?: iosC.bg)
             val stColor = animateColorAsState(tintTarget, Motion.timed(Motion.MEDIUM), label = "statusTint")
             SideEffect {
                 WindowInsetsControllerCompat(activity.window, activity.window.decorView).isAppearanceLightStatusBars = tintTarget.luminance() > 0.5f
