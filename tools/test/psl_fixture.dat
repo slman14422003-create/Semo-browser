@@ -1,0 +1,26 @@
+// ===BEGIN ICANN DOMAINS===
+com
+uk
+co.uk
+org.uk
+au
+com.au
+jp
+co.jp
+*.kobe.jp
+!city.kobe.jp
+*.ck
+!www.ck
+de
+bücher.example
+中国
+公司.cn
+cn
+com.cn
+ac
+// ===END ICANN DOMAINS===
+// ===BEGIN PRIVATE DOMAINS===
+github.io
+blogspot.com
+*.compute.amazonaws.com
+// ===END PRIVATE DOMAINS===
