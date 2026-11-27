@@ -372,9 +372,7 @@ private fun BarCapsule(
     val glow = remember { GlowState() }
     fun lit(key: String, action: () -> Unit): () -> Unit = { glow.active = key; action() }
     Row(
-        modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 2.dp, bottom = 2.dp).height(56.dp)
-            .shadow(10.dp, RoundedCornerShape(28.dp)).clip(RoundedCornerShape(28.dp)).background(ios.cell.copy(alpha = 0.97f))
-            .border(0.5.dp, ios.label.copy(alpha = 0.10f), RoundedCornerShape(28.dp))
+        modifier.fillMaxWidth().height(UiLayout.BAR_H.dp)
             .glowHost(glow, ios.blue).padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -174,13 +174,15 @@ fun DownloadCard(t: DlTask, modifier: Modifier = Modifier) {
                     }
                     running -> {
                         IosTextButton(L("إلغاء"), { Downloader.cancel(t) })
+                        if (!t.streamed) {
                         Spacer(Modifier.width(4.dp))
                         IosPillButton(L("إيقاف مؤقت"), { Downloader.pause(t) })
+                        }
                     }
                     else -> {
                         IosTextButton(L("إلغاء"), { Downloader.cancel(t) })
                         Spacer(Modifier.width(4.dp))
-                        IosPillButton(if (failed) L("إعادة المحاولة") else L("استئناف"), { Downloader.resume(t) })
+                        if (!t.streamed) IosPillButton(if (failed) L("إعادة المحاولة") else L("استئناف"), { Downloader.resume(t) })
                     }
                 }
             }

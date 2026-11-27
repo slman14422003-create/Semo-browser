@@ -55,6 +55,7 @@ class DlTask(
     var segSnap by mutableStateOf<List<LongArray>>(emptyList())
     var uri: Uri? = null
     var resumable = true
+    var streamed = false
     val segs = CopyOnWriteArrayList<Seg>()
     val lock = Any()
     @Volatile var stopReason = 0   // 1 = إيقاف مؤقت، 2 = إلغاء
@@ -177,6 +178,34 @@ object Downloader {
             c.contentResolver.query(uri, arrayOf(MediaStore.Downloads.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
         }.getOrNull()?.takeIf { it.isNotBlank() } ?: fallback
 
+    fun startStream(c: Context, name: String, mime: String, total: Long): DlTask {
+        init(c)
+        val t = DlTask(UUID.randomUUID().toString(), "", "", "", "")
+        t.name = name; t.mime = mime; t.total = total; t.resumable = false; t.streamed = true
+        t.active.set(1)
+        t.lastTime = SystemClock.elapsedRealtime()
+        t.status = DOWNLOADING
+        main.post { tasks.add(0, t); startService() }
+        return t
+    }
+
+    fun finishStream(t: DlTask, name: String, uri: Uri, size: Long) {
+        main.post {
+            t.name = name; t.uri = uri; t.total = size; t.downloaded = size; t.speed = 0
+            t.active.set(0); t.status = DONE
+            save()
+            notifyDone(t)
+        }
+    }
+
+    fun failStream(t: DlTask, message: String) {
+        main.post {
+            t.active.set(0); t.speed = 0
+            if (t.stopReason == 2) tasks.remove(t) else { t.error = message; t.status = FAILED }
+            save()
+        }
+    }
+
     /** إضافة ملف مكتمل (ناتج الدمج) إلى قائمة التنزيلات. */
     fun addFinished(name: String, uri: Uri, mime: String, size: Long) {
         val t = DlTask(UUID.randomUUID().toString(), uri.toString(), uri.toString(), "", "")
@@ -189,13 +218,14 @@ object Downloader {
     fun removeOnMain(t: DlTask, deleteFile: Boolean) { main.post { remove(t, deleteFile) } }
 
     fun pause(t: DlTask) {
+        if (t.streamed) return
         if (t.status == DOWNLOADING || t.status == PREPARING) { t.stopReason = 1; t.status = PAUSED }
     }
 
     fun pauseAll() = tasks.toList().forEach { pause(it) }
 
     fun resume(t: DlTask) {
-        if (t.status != PAUSED && t.status != FAILED) return
+        if (t.streamed || (t.status != PAUSED && t.status != FAILED)) return
         t.status = PREPARING; t.error = ""
         startService()
         pool.execute {
@@ -554,6 +584,7 @@ object Downloader {
     @Volatile var uiVisible = false
 
     private fun updateProgress(t: DlTask) {
+        if (t.streamed) return
         t.downloaded = downloadedOf(t)
         t.conns = t.segs.count { it.busy && it.remaining > 0 }
         if (!uiVisible && t.status == DOWNLOADING) return
@@ -570,7 +601,7 @@ object Downloader {
         for (t in tasks.toList()) {
             if (t.status != DOWNLOADING) continue
             any = true
-            val d = downloadedOf(t)
+            val d = if (t.streamed) t.downloaded else downloadedOf(t)
             val dt = (now - t.lastTime).coerceAtLeast(1L)
             val inst = (d - t.lastBytes) * 1000 / dt
             t.speed = (t.speed * 6 + inst * 4) / 10
@@ -588,7 +619,7 @@ object Downloader {
             arr.put(JSONObject().apply {
                 put("id", t.id); put("url", t.url); put("orig", t.origUrl); put("ua", t.ua); put("ref", t.referer)
                 put("name", t.name); put("mime", t.mime); put("uri", t.uri?.toString() ?: "")
-                put("total", t.total); put("res", t.resumable); put("created", t.createdAt)
+                put("total", t.total); put("res", t.resumable); put("str", t.streamed); put("created", t.createdAt)
                 put("st", if (t.status == DONE || t.status == FAILED) t.status else PAUSED)
                 put("segs", JSONArray().apply { t.segs.forEach { put(JSONArray().put(it.start).put(it.end).put(it.pos)) } })
             })
@@ -611,6 +642,8 @@ object Downloader {
                     val a = sg.getJSONArray(j)
                     t.segs.add(Seg(a.getLong(0), a.getLong(1)).also { it.pos = a.getLong(2) })
                 }
+                t.streamed = o.optBoolean("str")
+                if (t.streamed && t.status != DONE) t.status = FAILED
                 if (t.status == DONE) t.downloaded = t.total else updateProgress(t)
                 tasks.add(t)
             }

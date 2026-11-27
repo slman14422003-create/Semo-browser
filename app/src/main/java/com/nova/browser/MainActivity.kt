@@ -673,6 +673,12 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
     Box(Modifier.fillMaxSize()) {
         Surface(Modifier.fillMaxSize().menuScrim(), color = if (inPip) Color.Black else iosC.bg) {
             val tintTarget = if (tab.url.isBlank()) iosC.groupedBg else (tab.topColor?.let { Color(it) } ?: iosC.bg)
+            LaunchedEffect(tab.id, tab.url, tab.loading) {
+                if (tab.url.isNotBlank()) for (wait in longArrayOf(400, 1200, 2500)) {
+                    kotlinx.coroutines.delay(wait)
+                    PageSampler.sample(tab)
+                }
+            }
             val stColor = animateColorAsState(tintTarget, Motion.timed(Motion.MEDIUM), label = "statusTint")
             SideEffect {
                 WindowInsetsControllerCompat(activity.window, activity.window.decorView).isAppearanceLightStatusBars = tintTarget.luminance() > 0.5f
@@ -721,7 +727,10 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                     }
                 }
                 val botTarget = if (tab.url.isBlank()) iosC.groupedBg else ((tab.botColor ?: tab.topColor)?.let { Color(it) } ?: iosC.bg)
-                val barIos = if (iosC.dark) iosC else (if (botTarget.luminance() < 0.5f) IosDark else IosLight).accented()
+                val barIos = (if (botTarget.luminance() < 0.5f) IosDark else IosLight).accented()
+                SideEffect {
+                    WindowInsetsControllerCompat(activity.window, activity.window.decorView).isAppearanceLightNavigationBars = botTarget.luminance() > 0.5f
+                }
                 LaunchedEffect(iosC.bg) { activity.window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(iosC.bg.toArgb())) }
                 AnimatedVisibility(
                     visible = !inPip && !pageTyping, modifier = Modifier.align(Alignment.BottomCenter),
@@ -729,7 +738,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                     exit = androidx.compose.animation.slideOutVertically(Motion.timed(Motion.SHORT, easing = Motion.emphasizedAccelerate)) { it / 3 } + fadeOut(Motion.timed(Motion.QUICK))
                 ) {
                 CompositionLocalProvider(LocalIos provides barIos, LocalContentColor provides barIos.label) {
-                if (tab.finding) key(tab.id) { FindBar(tab) } else BottomPill(
+                if (tab.finding) key(tab.id) { FindBar(tab) } else Box(Modifier.fillMaxWidth().then(if (editing) Modifier else Modifier.background(botTarget))) { BottomPill(
                     tab = tab, collapse = barCollapse, tabCount = tabs.size, tabIndex = current.coerceIn(0, tabs.lastIndex), editing = editing, setEditing = { editing = it },
                     onGo = { go(tab, it) }, onTabs = { openTabs() }, onNewTab = { newTab() }, onHome = { home(tab) },
                     onFind = { tab.findInfo = ""; tab.finding = true },
@@ -740,7 +749,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                         GeckoPage.exec(tab, "summarize.js") { r -> SmartAssist.summarizeRaw(activity, r, tab.url) { u -> openChild(u) } }
                     }, onAskAi = { askPage(tab) },
                     onSwitch = { d -> FrameLog.sample("tab_switch"); snap(tab); current = (current + d).coerceIn(0, tabs.lastIndex) }
-                )
+                ) }
                 }
                 }
                 // زر المنبثقة لا يعتمد على وضع التطبيق: يظهر فوق الشريط السفلي في صفحة فيديو يوتيوب حين يكون الشريط العلوي معطّلاً

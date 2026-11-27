@@ -18,24 +18,29 @@ object FileSaver {
     fun save(ctx: Context, url: String, body: InputStream?, cd: String?, mime: String?, length: Long = -1L) {
         val app = ctx.applicationContext
         Downloader.init(app)
-        toast(app, L("جارٍ حفظ الملف…"))
+        val data = url.startsWith("data:", true)
+        val first = if (data) nameFor(cd, mime?.substringBefore(';')?.trim()?.lowercase().orEmpty()) else Downloader.smartName(url, cd, mime)
+        val task = Downloader.startStream(app, first, Downloader.smartMime(first, mime), length)
+        toast(app, L("بدأ التنزيل — القائمة ⋮ ثم التنزيلات"))
         Work.io {
             runCatching {
-                if (url.startsWith("data:", true)) {
+                if (data) {
                     runCatching { body?.close() }
-                    saveData(app, url, cd, mime)
+                    saveData(app, task, url, cd, mime)
                 } else {
                     val input = body ?: throw IOException("no body")
                     input.use {
-                        val name = Downloader.smartName(url, cd, mime)
-                        write(app, name, Downloader.smartMime(name, mime), it, Long.MAX_VALUE, length)
+                        val name = task.name
+                        write(app, task, name, Downloader.smartMime(name, mime), it, Long.MAX_VALUE, length)
                     }
                 }
-            }.onFailure { Work.ui { toast(app, L("تعذّر حفظ الملف")) } }
+            }.onFailure { e ->
+                Downloader.failStream(task, e.message ?: "error")
+                Work.ui { toast(app, L("تعذّر حفظ الملف")) } }
         }
     }
 
-    private fun saveData(app: Context, url: String, cd: String?, mime: String?) {
+    private fun saveData(app: Context, task: DlTask, url: String, cd: String?, mime: String?) {
         val comma = url.indexOf(',')
         if (comma < 0) throw IOException("bad data url")
         val head = url.substring(5, comma)
@@ -43,7 +48,7 @@ object FileSaver {
             .lowercase().ifBlank { "application/octet-stream" }
         val raw = PercentStream(url, comma + 1)
         val input = if (head.contains(";base64", true)) Base64InputStream(raw, Base64.DEFAULT) else raw
-        input.use { write(app, nameFor(cd, type), type, it, MAX_DATA_BYTES, -1L) }
+        input.use { write(app, task, nameFor(cd, type), type, it, MAX_DATA_BYTES, -1L) }
     }
 
     private fun nameFor(cd: String?, mime: String): String {
@@ -53,7 +58,7 @@ object FileSaver {
         return "$n.$ext"
     }
 
-    private fun write(app: Context, name: String, mime: String, input: InputStream, limit: Long, expected: Long) {
+    private fun write(app: Context, task: DlTask, name: String, mime: String, input: InputStream, limit: Long, expected: Long) {
         val resolver = app.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, name)
@@ -70,9 +75,11 @@ object FileSaver {
                 while (true) {
                     val n = input.read(buf)
                     if (n < 0) break
+                    if (task.stopReason == 2) throw IOException("cancelled")
                     total += n
                     if (total > limit) throw IOException("too large")
                     it.write(buf, 0, n)
+                    task.downloaded = total
                 }
             }
             if (expected >= 0 && total != expected) throw IOException("truncated")
@@ -81,7 +88,7 @@ object FileSaver {
             runCatching { resolver.delete(uri, null, null) }
             throw e
         }
-        Downloader.addFinished(Downloader.displayName(app, uri, name), uri, mime, total)
+        Downloader.finishStream(task, Downloader.displayName(app, uri, name), uri, total)
         Work.ui { toast(app, L("تم الحفظ — القائمة ⋮ ثم التنزيلات")) }
     }
 
