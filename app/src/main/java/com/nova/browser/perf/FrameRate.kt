@@ -6,7 +6,7 @@ import android.view.MotionEvent
 import android.view.Window
 
 object FrameRate {
-    private const val RELEASE_MS = 700L
+    private const val RELEASE_MS = 3000L
     private val main = Handler(Looper.getMainLooper())
 
     fun onTouch(window: Window, ev: MotionEvent) {

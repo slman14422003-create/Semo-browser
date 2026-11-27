@@ -654,7 +654,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
     val imeVisible by remember { derivedStateOf { imeInsets.getBottom(density) > 0 } }
     val imeSettled = rememberSettledIme(imeInsets)   // ارتفاع الكيبورد بعد استقراره (تغيير واحد للـ WebView بدل ~20)
     val barCollapse = animateFloatAsState(
-        if (tab.barIsCompact(editing)) 1f else 0f,
+        0f,
         Motion.timed(UiLayout.COLLAPSE_ANIM_MS, easing = Motion.emphasized), label = "barCollapse"
     )
     var pageTyping by remember { mutableStateOf(false) }
@@ -662,10 +662,6 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
     var wasBlocked by remember { mutableStateOf(false) }
     val barVisible = !inPip && !pageTyping
     val navBottom = navInsets.getBottom(density)
-    LaunchedEffect(barVisible, navBottom, tab.finding, density) {
-        val maxPx = BarGeometry.maxPx(density, navBottom, tab.finding, barVisible)
-        snapshotFlow { BarGeometry.hiddenPx(density, barCollapse.value, tab.finding) }.collect { PageBars.set(maxPx, it) }
-    }
     LaunchedEffect(imeVisible, editing, tab.finding) {
         val blocked = editing || tab.finding
         if (imeVisible && !blocked) {
@@ -688,7 +684,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
             Box(
                 Modifier.fillMaxSize().statusBarsPadding().displayCutoutPadding()
             ) {
-                Box(Modifier.fillMaxSize().pageBounds({ imeSettled.value }, pageTyping, inPip).background(iosC.bg)) {
+                Box(Modifier.fillMaxSize().pageBounds({ imeSettled.value }, pageTyping, inPip, if (tab.url.isBlank()) 0 else BarGeometry.maxPx(density, navBottom, tab.finding, barVisible)).background(iosC.bg)) {
                     AnimatedContent(
                         targetState = tab.id to tab.url.isBlank(),
                         transitionSpec = {

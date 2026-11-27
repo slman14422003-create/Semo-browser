@@ -71,11 +71,12 @@ fun rememberSettledIme(ime: WindowInsets): State<Int> {
 fun Modifier.pageBounds(
     imeSettled: () -> Int,
     typing: Boolean,
-    inPip: Boolean
+    inPip: Boolean,
+    barPx: Int
 ): Modifier = this.layout { m, c ->
     val ime = imeSettled()
     val pad = if (!inPip && typing && ime > 0) ime else 0
-    val h = (c.maxHeight - pad).coerceAtLeast(0)
+    val h = (c.maxHeight - maxOf(pad, barPx)).coerceAtLeast(0)
     val p = m.measure(c.copy(minHeight = h, maxHeight = h))
     layout(c.maxWidth, c.maxHeight) { p.placeRelative(0, 0) }
 }
