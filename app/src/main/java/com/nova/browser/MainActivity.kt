@@ -137,7 +137,10 @@ class MainActivity : ComponentActivity() {
         // تدوير بتلاشٍ متقاطع بدل القفزة
         window.attributes = window.attributes.apply {
             rotationAnimation = android.view.WindowManager.LayoutParams.ROTATION_ANIMATION_CROSSFADE
+            layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS   // بدونها بعض الأجهزة تلوّن منطقة الكاميرا/شريط الحالة بالأسود
         }
+        window.isStatusBarContrastEnforced = false
+        window.isNavigationBarContrastEnforced = false
         Prefs.init(this)
         Prefs.syncNightMode(this)
         SiteStore.init(applicationContext)
@@ -731,7 +734,12 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                 SideEffect {
                     WindowInsetsControllerCompat(activity.window, activity.window.decorView).isAppearanceLightNavigationBars = botTarget.luminance() > 0.5f
                 }
-                LaunchedEffect(iosC.bg) { activity.window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(iosC.bg.toArgb())) }
+                LaunchedEffect(tintTarget, botTarget) {
+                    val st = tintTarget.toArgb(); val bt = botTarget.toArgb()
+                    val gd = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(st, st, bt, bt))
+                    gd.setColors(intArrayOf(st, st, bt, bt), floatArrayOf(0f, 0.5f, 0.5f, 1f))
+                    activity.window.setBackgroundDrawable(gd)
+                }
                 AnimatedVisibility(
                     visible = !inPip && !pageTyping, modifier = Modifier.align(Alignment.BottomCenter),
                     enter = androidx.compose.animation.slideInVertically(Motion.timed(Motion.LONG, easing = Motion.emphasized)) { it / 2 } + fadeIn(Motion.timed(Motion.SHORT)),
