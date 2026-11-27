@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
+import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
@@ -82,8 +83,8 @@ class EngineTab(
 
     private fun syncHttps(host: String?) {
         val insecure = https.insecureFor(Prefs.httpsFirst, host)
-        val want = if (insecure) GeckoSessionSettings.ALLOW_ALL else GeckoSessionSettings.HTTPS_ONLY
-        if (session.settings.allowInsecureConnections != want) session.settings.allowInsecureConnections = want
+        val want = if (insecure) GeckoRuntimeSettings.ALLOW_ALL else GeckoRuntimeSettings.HTTPS_ONLY
+        NovaApp.runtime().settings.setAllowInsecureConnections(want)
     }
 
     init {
