@@ -65,7 +65,7 @@ browser.webRequest.onBeforeRequest.addListener(
       return {};
     }
   },
-  { urls: ["http://*/*", "https://*/*"], types: ["script", "sub_frame", "image", "imageset", "xmlhttprequest", "ping", "beacon", "media", "object", "stylesheet", "font", "websocket", "other"] },
+  { urls: ["http://*/*", "https://*/*"], types: ["script", "sub_frame", "image", "imageset", "xmlhttprequest", "ping", "beacon"] },
   ["blocking"]
 );
 

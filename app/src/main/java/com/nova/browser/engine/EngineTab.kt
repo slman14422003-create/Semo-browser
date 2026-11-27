@@ -74,6 +74,10 @@ class EngineTab(
         private set
     val restored: Boolean = restore != null
 
+    private companion object {
+        @Volatile var lastHttpsMode = -1
+    }
+
     private var attached: GeckoView? = null
     private val https = HttpsGate()
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -84,6 +88,8 @@ class EngineTab(
     private fun syncHttps(host: String?) {
         val insecure = https.insecureFor(Prefs.httpsFirst, host)
         val want = if (insecure) GeckoRuntimeSettings.ALLOW_ALL else GeckoRuntimeSettings.HTTPS_ONLY
+        if (lastHttpsMode == want) return
+        lastHttpsMode = want
         NovaApp.runtime().settings.setAllowInsecureConnections(want)
     }
 

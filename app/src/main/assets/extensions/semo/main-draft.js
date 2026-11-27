@@ -70,6 +70,7 @@ try{(function(){
       } catch (x) { }
     }, true);
     setInterval(function () {
+      if (!tracked.length || document.hidden) return;
       tracked = tracked.filter(function (t) { return t.isConnected; });
       for (var i = 0; i < tracked.length; i++) sync(tracked[i]);
     }, 1500);

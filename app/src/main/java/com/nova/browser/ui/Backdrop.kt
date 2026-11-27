@@ -27,17 +27,20 @@ fun rememberBackdrop(): Backdrop {
     return remember(layer) { Backdrop(layer) }
 }
 
-fun Modifier.backdropSource(backdrop: Backdrop): Modifier =
-    onGloballyPositioned { backdrop.origin = it.positionInRoot() }
+fun Modifier.backdropSource(backdrop: Backdrop): Modifier {
+    if (!Adaptive.blurOk) return this
+    return onGloballyPositioned { backdrop.origin = it.positionInRoot() }
         .drawWithContent {
             backdrop.layer.record { this@drawWithContent.drawContent() }
             drawLayer(backdrop.layer)
         }
+}
 
 @Composable
 fun Modifier.backdropBlur(backdrop: Backdrop, shape: Shape): Modifier {
     val blurred = rememberGraphicsLayer()
     var position by remember { mutableStateOf(Offset.Zero) }
+    if (!Adaptive.blurOk) return clip(shape)
     return onGloballyPositioned { position = it.positionInRoot() }
         .clip(shape)
         .drawBehind {

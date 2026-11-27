@@ -252,7 +252,7 @@ fun TabSwitcher(
         }
         Row(
             Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth().height(56.dp)
-                .backdropBlur(backdrop, barShape).background(ios.cell.copy(alpha = 0.62f))
+                .backdropBlur(backdrop, barShape).background(ios.cell.copy(alpha = if (Adaptive.blurOk) 0.62f else 0.94f))
                 .border(0.5.dp, ios.label.copy(alpha = 0.10f), barShape).padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

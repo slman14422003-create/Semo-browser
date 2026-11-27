@@ -210,14 +210,29 @@
     icon();
   }
 
+  var lastRun = 0;
+  var retryTimer = 0;
+  function gated() {
+    var now = Date.now();
+    var gap = now - lastRun;
+    if (gap < 900) {
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(gated, 900 - gap);
+      return;
+    }
+    lastRun = now;
+    run();
+  }
+
   function soon() {
     clearTimeout(timer);
-    timer = setTimeout(run, 250);
+    timer = setTimeout(gated, 300);
   }
 
   function blocked(t) {
     try {
-      for (var e = t; e && e.nodeType === 1; e = e.parentElement) {
+      var depth = 0;
+      for (var e = t; e && e.nodeType === 1 && depth < 24; e = e.parentElement, depth++) {
         if (e.matches && e.matches(EDITOR)) return true;
         if (e === document.body || e === document.documentElement) return false;
         var cs = getComputedStyle(e);
@@ -239,14 +254,14 @@
     { capture: true, passive: true }
   );
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", run, { once: true });
-  else run();
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", gated, { once: true });
+  else gated();
   window.addEventListener("load", soon, { once: true });
-  setTimeout(tint, 900);
-  setTimeout(tint, 2600);
+  setTimeout(gated, 1200);
+  setTimeout(gated, 3000);
   // مواقع كثيرة تبدّل الداكن/الفاتح عبر class أو data-theme على html/body (لا يظهر في <head>)
   try {
-    var themeAttrs = ["class", "style", "data-theme", "data-mode", "data-color-mode", "data-bs-theme", "data-semo-dark"];
+    var themeAttrs = ["class", "data-theme", "data-mode", "data-color-mode", "data-bs-theme", "data-semo-dark"];
     var watchEl = function (el) {
       if (el) new MutationObserver(soon).observe(el, { attributes: true, attributeFilter: themeAttrs });
     };
@@ -264,7 +279,7 @@
     "scroll",
     function () {
       clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(tint, 300);
+      scrollTimer = setTimeout(gated, 500);
     },
     { passive: true }
   );

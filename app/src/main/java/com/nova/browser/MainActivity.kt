@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -185,6 +186,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showUi(start: String) {
+        runCatching { NovaApp.runtime() }
         setContent {
             val lvl = Adaptive.level
             LaunchedEffect(lvl, Prefs.cap60) { FrameRate.apply(window, false) }
@@ -631,7 +633,8 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
         mainAct?.tabProvider = { tabs.getOrNull(current) }
         mainAct?.netTabs = { tabs.toList() }
     }
-    LaunchedEffect(Prefs.js, Prefs.textZoom, Prefs.darkMode, Prefs.theme, LocalIos.current.dark, GeckoCfg.key()) { runCatching { GeckoSettings.update(); GeckoCfg.push() } }
+    val cfgKey by remember { derivedStateOf { GeckoCfg.key() } }
+    LaunchedEffect(Prefs.js, Prefs.textZoom, Prefs.darkMode, Prefs.theme, LocalIos.current.dark, cfgKey) { runCatching { GeckoSettings.update(); GeckoCfg.push() } }
     DisposableEffect(Unit) {
         GeckoPage.register(activity) { u ->
             tabs.firstOrNull { it.engine != null && it.url == u } ?: tabs.getOrNull(current)?.takeIf { it.engine != null }
@@ -688,7 +691,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
             val stColor = animateColorAsState(tintTarget, Motion.timed(Motion.MEDIUM), label = "statusTint")
             LaunchedEffect(stColor) {
                 val ctl = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
-                snapshotFlow { stColor.value }.collect { c -> ctl.isAppearanceLightStatusBars = BarTint.darkIcons(c) }
+                snapshotFlow { BarTint.darkIcons(stColor.value) }.distinctUntilChanged().collect { d -> ctl.isAppearanceLightStatusBars = d }
             }
             if (!inPip) Box(
                 Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).drawBehind { drawRect(stColor.value) }
@@ -738,14 +741,14 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                 val barIos = (if (BarTint.darkIcons(botTarget)) IosLight else IosDark).accented()
                 LaunchedEffect(botAnim) {
                     val ctl = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
-                    snapshotFlow { botAnim.value }.collect { c -> ctl.isAppearanceLightNavigationBars = BarTint.darkIcons(c) }
+                    snapshotFlow { BarTint.darkIcons(botAnim.value) }.distinctUntilChanged().collect { d -> ctl.isAppearanceLightNavigationBars = d }
+                }
+                val windowBg = remember {
+                    android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0, 0, 0, 0)).also { activity.window.setBackgroundDrawable(it) }
                 }
                 LaunchedEffect(stColor, botAnim) {
-                    snapshotFlow { stColor.value to botAnim.value }.collect { (sc, bc) ->
-                        val st = sc.toArgb(); val bt = bc.toArgb()
-                        val gd = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(st, st, bt, bt))
-                        gd.setColors(intArrayOf(st, st, bt, bt), floatArrayOf(0f, 0.5f, 0.5f, 1f))
-                        activity.window.setBackgroundDrawable(gd)
+                    snapshotFlow { stColor.value.toArgb() to botAnim.value.toArgb() }.distinctUntilChanged().collect { (st, bt) ->
+                        windowBg.setColors(intArrayOf(st, st, bt, bt), floatArrayOf(0f, 0.5f, 0.5f, 1f))
                     }
                 }
                 AnimatedVisibility(

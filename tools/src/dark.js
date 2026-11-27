@@ -122,7 +122,7 @@
     var mt = 0;
     new MutationObserver(function () {
       if (!applied || mt) return;
-      mt = setTimeout(function () { mt = 0; markMedia(); }, 1500);
+      mt = setTimeout(function () { mt = 0; markMedia(); }, 4000);
     }).observe(document.documentElement, { childList: true, subtree: true });
   } catch (e) {}
 })();

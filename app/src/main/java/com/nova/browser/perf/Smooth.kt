@@ -51,6 +51,7 @@ object Adaptive {
     var busy by androidx.compose.runtime.mutableStateOf(false); private set
     private val deferred = ArrayList<() -> Unit>()
     val heavy: Boolean get() = Prefs.smoothAnim && !weak && level == 0 && !busy
+    val blurOk: Boolean get() = Prefs.smoothAnim && !weak && level == 0
 
     fun markBusy() { busy = true }
 
