@@ -239,6 +239,7 @@ class EngineTab(
             view.setSession(session)
         }
         attached = view
+        PageBars.refresh(view)
     }
 
     fun detach() {

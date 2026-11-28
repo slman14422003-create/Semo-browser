@@ -1,0 +1,5 @@
+github.com core,page
+githubusercontent.com core,page
+apkmirror.com core,page
+cloudflare.com frames,core,page,misc
+cloudflareaccess.com frames,core,page,misc

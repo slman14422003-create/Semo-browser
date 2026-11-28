@@ -78,13 +78,13 @@ fun FindBar(tab: BrowserTab) {
     val fr = remember { FocusRequester() }
     LaunchedEffect(Unit) { fr.requestFocus() }
     Column(Modifier.imePadding().fillMaxWidth().background(ios.chrome).iosHairlineTop(ios.separator)) {
-        Row(Modifier.navigationBarsPadding().height(UiLayout.FIND_BAR_DP.dp).padding(start = 12.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.navigationBarsPadding().height(UiLayout.FIND_BAR_DP.dp).padding(start = UiLayout.dp12, end = UiLayout.dp2), verticalAlignment = Alignment.CenterVertically) {
             Row(
-                Modifier.weight(1f).height(36.dp).clip(IosShape.control).background(ios.fill3).padding(horizontal = 8.dp),
+                Modifier.weight(1f).height(UiLayout.dp36).clip(IosShape.control).background(ios.fill3).padding(horizontal = UiLayout.dp8),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IosIcon(IosGlyph.Magnifier, ios.label2, 16.dp)
-                Spacer(Modifier.width(6.dp))
+                IosIcon(IosGlyph.Magnifier, ios.label2, UiLayout.dp16)
+                Spacer(Modifier.width(UiLayout.dp6))
                 BasicTextField(
                     value = q, onValueChange = { q = it; tab.engine?.find(it) }, singleLine = true,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = ios.label), cursorBrush = SolidColor(ios.blue),
@@ -98,8 +98,8 @@ fun FindBar(tab: BrowserTab) {
                 )
                 if (tab.findInfo.isNotEmpty()) Text(tab.findInfo, style = MaterialTheme.typography.bodySmall, color = ios.label2, maxLines = 1)
             }
-            Box(Modifier.size(44.dp).tapClickable { tab.engine?.findNext(false) }.iosButton(S(R.string.a11y_find_prev)), contentAlignment = Alignment.Center) { IosIcon(IosGlyph.ChevronUp, ios.blue, 22.dp) }
-            Box(Modifier.size(44.dp).tapClickable { tab.engine?.findNext(true) }.iosButton(S(R.string.a11y_find_next)), contentAlignment = Alignment.Center) { IosIcon(IosGlyph.ChevronDown, ios.blue, 22.dp) }
+            Box(Modifier.size(UiLayout.dp44).tapClickable { tab.engine?.findNext(false) }.iosButton(S(R.string.a11y_find_prev)), contentAlignment = Alignment.Center) { IosIcon(IosGlyph.ChevronUp, ios.blue, UiLayout.dp22) }
+            Box(Modifier.size(UiLayout.dp44).tapClickable { tab.engine?.findNext(true) }.iosButton(S(R.string.a11y_find_next)), contentAlignment = Alignment.Center) { IosIcon(IosGlyph.ChevronDown, ios.blue, UiLayout.dp22) }
             IosTextButton(L("تم"), { tab.engine?.clearFind(); tab.finding = false }, bold = true)
         }
     }
@@ -125,12 +125,12 @@ private fun RowScope.ToolbarBtn(
         contentAlignment = Alignment.Center
     ) {
         val tbTint by animateColorAsState(if (enabled) ios.label else ios.label3, Motion.timed(Motion.SHORT), label = "tbTint")
-        IosIcon(kind, tbTint, 25.dp, Modifier.pressScale(src, 0.86f))
+        IosIcon(kind, tbTint, UiLayout.dp25, Modifier.pressScale(src, 0.86f))
         if (menu != null) IosMenu(
             expanded = open, onDismissRequest = { open = false }, shape = IosShape.menu,
-            tonalElevation = 0.dp, shadowElevation = 12.dp
+            tonalElevation = UiLayout.dp0, shadowElevation = UiLayout.dp12
         ) {
-            Column(Modifier.width(menuWidth(260.dp))) { menu({ open = false }) }
+            Column(Modifier.width(menuWidth(UiLayout.dp260))) { menu({ open = false }) }
         }
     }
 }
@@ -161,7 +161,7 @@ private fun BarButton(
     val haptic = rememberHaptics()
     var open by remember { mutableStateOf(false) }
     Box(
-        modifier.width(44.dp).fillMaxHeight().pressScale(src, 0.88f).alpha(if (enabled) 1f else 0.4f).iosButton(label)
+        modifier.width(UiLayout.dp44).fillMaxHeight().pressScale(src, 0.88f).alpha(if (enabled) 1f else 0.4f).iosButton(label)
             .tapCombinedClickable(
                 interactionSource = src, indication = null, enabled = enabled, onClick = onClick,
                 onLongClick = if (menu != null) ({ open = true }) else null
@@ -171,9 +171,9 @@ private fun BarButton(
         content()
         if (menu != null) IosMenu(
             expanded = open, onDismissRequest = { open = false }, shape = IosShape.menu,
-            tonalElevation = 0.dp, shadowElevation = 12.dp
+            tonalElevation = UiLayout.dp0, shadowElevation = UiLayout.dp12
         ) {
-            Column(Modifier.width(menuWidth(260.dp))) { menu({ open = false }) }
+            Column(Modifier.width(menuWidth(UiLayout.dp260))) { menu({ open = false }) }
         }
     }
 }
@@ -187,10 +187,10 @@ private fun SiteInfoContent(tab: BrowserTab, close: () -> Unit) {
     val jsOn = remember(rev, host) { SiteStore.jsOn(host) }
     val custom = remember(rev, host) { SiteStore.get(host).custom }
     val insecure = tab.url.startsWith("http://")
-    Column(Modifier.width(menuWidth(280.dp))) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (insecure) IosIcon(IosGlyph.Warning, ios.red, 16.dp) else IosIcon(IosGlyph.Lock, ios.label2, 14.dp)
-            Spacer(Modifier.width(10.dp))
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().heightIn(min = UiLayout.dp44).padding(horizontal = UiLayout.dp16, vertical = UiLayout.dp8), verticalAlignment = Alignment.CenterVertically) {
+            if (insecure) IosIcon(IosGlyph.Warning, ios.red, UiLayout.dp16) else IosIcon(IosGlyph.Lock, ios.label2, UiLayout.dp14)
+            Spacer(Modifier.width(UiLayout.dp10))
             Text(host, style = MaterialTheme.typography.titleSmall, color = ios.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         IosDivider()
@@ -247,19 +247,19 @@ private fun RowScope.AddressSlot(
         }
     }
     val fillColor = ios.blue
-    val roomy = slotW >= with(density) { 150.dp.toPx() }
+    val roomy = slotW >= with(density) { UiLayout.dp150.toPx() }
     val insecure = tab.url.startsWith("http://")
     val secure = tab.url.startsWith("https")
     val dlActive by remember { derivedStateOf { Downloader.tasks.count { it.status == Downloader.DOWNLOADING || it.status == Downloader.PREPARING } } }
     val settle = Motion.soft<Float>()
 
     Box(
-        Modifier.weight(1f).fillMaxHeight().padding(vertical = 5.dp).clipToBounds().onSizeChanged { slotW = it.width }
+        Modifier.weight(1f).fillMaxHeight().padding(vertical = UiLayout.dp5).clipToBounds().onSizeChanged { slotW = it.width }
     ) {
         Row(
             Modifier.fillMaxSize()
                 .graphicsLayer { translationX = offset.value }
-                .clip(IosShape.pill).background(ios.fill3)
+                .clip(IosShape.pill).glass(GlassStyles.Pill, IosShape.pill)
                 .drawBehind {
                     val w = size.width * fill.value
                     if (w > 0f && fade.value > 0f) drawRect(
@@ -268,9 +268,10 @@ private fun RowScope.AddressSlot(
                         Size(w, size.height)
                     )
                 }
+                .glowProgress({ fill.value }, { fade.value }, fillColor)
                 .pointerInput(tabIndex, tabCount) {
-                    val threshold = 48.dp.toPx()
-                    val upThreshold = 24.dp.toPx()
+                    val threshold = UiLayout.dp48.toPx()
+                    val upThreshold = UiLayout.dp24.toPx()
                     var dx = 0f
                     var dy = 0f
                     var decided = false
@@ -322,26 +323,23 @@ private fun RowScope.AddressSlot(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
-                Modifier.weight(1f).fillMaxHeight().padding(start = 6.dp).tapClickable(
+                Modifier.weight(1f).fillMaxHeight().padding(start = UiLayout.dp6).tapClickable(
                     interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onEdit
                 ),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center
             ) {
                 if (hasPage && (insecure || secure)) Box(
-                    Modifier.width(30.dp).fillMaxHeight().tapClickable(
+                    Modifier.width(UiLayout.dp30).fillMaxHeight().tapClickable(
                         interactionSource = remember { MutableInteractionSource() }, indication = null,
                         role = androidx.compose.ui.semantics.Role.Button
                     ) { siteInfo = true }.iosLabel(S(R.string.a11y_site_info)),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (insecure) IosIcon(IosGlyph.Warning, ios.red, 14.dp) else IosIcon(IosGlyph.Lock, ios.label2, 12.dp)
-                    IosMenu(
-                        expanded = siteInfo, onDismissRequest = { siteInfo = false }, shape = IosShape.menu,
-                        tonalElevation = 0.dp, shadowElevation = 12.dp
-                    ) { SiteInfoContent(tab) { siteInfo = false } }
+                    if (insecure) IosIcon(IosGlyph.Warning, ios.red, UiLayout.dp14) else IosIcon(IosGlyph.Lock, ios.label2, UiLayout.dp12)
+                    if (siteInfo) NovaSheet({ siteInfo = false }) { SiteInfoContent(tab) { siteInfo = false } }
                 } else if (!hasPage) {
-                    IosIcon(IosGlyph.Magnifier, ios.label2, 15.dp)
-                    Spacer(Modifier.width(6.dp))
+                    IosIcon(IosGlyph.Magnifier, ios.label2, UiLayout.dp15)
+                    Spacer(Modifier.width(UiLayout.dp6))
                 }
                 Text(
                     if (!hasPage) S(R.string.bar_hint) else hostOf(tab.url), maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -349,14 +347,14 @@ private fun RowScope.AddressSlot(
                 )
             }
             if (hasPage && dlActive > 0 && roomy) Box(
-                Modifier.width(36.dp).fillMaxHeight().tapClickable { onDownloads() }.iosButton(S(R.string.a11y_downloads)), contentAlignment = Alignment.Center
-            ) { IosIcon(IosGlyph.Download, ios.blue, 19.dp) }
+                Modifier.width(UiLayout.dp36).fillMaxHeight().tapClickable { onDownloads() }.iosButton(S(R.string.a11y_downloads)), contentAlignment = Alignment.Center
+            ) { IosIcon(IosGlyph.Download, ios.blue, UiLayout.dp19) }
             if (hasPage) Box(
-                Modifier.width(38.dp).fillMaxHeight().tapClickable { if (tab.loading) tab.engine?.stop() else tab.engine?.reload() }
+                Modifier.width(UiLayout.dp38).fillMaxHeight().tapClickable { if (tab.loading) tab.engine?.stop() else tab.engine?.reload() }
                     .iosButton(if (tab.loading) S(R.string.a11y_stop) else S(R.string.a11y_reload)),
                 contentAlignment = Alignment.Center
-            ) { IosIcon(if (tab.loading) IosGlyph.Close else IosGlyph.Reload, ios.label, 17.dp) }
-            else Spacer(Modifier.width(38.dp))
+            ) { IosIcon(if (tab.loading) IosGlyph.Close else IosGlyph.Reload, ios.label, UiLayout.dp17) }
+            else Spacer(Modifier.width(UiLayout.dp38))
         }
     }
 }
@@ -365,19 +363,20 @@ private fun RowScope.AddressSlot(
 private fun BarCapsule(
     tab: BrowserTab, tabCount: Int, tabIndex: Int, hasPage: Boolean, modifier: Modifier,
     onHome: () -> Unit, onTabs: () -> Unit, onSwitch: (Int) -> Unit, onEdit: () -> Unit,
-    onDownloads: () -> Unit, onMenu: () -> Unit, menuHost: @Composable () -> Unit
+    onDownloads: () -> Unit, onMenu: () -> Unit, menuHost: @Composable () -> Unit, menuOpen: Boolean = false
 ) {
     val ios = LocalIos.current
     val home = hasPage && !tab.canBack
-    val glow = remember { GlowState() }
+    val glow = remember { NavBloomState() }
+    SideEffect { glow.selected = if (menuOpen) "menu" else null }
     fun lit(key: String, action: () -> Unit): () -> Unit = { glow.active = key; action() }
     Row(
         modifier.fillMaxWidth().height(UiLayout.BAR_H.dp)
-            .glowHost(glow, ios.blue).padding(horizontal = 6.dp),
+            .bloomHost(glow, ios.blue).padding(horizontal = UiLayout.dp6),
         verticalAlignment = Alignment.CenterVertically
     ) {
         BarButton(
-            enabled = tab.canBack || hasPage, modifier = Modifier.glowAnchor(glow, "back"), onClick = lit("back") { if (tab.canBack) tab.engine?.back() else onHome() },
+            enabled = tab.canBack || hasPage, modifier = Modifier.bloomAnchor(glow, "back"), onClick = lit("back") { if (tab.canBack) tab.engine?.back() else onHome() },
             label = if (home) S(R.string.a11y_home) else S(R.string.a11y_back),
             menu = if (tab.canBack) ({ close ->
                 val items = historyItems(tab, true)
@@ -385,7 +384,7 @@ private fun BarCapsule(
             }) else null
         ) {
             Crossfade(targetState = home, animationSpec = Motion.timed(Motion.SHORT), label = "backHome") { h ->
-                IosIcon(if (h) IosGlyph.Home else IosGlyph.Back, ios.label, 22.dp)
+                IosIcon(if (h) IosGlyph.Home else IosGlyph.Back, ios.label, UiLayout.dp22)
             }
         }
         AnimatedVisibility(
@@ -394,17 +393,17 @@ private fun BarCapsule(
             exit = shrinkHorizontally(Motion.timed(Motion.SHORT)) + fadeOut(Motion.timed(Motion.QUICK))
         ) {
             BarButton(
-                enabled = true, modifier = Modifier.glowAnchor(glow, "forward"), onClick = lit("forward") { tab.engine?.forward() }, label = S(R.string.a11y_forward),
+                enabled = true, modifier = Modifier.bloomAnchor(glow, "forward"), onClick = lit("forward") { tab.engine?.forward() }, label = S(R.string.a11y_forward),
                 menu = { close ->
                     val items = historyItems(tab, false)
                     items.forEachIndexed { n, p -> IosCell(p.first, { close(); tab.engine?.goRelative(p.second) }, divider = n < items.lastIndex) }
                 }
-            ) { IosIcon(IosGlyph.Forward, ios.label, 22.dp) }
+            ) { IosIcon(IosGlyph.Forward, ios.label, UiLayout.dp22) }
         }
         AddressSlot(tab, hasPage, tabIndex, tabCount, onEdit, onTabs, onSwitch, onDownloads)
-        BarButton(enabled = true, modifier = Modifier.glowAnchor(glow, "tabs"), onClick = lit("tabs", onTabs), label = S(R.string.a11y_tabs) + " " + tabCount) {
+        BarButton(enabled = true, modifier = Modifier.bloomAnchor(glow, "tabs"), onClick = lit("tabs", onTabs), label = S(R.string.a11y_tabs) + " " + tabCount) {
             Box(
-                Modifier.size(24.dp).border(1.8.dp, ios.label, RoundedCornerShape(7.dp)),
+                Modifier.size(UiLayout.dp24).border(UiLayout.dp1_8, ios.label, RoundedCornerShape(UiLayout.dp7)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -413,8 +412,8 @@ private fun BarCapsule(
                 )
             }
         }
-        BarButton(enabled = true, modifier = Modifier.glowAnchor(glow, "menu"), onClick = lit("menu", onMenu), label = S(R.string.a11y_menu)) {
-            IosIcon(IosGlyph.Ellipsis, ios.label, 22.dp)
+        BarButton(enabled = true, modifier = Modifier.bloomAnchor(glow, "menu"), onClick = lit("menu", onMenu), label = S(R.string.a11y_menu)) {
+            IosIcon(IosGlyph.Ellipsis, ios.label, UiLayout.dp22)
             menuHost()
         }
     }
@@ -426,13 +425,13 @@ private fun CompactPill(tab: BrowserTab, modifier: Modifier) {
     val insecure = tab.url.startsWith("http://")
     val secure = tab.url.startsWith("https")
     Row(
-        modifier.height(UiLayout.COMPACT_PILL_DP.dp).widthIn(max = 280.dp).liquidGlass()
+        modifier.height(UiLayout.COMPACT_PILL_DP.dp).widthIn(max = UiLayout.dp280).liquidGlass()
             .tapClickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { tab.setCollapsed(false) }
-            .iosButton(S(R.string.a11y_expand_bar)).padding(horizontal = 14.dp),
+            .iosButton(S(R.string.a11y_expand_bar)).padding(horizontal = UiLayout.dp14),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (insecure) IosIcon(IosGlyph.Warning, ios.red, 13.dp) else if (secure) IosIcon(IosGlyph.Lock, ios.label2, 11.dp)
-        if (insecure || secure) Spacer(Modifier.width(5.dp))
+        if (insecure) IosIcon(IosGlyph.Warning, ios.red, UiLayout.dp13) else if (secure) IosIcon(IosGlyph.Lock, ios.label2, UiLayout.dp11)
+        if (insecure || secure) Spacer(Modifier.width(UiLayout.dp5))
         Text(hostOf(tab.url), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = ios.label)
     }
 }
@@ -451,7 +450,7 @@ private fun EditCard(
     LaunchedEffect(Unit) { fr.requestFocus() }
     LaunchedEffect(fill) { fill?.let { f -> field = TextFieldValue(f, TextRange(f.length)); onQuery(f); onFill(null) } }
     Column(
-        Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 8.dp)
+        Modifier.fillMaxWidth().padding(start = UiLayout.dp14, end = UiLayout.dp14, top = UiLayout.dp4, bottom = UiLayout.dp8)
             .liquidGlass(IosShape.card).animateContentSize(Motion.timed(Motion.MEDIUM, easing = Motion.emphasized))
     ) {
         SuggestionsPanel(
@@ -460,13 +459,13 @@ private fun EditCard(
             onFill = { onFill(it) },
             glass = true
         )
-        Row(Modifier.fillMaxWidth().height(52.dp).padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(UiLayout.dp52).padding(UiLayout.dp6), verticalAlignment = Alignment.CenterVertically) {
             Row(
-                Modifier.fillMaxSize().clip(IosShape.pill).background(ios.fill3).padding(start = 12.dp),
+                Modifier.fillMaxSize().clip(IosShape.pill).background(ios.fill3).padding(start = UiLayout.dp12),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IosIcon(IosGlyph.Magnifier, ios.label2, 17.dp)
-                Spacer(Modifier.width(8.dp))
+                IosIcon(IosGlyph.Magnifier, ios.label2, UiLayout.dp17)
+                Spacer(Modifier.width(UiLayout.dp8))
                 BasicTextField(
                     value = field, onValueChange = { field = it; onQuery(it.text) }, singleLine = true,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = ios.label), cursorBrush = SolidColor(ios.blue),
@@ -494,14 +493,14 @@ private fun EditCard(
                                 .primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString().orEmpty().trim()
                         }.getOrDefault("")
                         if (t.isNotEmpty()) { field = TextFieldValue(t, TextRange(t.length)); onQuery(t) }
-                    }.padding(horizontal = 10.dp).wrapContentHeight(Alignment.CenterVertically)
+                    }.padding(horizontal = UiLayout.dp10).wrapContentHeight(Alignment.CenterVertically)
                 )
                 Box(
-                    Modifier.width(44.dp).fillMaxHeight().tapClickable {
+                    Modifier.width(UiLayout.dp44).fillMaxHeight().tapClickable {
                         if (field.text.isNotEmpty()) { field = TextFieldValue(""); onQuery("") } else close()
                     }.iosButton(if (field.text.isNotEmpty()) S(R.string.a11y_clear_text) else S(R.string.a11y_cancel_edit)),
                     contentAlignment = Alignment.Center
-                ) { IosIcon(IosGlyph.XCircleFill, ios.label3, 18.dp, accent = ios.clearGlyph) }
+                ) { IosIcon(IosGlyph.XCircleFill, ios.label3, UiLayout.dp18, accent = ios.clearGlyph) }
             }
         }
     }
@@ -554,12 +553,12 @@ fun BottomPill(
                             val c = collapse.value
                             transformOrigin = TransformOrigin(0.5f, 1f)
                             alpha = (1f - c * 1.6f).coerceIn(0f, 1f)
-                            translationY = c * 14.dp.toPx()
+                            translationY = c * UiLayout.dp14.toPx()
                             scaleX = 1f - 0.16f * c
                             scaleY = 1f - 0.16f * c
                         },
                         onHome = onHome, onTabs = onTabs, onSwitch = onSwitch, onEdit = { setEditing(true) },
-                        onDownloads = onDownloads, onMenu = { pageMenu = true },
+                        onDownloads = onDownloads, onMenu = { pageMenu = true }, menuOpen = pageMenu,
                         menuHost = {
                             PageMenu(
                                 tab, pageMenu, { pageMenu = false }, onDesktop, onTranslate, onDownloads, onSettings, onSummarize, onAskAi,
@@ -568,11 +567,11 @@ fun BottomPill(
                         }
                     )
                     if (showCompact) CompactPill(
-                        tab, Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp).graphicsLayer {
+                        tab, Modifier.align(Alignment.BottomCenter).padding(bottom = UiLayout.dp4).graphicsLayer {
                             val c = collapse.value
                             transformOrigin = TransformOrigin(0.5f, 1f)
                             alpha = ((c - 0.3f) / 0.7f).coerceIn(0f, 1f)
-                            translationY = (1f - c) * 10.dp.toPx()
+                            translationY = (1f - c) * UiLayout.dp10.toPx()
                         }
                     )
                 }
@@ -587,7 +586,7 @@ fun RoundBtn(onClick: () -> Unit, enabled: Boolean = true, label: String? = null
     val ios = LocalIos.current
     val src = remember { MutableInteractionSource() }
     Box(
-        Modifier.size(44.dp).pressScale(src, 0.88f).alpha(if (enabled) 1f else 0.4f).iosLabel(label)
+        Modifier.size(UiLayout.dp44).pressScale(src, 0.88f).alpha(if (enabled) 1f else 0.4f).iosLabel(label)
             .tapClickable(interactionSource = src, indication = null, enabled = enabled, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center
     ) { CompositionLocalProvider(LocalContentColor provides ios.blue) { content() } }

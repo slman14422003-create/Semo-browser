@@ -4,10 +4,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import android.content.*
 import androidx.compose.foundation.*
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
@@ -31,11 +29,17 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 private fun hostColor(host: String): Color = Color.hsv((host.hashCode().toLong().let { if (it < 0) -it else it } % 360).toFloat(), 0.55f, 0.72f)
 
@@ -46,18 +50,18 @@ val TabTagColors = listOf(Color.Transparent, IosLight.red, IosLight.orange, IosL
 private fun MiniStartPage() {
     val ios = LocalIos.current
     val cols = listOf(IosLight.green, IosLight.blue, IosLight.red, IosBrand.gmail, IosLight.gray, IosDark.gray4)
-    Column(Modifier.fillMaxSize().background(ios.groupedBg).padding(horizontal = 10.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.width(44.dp).height(6.dp).clip(CircleShape).background(ios.fill2))
+    Column(Modifier.fillMaxSize().background(ios.groupedBg).padding(horizontal = UiLayout.dp10, vertical = UiLayout.dp12), verticalArrangement = Arrangement.spacedBy(UiLayout.dp8)) {
+        Box(Modifier.width(UiLayout.dp44).height(UiLayout.dp6).clip(CircleShape).background(ios.fill2))
         cols.chunked(4).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                row.forEach { c -> Box(Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(6.dp)).background(c)) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(UiLayout.dp6)) {
+                row.forEach { c -> Box(Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(UiLayout.dp6)).background(c)) }
                 repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
-        Box(Modifier.fillMaxWidth().height(16.dp).clip(RoundedCornerShape(5.dp)).background(ios.cell))
-        Box(Modifier.width(60.dp).height(6.dp).clip(CircleShape).background(ios.fill2))
-        Box(Modifier.fillMaxWidth().height(26.dp).clip(RoundedCornerShape(5.dp)).background(ios.cell))
-        Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(5.dp)).background(ios.cell))
+        Box(Modifier.fillMaxWidth().height(UiLayout.dp16).clip(RoundedCornerShape(UiLayout.dp5)).background(ios.cell))
+        Box(Modifier.width(UiLayout.dp60).height(UiLayout.dp6).clip(CircleShape).background(ios.fill2))
+        Box(Modifier.fillMaxWidth().height(UiLayout.dp26).clip(RoundedCornerShape(UiLayout.dp5)).background(ios.cell))
+        Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(UiLayout.dp5)).background(ios.cell))
     }
 }
 
@@ -67,7 +71,8 @@ fun TabSwitcher(
     tabs: List<BrowserTab>, current: Int,
     onSelect: (Int) -> Unit, onClose: (Int) -> Unit, onNew: (Int) -> Unit, onCloseAll: () -> Unit, onBack: () -> Unit,
     onDuplicate: (Int) -> Unit = {}, onCloseOthers: (Int) -> Unit = {}, onCloseTag: (Int) -> Unit = {},
-    canReopen: Boolean = false, onReopen: () -> Unit = {}, onCloseDuplicates: () -> Unit = {}
+    canReopen: Boolean = false, onReopen: () -> Unit = {}, onCloseDuplicates: () -> Unit = {},
+    onMove: (Int, Int) -> Unit = { _, _ -> }
 ) {
     val ios = LocalIos.current
     var picked by remember { mutableIntStateOf(-1) }
@@ -91,15 +96,19 @@ fun TabSwitcher(
     val gridState = rememberLazyGridState(initialFirstVisibleItemIndex = 0)
     var filterMenu by remember { mutableStateOf(false) }
     val haptic = rememberHaptics()
-        val backdrop = rememberBackdrop()
-        val barShape = RoundedCornerShape(28.dp)
+    val scope = rememberCoroutineScope()
+    val dens = LocalDensity.current.density
+    val moveNow by rememberUpdatedState(onMove)
+    val reorder = remember(gridState, dens) { TabReorder(gridState, scope, dens, haptic) { from, to -> moveNow(from, to) } }
+        val source = rememberGlassSource()
+        val barShape = RoundedCornerShape(UiLayout.dp28)
         val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             state = gridState, columns = GridCells.Fixed(2),
-            modifier = Modifier.fillMaxSize().backdropSource(backdrop).background(ios.tabsBg).statusBarsPadding(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp + navBottom)
+            modifier = Modifier.fillMaxSize().glassSource(source).background(ios.tabsBg).statusBarsPadding(),
+            horizontalArrangement = Arrangement.spacedBy(UiLayout.dp16), verticalArrangement = Arrangement.spacedBy(UiLayout.dp16),
+            contentPadding = PaddingValues(start = UiLayout.dp16, end = UiLayout.dp16, top = UiLayout.dp16, bottom = UiLayout.dp88 + navBottom)
         ) {
             item(key = "groups", contentType = "groups", span = { GridItemSpan(maxLineSpan) }) {
                 val names = Groups.names.toList()
@@ -111,16 +120,16 @@ fun TabSwitcher(
                         grp = Groups.ALL
                     })
                 } + Segment(L("خاص"), lock = true)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(UiLayout.dp8)) {
                     GlassSegments(segments, keys.indexOf(gNow).coerceAtLeast(0), { grp = keys[it] }, Modifier.weight(1f, fill = false), fill = false)
                     Box(
-                        Modifier.size(44.dp).tapClickable { grp = Groups.add(L("مجموعة") + " " + (Groups.names.size + 1)) }.iosButton(S(R.string.a11y_add)),
+                        Modifier.size(UiLayout.dp44).tapClickable { grp = Groups.add(L("مجموعة") + " " + (Groups.names.size + 1)) }.iosButton(S(R.string.a11y_add)),
                         contentAlignment = Alignment.Center
-                    ) { IosIcon(IosGlyph.Plus, ios.label, 20.dp) }
+                    ) { IosIcon(IosGlyph.Plus, ios.label, UiLayout.dp20) }
                 }
             }
             if (shown.isEmpty()) item(key = "empty", contentType = "empty", span = { GridItemSpan(maxLineSpan) }) {
-                Box(Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth().padding(vertical = UiLayout.dp48), contentAlignment = Alignment.Center) {
                     Text(if (gNow == Groups.PRIVATE) L("التصفح الخاص: لا يُحفظ السجل ولا الكوكيز") else L("لا توجد تبويبات هنا"), color = ios.label2, style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -131,118 +140,158 @@ fun TabSwitcher(
                 val host = remember(url) { if (blank) "nova" else hostOf(url) }
                 val accent = remember(host) { hostColor(host) }
                 var menu by remember { mutableStateOf(false) }
-                val cardShape = RoundedCornerShape(16.dp)
+                val cardShape = RoundedCornerShape(UiLayout.dp16)
                 var vis by remember { mutableStateOf(false) }
                 LaunchedEffect(t.id) { delay(Adaptive.ms(minOf(i, 8) * 28).toLong()); vis = true }
                 val pop by animateFloatAsState(if (vis) 1f else 0.82f, Motion.bouncy(), label = "tabPop")
-                var dx by remember { mutableFloatStateOf(0f) }
-                var dragging by remember { mutableStateOf(false) }
-                var pulled by remember { mutableFloatStateOf(0f) }
-                var detached by remember { mutableStateOf(false) }
-                // pointerInput يبقى مفتوحاً بنفس المفتاح: الفهرس i يتغيّر عند إغلاق تبويب سابق، فبدون هذا كان السحب يغلق تبويباً خاطئاً
                 val curIdx by rememberUpdatedState(i)
-                var closeReq by remember { mutableIntStateOf(0) }
-                LaunchedEffect(closeReq) { if (closeReq > 0) { delay(400); dx = 0f } }   // لو لم يُغلق التبويب (مثبّت/أخير) تعود البطاقة لمكانها
-                val dxShown by animateFloatAsState(dx, if (dragging) Motion.springy(1f, Spring.StiffnessHigh) else Motion.soft(), label = "swipeClose")
+                val closeNow by rememberUpdatedState(onClose)
+                val lifted = reorder.activeId == t.id
+                val cardScope = rememberCoroutineScope()
+                val magnet = remember(t.id) {
+                    MagneticDrag(cardScope, haptic, UiLayout.MAGNET_DETACH_DP * dens, UiLayout.MAGNET_ATTACH_DP * dens, UiLayout.MAGNET_PULL)
+                }
+                val release = remember { Animatable(0f) }
+                var swiping by remember { mutableStateOf(false) }
+                var base by remember { mutableFloatStateOf(0f) }
                 val cardSrc = remember { MutableInteractionSource() }
+                val zoom = LocalTabZoom.current
+                DisposableEffect(t.id, zoom) { onDispose { zoom?.detachCard(t.id) } }
                 Box(
-                    Modifier.fillMaxWidth().aspectRatio(0.74f).animateItem().pressScale(cardSrc, 0.96f)
-                        .graphicsLayer {
-                            translationX = dxShown; rotationZ = (dxShown / size.width) * 10f
-                            val sc = pop * (1f - 0.08f * (kotlin.math.abs(dxShown) / size.width).coerceIn(0f, 1f)); scaleX = sc; scaleY = sc
-                            alpha = ((1f - kotlin.math.abs(dxShown) / (size.width * 1.2f)) * (if (vis) 1f else 0f)).coerceIn(0f, 1f)
-                        }
+                    Modifier.fillMaxWidth().aspectRatio(0.74f)
+                        .animateItem(fadeInSpec = Motion.soft(), placementSpec = if (lifted) null else Motion.soft(), fadeOutSpec = Motion.soft())
+                        .zIndex(if (lifted) 1f else 0f)
                         .pointerInput(t.id) {
-                            val grip = 48.dp.toPx()
-                            detectHorizontalDragGestures(
-                                onDragStart = { dragging = true; pulled = 0f; detached = false },
-                                onDragEnd = {
-                                    dragging = false
-                                    if (detached) { haptic.confirm(); closeReq++; onClose(curIdx) } else dx = 0f
+                            val flingMin = UiLayout.SWIPE_FLING_DP_S * dens
+                            val travelMin = UiLayout.SWIPE_FLING_MIN_DP * dens
+                            tabCardGestures(
+                                onSwipeStart = { base = release.value; magnet.start(); swiping = true },
+                                onSwipe = { magnet.move(it) },
+                                onSwipeEnd = { travel, velocity, cancelled ->
+                                    magnet.finish()
+                                    val from = base + magnet.position
+                                    val close = !cancelled && (magnet.detached || MagnetPolicy.flingCloses(velocity, flingMin, travel, travelMin))
+                                    val exit = (if (travel < 0f) -1f else 1f) * size.width * UiLayout.SWIPE_EXIT_SHARE
+                                    cardScope.launch {
+                                        release.snapTo(from)
+                                        swiping = false
+                                        if (close) {
+                                            haptic.confirm()
+                                            release.animateTo(exit, Motion.timed(UiLayout.SWIPE_OUT_MS, Motion.emphasizedAccelerate))
+                                            closeNow(curIdx)
+                                            delay(Motion.millis(UiLayout.SWIPE_RETURN_WAIT_MS))
+                                        }
+                                        release.animateTo(0f, Motion.drop())
+                                    }
                                 },
-                                onDragCancel = { dragging = false; detached = false; dx = 0f },
-                                onHorizontalDrag = { c, d ->
-                                    c.consume()
-                                    pulled += d
-                                    val free = kotlin.math.abs(pulled) >= grip
-                                    if (free && !detached) haptic.tick()
-                                    detached = free
-                                    dx = if (free) pulled else pulled * 0.25f
-                                }
+                                onLift = { reorder.begin(t.id, it) },
+                                onLiftDrag = { reorder.dragBy(it) },
+                                onLiftEnd = { stayed -> reorder.end(stayed) { menu = true } }
                             )
                         }
+                        .pressScale(cardSrc, 0.96f)
+                        .graphicsLayer {
+                            val w = size.width
+                            val dx = if (swiping) base + magnet.position else release.value
+                            val d = reorder.displacement(t.id)
+                            val lift = reorder.liftOf(t.id)
+                            val away = (abs(dx) / w).coerceIn(0f, 1f)
+                            translationX = dx + d.x
+                            translationY = d.y
+                            rotationZ = dx / w * UiLayout.SWIPE_TILT_DEG
+                            val sc = pop * (1f - UiLayout.SWIPE_DEPTH * away) * (1f + (UiLayout.LIFT_SCALE - 1f) * lift)
+                            scaleX = sc
+                            scaleY = sc
+                            alpha = ((1f - abs(dx) / (w * UiLayout.SWIPE_EXIT_SHARE)) * (if (vis) 1f else 0f)).coerceIn(0f, 1f)
+                            shadowElevation = UiLayout.LIFT_SHADOW.toPx() * lift
+                            shape = cardShape
+                            clip = false
+                        }
+                        .tabBloom(i == current, ios.blue)
                 ) {
                     Column(
                         Modifier.fillMaxSize().clip(cardShape).background(ios.cell)
-                            .border(if (i == current) 2.5.dp else hairlineDp(), if (i == current) ios.blue else ios.separator, cardShape)
-                            .tapCombinedClickable(interactionSource = cardSrc, indication = null, onClick = { onSelect(i) }, onLongClick = { menu = true })
+                            .border(if (i == current) UiLayout.dp2_5 else hairlineDp(), if (i == current) ios.blue else ios.separator, cardShape)
+                            .semantics { onLongClick { menu = true; true } }
+                            .tapClickable(interactionSource = cardSrc, indication = null) { onSelect(i) }
                     ) {
-                        if (t.tag > 0) Box(Modifier.fillMaxWidth().height(3.dp).background(TabTagColors[t.tag]))
-                        Row(Modifier.fillMaxWidth().height(44.dp).padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (t.tag > 0) Box(Modifier.fillMaxWidth().height(UiLayout.dp3).background(TabTagColors[t.tag]))
+                        Row(Modifier.fillMaxWidth().height(UiLayout.dp44).padding(start = UiLayout.dp10), verticalAlignment = Alignment.CenterVertically) {
                             val fvTick = Favicons.watch(host)
                             val ic = if (blank) null else remember(host, fvTick) { Favicons.get(host) }
-                            if (t.loading) NovaSpinner(size = 17.dp, color = ios.blue)
-                            else Box(Modifier.size(16.dp).clip(RoundedCornerShape(4.dp)).background(if (ic != null) Color.White else accent), contentAlignment = Alignment.Center) {
+                            if (t.loading) NovaSpinner(size = UiLayout.dp17, color = ios.blue)
+                            else Box(Modifier.size(UiLayout.dp16).clip(RoundedCornerShape(UiLayout.dp4)).background(if (ic != null) Color.White else accent), contentAlignment = Alignment.Center) {
                                 if (ic != null) {
                                     val ib = remember(ic) { ic.asImageBitmap() }
                                     Image(ib, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                                 } else Text(host.take(1).uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
                             }
-                            Spacer(Modifier.width(6.dp))
+                            Spacer(Modifier.width(UiLayout.dp6))
                             Text(
                                 if (blank) L("صفحة البداية") else if (t.title.isBlank() || t.title == L("تبويب جديد")) host else t.title, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, color = ios.label, modifier = Modifier.weight(1f)
                             )
-                            Box(Modifier.size(44.dp).tapClickable { onClose(i) }.iosButton(S(R.string.a11y_close_tab)), contentAlignment = Alignment.Center) {
-                                Box(Modifier.size(22.dp).clip(CircleShape).background(ios.fill2), contentAlignment = Alignment.Center) {
-                                    IosIcon(IosGlyph.Close, ios.label2, 10.dp, weight = 1.3f)
+                            Box(Modifier.size(UiLayout.dp44).tapClickable { onClose(i) }.iosButton(S(R.string.a11y_close_tab)), contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(UiLayout.dp22).clip(CircleShape).background(ios.fill2), contentAlignment = Alignment.Center) {
+                                    IosIcon(IosGlyph.Close, ios.label2, UiLayout.dp10, weight = 1.3f)
                                 }
                             }
                         }
-                        Box(Modifier.weight(1f).fillMaxWidth().background(ios.groupedBg)) {
+                        Box(
+                            Modifier.weight(1f).fillMaxWidth()
+                                .onGloballyPositioned { c -> zoom?.attachCard(t.id, c) }
+                                .graphicsLayer { alpha = if (zoom != null && zoom.hiding == t.id) 0f else 1f }
+                                .background(ios.groupedBg)
+                        ) {
                             val th = t.thumb
-                            if (th != null && !blank) {
-                                val img = remember(th) { th.asImageBitmap() }
-                                Image(img, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopCenter)
-                            } else {
-                                if (blank) MiniStartPage()
-                                else Box(Modifier.fillMaxSize().background(ios.bg), contentAlignment = Alignment.Center) {
-                                    val fv2 = Favicons.watch(host)
-                                    val ic2 = remember(host, fv2) { Favicons.get(host) }
-                                    if (ic2 != null) {
-                                        Box(Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)).background(Color.White), contentAlignment = Alignment.Center) {
-                                            val ib2 = remember(ic2) { ic2.asImageBitmap() }
-                                            Image(ib2, null, Modifier.fillMaxSize().padding(8.dp), contentScale = ContentScale.Fit)
-                                        }
-                                    } else Text(host.take(1).uppercase(), style = MaterialTheme.typography.displayLarge, color = accent)
+                            SkeletonReveal(
+                                ready = blank || th != null || !t.loading,
+                                modifier = Modifier.fillMaxSize(),
+                                skeleton = { SkeletonThumb(Modifier.fillMaxSize()) }
+                            ) {
+                                if (th != null && !blank) {
+                                    val img = remember(th) { th.asImageBitmap() }
+                                    Image(img, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopCenter)
+                                } else {
+                                    if (blank) MiniStartPage()
+                                    else Box(Modifier.fillMaxSize().background(ios.bg), contentAlignment = Alignment.Center) {
+                                        val fv2 = Favicons.watch(host)
+                                        val ic2 = remember(host, fv2) { Favicons.get(host) }
+                                        if (ic2 != null) {
+                                            Box(Modifier.size(UiLayout.dp52).clip(RoundedCornerShape(UiLayout.dp12)).background(Color.White), contentAlignment = Alignment.Center) {
+                                                val ib2 = remember(ic2) { ic2.asImageBitmap() }
+                                                Image(ib2, null, Modifier.fillMaxSize().padding(UiLayout.dp8), contentScale = ContentScale.Fit)
+                                            }
+                                        } else Text(host.take(1).uppercase(), style = MaterialTheme.typography.displayLarge, color = accent)
+                                    }
                                 }
                             }
                         }
                     }
                     IosMenu(
                         expanded = menu, onDismissRequest = { menu = false }, shape = IosShape.menu,
-                        tonalElevation = 0.dp, shadowElevation = 12.dp
+                        tonalElevation = UiLayout.dp0, shadowElevation = UiLayout.dp12
                     ) {
-                        Column(Modifier.width(menuWidth(280.dp))) {
+                        Column(Modifier.width(menuWidth(UiLayout.dp280))) {
                             IosCell(if (t.pinned) L("إلغاء التثبيت") else L("تثبيت"), { t.pinned = !t.pinned; menu = false })
                             IosCell(L("نسخ التبويب"), { menu = false; onDuplicate(i) })
-                            if (!t.isPrivate) Groups.names.toList().forEach { g -> IosCell(L("نقل إلى ") + g.second, { t.group = g.first; menu = false }, trailing = if (t.group == g.first) ({ IosIcon(IosGlyph.Check, ios.blue, 20.dp) }) else null) }
+                            if (!t.isPrivate) Groups.names.toList().forEach { g -> IosCell(L("نقل إلى ") + g.second, { t.group = g.first; menu = false }, trailing = if (t.group == g.first) ({ IosIcon(IosGlyph.Check, ios.blue, UiLayout.dp20) }) else null) }
             if (!t.isPrivate && t.group > 0) IosCell(L("إزالة من المجموعة"), { t.group = Groups.NONE; menu = false })
                             IosCell(L("إغلاق التبويبات الأخرى"), { menu = false; onCloseOthers(i) }, divider = t.tag > 0)
                             if (t.tag > 0) IosCell(L("إغلاق كل تبويبات هذا اللون"), { menu = false; onCloseTag(t.tag) }, divider = false)
                             IosDivider()
-                            Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.padding(horizontal = UiLayout.dp8), verticalAlignment = Alignment.CenterVertically) {
                                 for (g in 0..6) Box(
-                                    Modifier.weight(1f).height(44.dp).tapClickable { t.tag = g; menu = false }
+                                    Modifier.weight(1f).height(UiLayout.dp44).tapClickable { t.tag = g; menu = false }
                                         .iosButton(S(if (g == 0) R.string.a11y_no_color else R.string.a11y_tab_color)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Box(
-                                        Modifier.size(26.dp).clip(CircleShape)
+                                        Modifier.size(UiLayout.dp26).clip(CircleShape)
                                             .background(if (g == 0) ios.fill2 else TabTagColors[g])
-                                            .border(if (t.tag == g) 2.dp else 0.dp, ios.blue, CircleShape),
+                                            .border(if (t.tag == g) UiLayout.dp2 else UiLayout.dp0, ios.blue, CircleShape),
                                         contentAlignment = Alignment.Center
-                                    ) { if (g == 0) IosIcon(IosGlyph.Close, ios.label2, 12.dp) }
+                                    ) { if (g == 0) IosIcon(IosGlyph.Close, ios.label2, UiLayout.dp12) }
                                 }
                             }
                         }
@@ -251,35 +300,34 @@ fun TabSwitcher(
             }
         }
         Row(
-            Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth().height(56.dp)
-                .backdropBlur(backdrop, barShape).background(ios.cell.copy(alpha = if (Adaptive.blurOk) 0.62f else 0.94f))
-                .border(0.5.dp, ios.label.copy(alpha = 0.10f), barShape).padding(horizontal = 6.dp),
+            Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = UiLayout.dp12, vertical = UiLayout.dp8).fillMaxWidth().height(UiLayout.dp56)
+                .glass(GlassStyles.Bar, barShape, source).padding(horizontal = UiLayout.dp6),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(Modifier.size(44.dp).tapClickable { onNew(if (gNow == Groups.ALL) Groups.NONE else gNow) }.iosButton(S(R.string.a11y_new_tab)), contentAlignment = Alignment.Center) { IosIcon(IosGlyph.Plus, ios.label, 26.dp) }
+            Box(Modifier.size(UiLayout.dp44).tapClickable { onNew(if (gNow == Groups.ALL) Groups.NONE else gNow) }.iosButton(S(R.string.a11y_new_tab)), contentAlignment = Alignment.Center) { IosIcon(IosGlyph.Plus, ios.label, UiLayout.dp26) }
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Row(
-                    Modifier.height(32.dp).clip(CircleShape).background(ios.fill3).tapClickable { filterMenu = true }.padding(horizontal = 14.dp),
+                    Modifier.height(UiLayout.dp32).clip(CircleShape).background(ios.fill3).tapClickable { filterMenu = true }.padding(horizontal = UiLayout.dp14),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         "" + tabs.count(inGroup) + " " + L("التبويبات"), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = ios.label, maxLines = 1
                     )
-                    Spacer(Modifier.width(4.dp))
-                    IosIcon(IosGlyph.ChevronDown, ios.label2, 11.dp, weight = 1.3f)
+                    Spacer(Modifier.width(UiLayout.dp4))
+                    IosIcon(IosGlyph.ChevronDown, ios.label2, UiLayout.dp11, weight = 1.3f)
                 }
                 IosMenu(
                     expanded = filterMenu, onDismissRequest = { filterMenu = false }, shape = IosShape.menu,
-                    tonalElevation = 0.dp, shadowElevation = 12.dp
+                    tonalElevation = UiLayout.dp0, shadowElevation = UiLayout.dp12
                 ) {
-                    Column(Modifier.width(menuWidth(240.dp))) {
-                        IosCell(L("الكل"), { picked = -1; filterMenu = false }, trailing = if (filter == -1) ({ IosIcon(IosGlyph.Check, ios.blue, 20.dp) }) else null)
-                        if (tabs.any { it.pinned }) IosCell(L("المثبّتة"), { picked = -2; filterMenu = false }, trailing = if (filter == -2) ({ IosIcon(IosGlyph.Check, ios.blue, 20.dp) }) else null)
+                    Column(Modifier.width(menuWidth(UiLayout.dp240))) {
+                        IosCell(L("الكل"), { picked = -1; filterMenu = false }, trailing = if (filter == -1) ({ IosIcon(IosGlyph.Check, ios.blue, UiLayout.dp20) }) else null)
+                        if (tabs.any { it.pinned }) IosCell(L("المثبّتة"), { picked = -2; filterMenu = false }, trailing = if (filter == -2) ({ IosIcon(IosGlyph.Check, ios.blue, UiLayout.dp20) }) else null)
                         usedTags.forEach { g ->
                             IosCell(
                                 "" + tabs.count { it.tag == g }, { picked = g; filterMenu = false },
-                                leading = { Box(Modifier.size(14.dp).clip(CircleShape).background(TabTagColors[g])) },
-                                trailing = if (filter == g) ({ IosIcon(IosGlyph.Check, ios.blue, 20.dp) }) else null
+                                leading = { Box(Modifier.size(UiLayout.dp14).clip(CircleShape).background(TabTagColors[g])) },
+                                trailing = if (filter == g) ({ IosIcon(IosGlyph.Check, ios.blue, UiLayout.dp20) }) else null
                             )
                         }
                         IosDivider()

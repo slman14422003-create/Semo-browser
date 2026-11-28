@@ -7,6 +7,9 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.InfiniteRepeatableSpec
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
@@ -29,6 +32,11 @@ object Motion {
     const val STAGGER = 40
     const val SPIN = 1000
     const val SHIMMER = 1200
+    const val GLIDE = 360
+    const val BLOOM_HOLD = 900L
+    const val PROGRESS_FILL = SHORT
+    const val PROGRESS_FADE = MEDIUM
+    const val SNAPSHOT_FADE = MEDIUM
 
     private val emphasizedCurve by lazy {
         PathInterpolator(Path().apply {
@@ -44,6 +52,13 @@ object Motion {
 
     val enabled: Boolean get() = Adaptive.ms(100) > 0
 
+    fun ms(base: Int): Int = Adaptive.ms(base)
+
+    fun millis(base: Long): Long = Adaptive.ms(base.toInt()).toLong()
+
+    fun <T> loop(base: Int): InfiniteRepeatableSpec<T> =
+        infiniteRepeatable(tween(Adaptive.ms(base).takeIf { it > 0 } ?: base, easing = LinearEasing))
+
     fun <T> timed(base: Int, easing: Easing = standard, delayMillis: Int = 0): TweenSpec<T> =
         tween(Adaptive.ms(base), Adaptive.ms(delayMillis), easing)
 
@@ -51,7 +66,14 @@ object Motion {
         if (enabled) spring(damping, stiffness) else snap()
 
     fun <T> snappy(): FiniteAnimationSpec<T> = springy(0.8f, 700f)
+    fun <T> glideLead(): FiniteAnimationSpec<T> = springy(0.7f, 900f)
+    fun <T> glideTrail(): FiniteAnimationSpec<T> = springy(0.78f, 420f)
+    fun <T> bloom(): FiniteAnimationSpec<T> = springy(0.85f, 320f)
+    fun <T> rubber(): FiniteAnimationSpec<T> = springy(0.85f, 250f)
     fun <T> soft(): FiniteAnimationSpec<T> = springy(0.8f, 400f)
+    fun <T> bounce(): FiniteAnimationSpec<T> = springy(0.55f, 380f)
+    fun <T> magnet(): FiniteAnimationSpec<T> = springy(0.95f, 800f)
+    fun <T> drop(): FiniteAnimationSpec<T> = springy(0.72f, 520f)
     fun <T> bouncy(): FiniteAnimationSpec<T> = if (Adaptive.heavy) springy(0.68f, 400f) else timed(SHORT)
 
     val fadeThroughEnter: EnterTransition

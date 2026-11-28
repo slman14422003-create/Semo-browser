@@ -4,7 +4,6 @@
   var ATTR = "data-semo-dark";
   var STYLE_ID = "__semo_dark_css";
   var applied = false;
-  var timer = 0;
 
   var CSS =
     "html[" + ATTR + "]{filter:invert(1) hue-rotate(180deg)!important;background-color:#fff!important}" +
@@ -58,30 +57,62 @@
     (document.head || document.documentElement).appendChild(s);
   }
 
-  function markMedia() {
+  var MIN = 9000, BG = '[style*="background-image"]';
+  var hub = semoHub();
+
+  function markImg(im) {
     try {
-      var imgs = document.images;
-      for (var i = 0; i < imgs.length && i < 400; i++) {
-        var im = imgs[i];
-        if (im.hasAttribute("data-semo-keep")) continue;
-        var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height;
-        if (w * h >= 9000) im.setAttribute("data-semo-keep", "1");
-      }
-      var pics = document.querySelectorAll("picture:not([data-semo-keep])");
-      for (var j = 0; j < pics.length && j < 100; j++) pics[j].setAttribute("data-semo-keep", "1");
-      var cand = document.querySelectorAll('[style*="background-image"]:not([data-semo-keep])');
-      for (var k = 0; k < cand.length && k < 200; k++) {
-        var el = cand[k];
-        if (el.childElementCount === 0 && !(el.textContent || "").trim()) {
-          var r = el.getBoundingClientRect();
-          if (r.width * r.height >= 9000) el.setAttribute("data-semo-keep", "1");
-        }
-      }
+      if (im.hasAttribute("data-semo-keep")) return;
+      var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height;
+      if (w * h >= MIN) im.setAttribute("data-semo-keep", "1");
     } catch (e) {}
   }
 
+  function markBg(el) {
+    try {
+      if (el.hasAttribute("data-semo-keep") || el.childElementCount !== 0 || (el.textContent || "").trim()) return;
+      var r = el.getBoundingClientRect();
+      if (r.width * r.height >= MIN) el.setAttribute("data-semo-keep", "1");
+    } catch (e) {}
+  }
+
+  function visit(n) {
+    var t = n.nodeName;
+    if (t === "IMG") markImg(n);
+    else if (t === "PICTURE") n.setAttribute("data-semo-keep", "1");
+    else if (n.hasAttribute("style") && (n.getAttribute("style") || "").indexOf("background-image") >= 0) markBg(n);
+    if (!n.firstElementChild) return;
+    var l = n.querySelectorAll("img,picture," + BG), i, m;
+    for (i = 0; i < l.length && i < 200; i++) {
+      m = l[i];
+      if (m.nodeName === "IMG") markImg(m);
+      else if (m.nodeName === "PICTURE") m.setAttribute("data-semo-keep", "1");
+      else markBg(m);
+    }
+  }
+
+  function drain() {
+    if (!applied) return;
+    var q = hub.q, t0 = Date.now(), n;
+    while (q.length && Date.now() - t0 < 6) {
+      n = q.shift();
+      if (n && n.isConnected) visit(n);
+    }
+    if (q.length) hub.poke(drain);
+  }
+
+  function markMedia() {
+    try {
+      var imgs = document.images;
+      for (var i = 0; i < imgs.length && i < 400; i++) markImg(imgs[i]);
+      var pics = document.getElementsByTagName("picture");
+      for (var j = 0; j < pics.length && j < 100; j++) pics[j].setAttribute("data-semo-keep", "1");
+    } catch (e) {}
+    drain();
+  }
+
   function on() {
-    if (applied) { markMedia(); return; }
+    if (applied) { drain(); return; }
     applied = true;
     ensureStyle();
     document.documentElement.setAttribute(ATTR, "1");
@@ -102,27 +133,15 @@
     } catch (e) {}
   }
 
-  function soon() {
-    clearTimeout(timer);
-    timer = setTimeout(decide, 200);
-  }
-
+  hub.track(true);
+  hub.on(hub.TH, decide, 200);
+  hub.on(hub.CH, drain, 400);
+  document.addEventListener("load", function (e) {
+    if (applied && e.target && e.target.nodeName === "IMG") markImg(e.target);
+  }, true);
   if (FORCE) decide();
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", decide, { once: true });
   else decide();
   window.addEventListener("load", function () { decide(); setTimeout(markMedia, 600); }, { once: true });
   setTimeout(decide, 1200);
-  try {
-    var attrs = ["class", "data-theme", "data-mode", "data-color-mode", "data-bs-theme", "style"];
-    var watch = function (el) {
-      if (el) new MutationObserver(soon).observe(el, { attributes: true, attributeFilter: attrs });
-    };
-    watch(document.documentElement);
-    document.addEventListener("DOMContentLoaded", function () { watch(document.body); }, { once: true });
-    var mt = 0;
-    new MutationObserver(function () {
-      if (!applied || mt) return;
-      mt = setTimeout(function () { mt = 0; markMedia(); }, 4000);
-    }).observe(document.documentElement, { childList: true, subtree: true });
-  } catch (e) {}
 })();

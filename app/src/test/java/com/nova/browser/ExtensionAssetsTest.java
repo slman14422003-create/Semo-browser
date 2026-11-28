@@ -61,10 +61,36 @@ public class ExtensionAssetsTest {
     }
 
     @Test
-    public void everyFlagHasItsOwnScript() {
+    public void everyScriptGroupHasItsBundle() {
         File dir = assets().resolve("extensions/semo").toFile();
-        for (String n : new String[] {"fit", "lazy", "boost", "pop", "heavy", "zoom", "copy", "draft"}) {
+        for (String n : new String[] {"frames", "frames-ns", "core", "dark-1", "dark-2"}) {
             assertTrue(n, new File(dir, "main-" + n + ".js").isFile());
+        }
+        for (int mask = 1; mask < 16; mask++) {
+            assertTrue("page " + mask, new File(dir, "main-page-" + mask + ".js").isFile());
+            assertTrue("misc " + mask, new File(dir, "main-misc-" + mask + ".js").isFile());
+        }
+        assertTrue(new File(dir, "hub.js").isFile());
+        assertTrue(new File(dir, "rules-ads.json").isFile());
+        assertTrue(new File(dir, "bypass.txt").isFile());
+    }
+
+    @Test
+    public void backgroundHasNoBlockingWebRequest() throws IOException {
+        Path dir = assets().resolve("extensions/semo");
+        String bg = new String(Files.readAllBytes(dir.resolve("background.js")), StandardCharsets.UTF_8);
+        String mf = new String(Files.readAllBytes(dir.resolve("manifest.json")), StandardCharsets.UTF_8);
+        assertFalse(bg.contains("webRequest"));
+        assertFalse(mf.contains("webRequest"));
+        assertTrue(mf.contains("declarativeNetRequest"));
+    }
+
+    @Test
+    public void mutationObserversLiveOnlyInTheSharedHub() throws IOException {
+        Path dir = assets().resolve("extensions/semo");
+        for (String n : new String[] {"page.js", "pw.js"}) {
+            String t = new String(Files.readAllBytes(dir.resolve(n)), StandardCharsets.UTF_8);
+            assertFalse(n, t.contains("new MutationObserver"));
         }
     }
 }

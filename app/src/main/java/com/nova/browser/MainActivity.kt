@@ -34,9 +34,11 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -47,6 +49,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.app.ActivityCompat
 import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.ui.draw.alpha
@@ -71,6 +74,7 @@ class MainActivity : ComponentActivity() {
     private var incoming by mutableStateOf<Pair<Int, String>?>(null)
     private var incomingSeq = 0
     @Volatile private var ready = false
+    @Volatile private var readyAt = 0L
 
     companion object {
         private var cleanedThisProcess = false
@@ -167,7 +171,7 @@ class MainActivity : ComponentActivity() {
         val start = if (savedInstanceState == null) DefaultBrowser.urlFrom(intent) ?: "" else ""
         if (trusted && intent?.getBooleanExtra("dl", false) == true) dlTrigger++
         // نُبقي الـ Splash ظاهرة حتى ينتهي تنظيف المؤقت وتُعرض الواجهة
-        splash.setKeepOnScreenCondition { !ready }
+        splash.setKeepOnScreenCondition { !ready || (!SplashGate.drawn && android.os.SystemClock.elapsedRealtime() - readyAt < UiLayout.LAUNCH_HOLD_CAP_MS) }
         // الكاش يُمسح كلياً عند التشغيل فقط إن فعّل المستخدم «مسح الكاش عند كل تشغيل»؛ وإلا يُنظَّف فقط إن تجاوز الحد (علم يضعه onStop)
         val newBuild = Updater.versionChanged(this)
         if (!cleanedThisProcess && (newBuild || Prefs.autoClean || CacheCleaner.pending(this))) {
@@ -192,8 +196,13 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(lvl, Prefs.cap60) { FrameRate.apply(window, false) }
             LaunchedEffect(Unit) { androidx.compose.runtime.withFrameNanos { }; reportFullyDrawn() }
             LaunchedEffect(Unit) { kotlinx.coroutines.delay(4000); Updater.check(applicationContext) }
-            NovaTheme(this) { BrowserApp(start, dlTrigger, inPip, incoming) }
+            NovaTheme(this) {
+                BrowserApp(start, dlTrigger, inPip, incoming)
+                SnackHost()
+                LaunchVeil()
+            }
         }
+        readyAt = android.os.SystemClock.elapsedRealtime()
         ready = true
         android.os.Looper.myQueue().addIdleHandler { runCatching { NovaApp.runtime() }; false }
     }
@@ -246,6 +255,8 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
     var nextId by remember { mutableIntStateOf(tabs.size + 1000) }
     var current by remember { mutableIntStateOf(if (startUrl.isNotBlank()) tabs.lastIndex else prefs.getInt("cur", 0).coerceIn(0, tabs.lastIndex)) }
     var showTabs by remember { mutableStateOf(false) }
+    val zoom = remember { TabZoom() }
+    val ghost = rememberFrostGhost()
     var editing by remember { mutableStateOf(false) }
     var pendingSave by remember { mutableStateOf<PendingSave?>(null) }
     var fillOffer by remember { mutableStateOf<FillOffer?>(null) }
@@ -324,7 +335,13 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
     fun snap(t: BrowserTab) {
         t.engine?.let { snapEngine(t, it) }
     }
-    fun openTabs() { FrameLog.sample("tab_overview_open"); snap(tab); showTabs = true }
+    fun openTabs() {
+        FrameLog.sample("tab_overview_open")
+        val t = tab
+        snap(t)
+        if (t.url.isNotBlank()) zoom.open(t.id) { t.thumb }
+        showTabs = true
+    }
     fun newTab(g: Int = Groups.NONE) { snap(tab); tabs.add(BrowserTab(nextId++).also { it.group = g }); current = tabs.lastIndex; showTabs = false; editing = true }
     fun openInNewTab(u: String) { tabs.add(BrowserTab(nextId++, u)); current = tabs.lastIndex }
     // رابط جاء من تطبيق آخر: يُفتح في التبويب الحالي إن كان فارغاً وإلا في تبويب جديد، مع إغلاق أي لوحة مفتوحة
@@ -380,6 +397,14 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
         if (closedTabs.isEmpty()) return
         val u = closedTabs.removeAt(0).first
         tabs.add(BrowserTab(nextId++, u)); current = tabs.lastIndex; showTabs = false
+    }
+    fun moveTab(fromId: Int, toId: Int) {
+        val from = tabs.indexOfFirst { it.id == fromId }
+        val to = tabs.indexOfFirst { it.id == toId }
+        if (from < 0 || to < 0 || from == to) return
+        val keep = tabs.getOrNull(current)
+        tabs.add(to, tabs.removeAt(from))
+        if (keep != null) current = tabs.indexOf(keep).coerceAtLeast(0)
     }
     fun duplicate(i: Int) { val o = tabs[i]; snap(o); tabs.add(i + 1, BrowserTab(nextId++, o.url).also { it.tag = o.tag }); current = i + 1; showTabs = false }
     fun closeOthers(i: Int) {
@@ -591,7 +616,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                 else {
                     val start = {
                         Downloader.start(activity, u, ua, cd, mime, ref)
-                        toast(activity, L("بدأ التنزيل — القائمة ⋮ ثم التنزيلات"))
+                        Snacks.show(L("بدأ التنزيل — القائمة ⋮ ثم التنزيلات"), S(R.string.snack_open)) { openPanel(it, "downloads") }
                         askNotif()
                         Unit
                     }
@@ -671,6 +696,20 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
     var wasBlocked by remember { mutableStateOf(false) }
     val barVisible = !inPip && !pageTyping
     val navBottom = navInsets.getBottom(density)
+    val dynBar = !PerfAb.dynamicToolbarOff()
+    val barBlocked = editing || tab.finding || pageTyping || showTabs
+    val barHide = animateFloatAsState(
+        if (dynBar && barVisible && tab.url.isNotBlank() && !barBlocked && tab.barHidden) 1f else 0f,
+        Motion.timed(UiLayout.BAR_HIDE_MS), label = "barHide"
+    )
+    val barShiftPx = BarGeometry.maxPx(density, navBottom, false, true)
+    LaunchedEffect(tab.id, barBlocked) { tab.revealBar() }
+    LaunchedEffect(dynBar, barVisible, navBottom, density) {
+        snapshotFlow {
+            val max = if (!dynBar || tab.url.isBlank()) 0 else BarGeometry.maxPx(density, navBottom, tab.finding, barVisible)
+            max to BarGeometry.hiddenPx(density, barCollapse.value, tab.finding, barHide.value, max)
+        }.distinctUntilChanged().collect { (m, h) -> PageBars.set(m, h) }
+    }
     LaunchedEffect(imeVisible, editing, tab.finding) {
         val blocked = editing || tab.finding
         if (imeVisible && !blocked) {
@@ -682,9 +721,11 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
     Box(Modifier.fillMaxSize()) {
         Surface(Modifier.fillMaxSize().menuScrim(), color = if (inPip) Color.Black else iosC.bg) {
             val tintTarget = BarTint.resolve(Prefs.statusMode, Prefs.statusCustom, tab.topColor ?: tab.botColor, tab.url.isBlank(), iosC.bg, iosC.groupedBg)
-            LaunchedEffect(tab.id, tab.url, tab.loading) {
-                if (tab.url.isNotBlank()) for (wait in longArrayOf(1500, 3500)) {
-                    kotlinx.coroutines.delay(wait)
+            LaunchedEffect(tab.id, tab.glassSnap) { Glass.page = tab.glassSnap }
+            LaunchedEffect(tab.id, tab.url) {
+                if (tab.url.isNotBlank()) {
+                    snapshotFlow { tab.loading }.first { !it }
+                    kotlinx.coroutines.delay(UiLayout.SAMPLE_DELAY_MS)
                     PageSampler.sample(tab)
                 }
             }
@@ -700,7 +741,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
             Box(
                 Modifier.fillMaxSize().statusBarsPadding().displayCutoutPadding()
             ) {
-                Box(Modifier.fillMaxSize().pageBounds({ imeSettled.value }, pageTyping, inPip, if (tab.url.isBlank()) 0 else BarGeometry.maxPx(density, navBottom, tab.finding, barVisible)).background(iosC.bg)) {
+                Box(Modifier.fillMaxSize().pageBounds({ imeSettled.value }, pageTyping, inPip, if (tab.url.isBlank() || dynBar) 0 else BarGeometry.maxPx(density, navBottom, tab.finding, barVisible)).background(iosC.bg).onGloballyPositioned { zoom.attachPage(it) }) {
                     AnimatedContent(
                         targetState = tab.id to tab.url.isBlank(),
                         transitionSpec = {
@@ -712,7 +753,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                         val tb = tabs.firstOrNull { it.id == id }
                         if (tb != null) {
                             if (blank) {
-                                Box(Modifier.fillMaxSize().windowInsetsPadding(navInsets).padding(bottom = if (inPip) 0.dp else UiLayout.PILL)) {
+                                Box(Modifier.fillMaxSize().windowInsetsPadding(navInsets).padding(bottom = if (inPip) UiLayout.dp0 else UiLayout.PILL)) {
                                     StartPage(
                                         tabsCount = tabs.size,
                                         activeDl = activeDownloads,
@@ -735,6 +776,7 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                             }
                         }
                     }
+                    FrostGhost(ghost)
                 }
                 val botTarget = BarTint.resolve(Prefs.botMode, Prefs.botCustom, tab.botColor ?: tab.topColor, tab.url.isBlank(), iosC.bg, iosC.groupedBg)
                 val botAnim = animateColorAsState(botTarget, Motion.timed(Motion.MEDIUM), label = "botTint")
@@ -752,7 +794,8 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                     }
                 }
                 AnimatedVisibility(
-                    visible = !inPip && !pageTyping, modifier = Modifier.align(Alignment.BottomCenter),
+                    visible = !inPip && !pageTyping,
+                    modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer { translationY = barHide.value * barShiftPx },
                     enter = androidx.compose.animation.slideInVertically(Motion.timed(Motion.LONG, easing = Motion.emphasized)) { it / 2 } + fadeIn(Motion.timed(Motion.SHORT)),
                     exit = androidx.compose.animation.slideOutVertically(Motion.timed(Motion.SHORT, easing = Motion.emphasizedAccelerate)) { it / 3 } + fadeOut(Motion.timed(Motion.QUICK))
                 ) {
@@ -767,7 +810,13 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
                     onSummarize = {
                         GeckoPage.exec(tab, "summarize.js") { r -> SmartAssist.summarizeRaw(activity, r, tab.url) { u -> openChild(u) } }
                     }, onAskAi = { askPage(tab) },
-                    onSwitch = { d -> FrameLog.sample("tab_switch"); snap(tab); current = (current + d).coerceIn(0, tabs.lastIndex) }
+                    onSwitch = { d ->
+                        FrameLog.sample("tab_switch")
+                        val next = (current + d).coerceIn(0, tabs.lastIndex)
+                        if (next != current && tab.url.isNotBlank()) ghost.show(tab.thumb)
+                        snap(tab)
+                        current = next
+                    }
                 ) }
                 }
                 }
@@ -779,22 +828,28 @@ fun BrowserApp(startUrl: String, dlTrigger: Int, inPipIn: Boolean = false, incom
             tab, { siteSheet = false }, { newTab() }, { tab.findInfo = ""; tab.finding = true },
             { shareText(activity, tab.url) }, { copyText(activity, tab.url) }, { printPage(tab) }
         )
-        AnimatedVisibility(
-            visible = showTabs, modifier = Modifier.menuScrim(),
-            enter = Motion.fadeThroughEnter,
-            exit = Motion.fadeThroughExit
-        ) {
-            TabSwitcher(
-                tabs = tabs, current = current.coerceIn(0, tabs.lastIndex),
-                onSelect = { i -> FrameLog.sample("tab_switch"); if (i != current) snap(tab); current = i; showTabs = false },
-                onClose = { i -> closeTab(i) }, onNew = { g -> newTab(g) }, onCloseAll = { closeAll() }, onBack = { showTabs = false },
-                onDuplicate = { i -> duplicate(i) }, onCloseOthers = { i -> closeOthers(i) }, onCloseTag = { g -> closeByTag(g) },
-                canReopen = closedTabs.isNotEmpty(), onReopen = { reopenClosed() }, onCloseDuplicates = { closeDuplicates() }
-            )
+        FrostPresence(visible = showTabs, modifier = Modifier.menuScrim()) {
+            CompositionLocalProvider(LocalTabZoom provides zoom) {
+                TabSwitcher(
+                    tabs = tabs, current = current.coerceIn(0, tabs.lastIndex),
+                    onSelect = { i ->
+                        FrameLog.sample("tab_switch")
+                        if (i != current) snap(tab)
+                        tabs.getOrNull(i)?.let { t -> if (t.url.isNotBlank()) zoom.close(t.id) { t.thumb } }
+                        current = i
+                        showTabs = false
+                    },
+                    onClose = { i -> closeTab(i) }, onNew = { g -> newTab(g) }, onCloseAll = { closeAll() }, onBack = { showTabs = false },
+                    onDuplicate = { i -> duplicate(i) }, onCloseOthers = { i -> closeOthers(i) }, onCloseTag = { g -> closeByTag(g) },
+                    canReopen = closedTabs.isNotEmpty(), onReopen = { reopenClosed() }, onCloseDuplicates = { closeDuplicates() },
+                    onMove = { fromId, toId -> moveTab(fromId, toId) }
+                )
+            }
         }
+        TabZoomGhost(zoom)
         fillOffer?.takeIf { it.tabId == tab.id && !inPip && !editing }?.let { o ->
             FillBanner(
-                o, modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp),
+                o, modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = UiLayout.dp8),
                 onClose = { fillOffer = null },
                 onFill = { c ->
                     if (c.id == Vault.UNLOCK_ID) {

@@ -39,7 +39,7 @@ private fun Modifier.stagger(index: Int, shown: Boolean): Modifier {
         if (shown) 1f else 0f,
         if (Adaptive.busy) snap() else Motion.timed(Motion.LONG, delayMillis = index * 55, easing = Motion.emphasized), label = "stagger"
     )
-    return this.graphicsLayer { alpha = a; translationY = (1f - a) * 24.dp.toPx() }
+    return this.graphicsLayer { alpha = a; translationY = (1f - a) * UiLayout.dp24.toPx() }
 }
 
 private class Site(val name: String, val host: String, val url: String, val glyph: String, val color: Long, val icon: ImageVector?, val tint: Color? = null)
@@ -57,17 +57,17 @@ private fun FavoriteItem(st: Site, modifier: Modifier, onRemove: (() -> Unit)? =
     val favImage = remember(fav) { fav?.asImageBitmap() }
     val haptic = rememberHaptics()
     Column(
-        modifier.pressScale(src, 0.92f).tapCombinedClickable(interactionSource = src, indication = null, role = Role.Button, onLongClick = if (onRemove != null) ({ menu = true }) else null, onClick = onClick).padding(vertical = 6.dp),
+        modifier.pressScale(src, 0.92f).tapCombinedClickable(interactionSource = src, indication = null, role = Role.Button, onLongClick = if (onRemove != null) ({ menu = true }) else null, onClick = onClick).padding(vertical = UiLayout.dp6),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(Modifier.size(60.dp).clip(RoundedCornerShape(16.dp)).background(if (fav != null) Color.White else (st.tint ?: Color(st.color))), contentAlignment = Alignment.Center) {
-            if (favImage != null) Image(favImage, null, Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)))
-            else if (st.icon != null) Icon(st.icon, null, Modifier.size(28.dp), tint = Color.White)
+        Box(Modifier.size(UiLayout.dp60).clip(RoundedCornerShape(UiLayout.dp16)).background(if (fav != null) Color.White else (st.tint ?: Color(st.color))), contentAlignment = Alignment.Center) {
+            if (favImage != null) Image(favImage, null, Modifier.size(UiLayout.dp34).clip(RoundedCornerShape(UiLayout.dp8)))
+            else if (st.icon != null) Icon(st.icon, null, Modifier.size(UiLayout.dp28), tint = Color.White)
             else Text(st.glyph, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = Color.White)
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(UiLayout.dp6))
         Text(st.name, style = MaterialTheme.typography.labelMedium, color = ios.label, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-        if (onRemove != null) IosMenu(expanded = menu, onDismissRequest = { menu = false }, shape = IosShape.menu, tonalElevation = 0.dp) {
+        if (onRemove != null) IosMenu(expanded = menu, onDismissRequest = { menu = false }, shape = IosShape.menu, tonalElevation = UiLayout.dp0) {
             DropdownMenuItem(text = { Text(L("حذف")) }, onClick = tapped { menu = false; onRemove() })
         }
     }
@@ -75,7 +75,35 @@ private fun FavoriteItem(st: Site, modifier: Modifier, onRemove: (() -> Unit)? =
 
 @Composable
 private fun StartHeader(text: String, modifier: Modifier = Modifier) {
-    Text(text, style = MaterialTheme.typography.headlineSmall, color = LocalIos.current.label, modifier = modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 10.dp))
+    Text(text, style = MaterialTheme.typography.headlineSmall, color = LocalIos.current.label, modifier = modifier.padding(start = UiLayout.dp20, end = UiLayout.dp20, top = UiLayout.dp24, bottom = UiLayout.dp10))
+}
+
+@Composable
+private fun RecentSection(modifier: Modifier, onOpen: (String) -> Unit) {
+    val recent by remember { derivedStateOf { Library.history.sortedByDescending { it.time }.distinctBy { it.url }.take(UiLayout.START_RECENT) } }
+    Column(modifier) {
+        StartHeader(S(R.string.start_recent))
+        IosGroup {
+            if (recent.isEmpty()) IosCell(S(R.string.start_recent_empty), null, divider = false)
+            recent.forEachIndexed { i, item ->
+                IosCell(item.title.ifBlank { hostOf(item.url) }, { onOpen(item.url) }, sub = hostOf(item.url), divider = i < recent.lastIndex)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentDownloadsSection(modifier: Modifier, onDownloads: () -> Unit) {
+    val files by remember { derivedStateOf { Downloader.tasks.sortedByDescending { it.createdAt }.take(UiLayout.START_DOWNLOADS) } }
+    Column(modifier) {
+        StartHeader(S(R.string.start_downloads))
+        IosGroup {
+            if (files.isEmpty()) IosCell(S(R.string.start_downloads_empty), onDownloads, divider = false)
+            files.forEachIndexed { i, task ->
+                IosCell(task.name.ifBlank { hostOf(task.origUrl) }, onDownloads, divider = i < files.lastIndex, chevron = true)
+            }
+        }
+    }
 }
 
 @Composable
@@ -117,56 +145,73 @@ fun StartPage(
     }
 
     val scroll = rememberScrollState()
+    val bounce = rememberRubberBand()
     LaunchedEffect(scroll) {
         androidx.compose.runtime.snapshotFlow { scroll.isScrollInProgress }.collect { if (it) FrameLog.start("start_page_scroll") else FrameLog.stop() }
     }
     Box(Modifier.fillMaxSize().background(ios.groupedBg)) {
     Column(
         Modifier.fillMaxSize()
-            .verticalScroll(scroll).padding(bottom = 24.dp)
+            .verticalScroll(scroll, overscrollEffect = bounce).padding(bottom = UiLayout.dp24)
     ) {
-        Spacer(Modifier.height(12.dp))
-        StartHeader(L("المفضلة"), Modifier.stagger(1, shown))
-        if (!Library.ready) SkeletonTiles() else Column(Modifier.stagger(2, shown).padding(horizontal = 12.dp)) {
-            rows.forEach { row ->
-                Row(Modifier.fillMaxWidth()) {
-                    row.forEach { st -> FavoriteItem(st, Modifier.weight(1f), if (st.tint != null) ({ Library.favorites.firstOrNull { it.url == st.url }?.let { Library.toggleFavorite(it.url, it.title) }; Unit }) else ({ Prefs.hideFav(st.host) })) { onOpen(st.url) } }
-                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+        Spacer(Modifier.height(UiLayout.dp12))
+        StartLayout.parse(Prefs.startLayout).filter { StartLayout.visible(it) }.forEach { token ->
+            key(token) {
+                when (StartLayout.id(token)) {
+                    "fav" -> {
+                StartHeader(L("المفضلة"), Modifier.stagger(1, shown))
+                SkeletonReveal(Library.ready, skeleton = { SkeletonTiles() }) { Column(Modifier.stagger(2, shown).padding(horizontal = UiLayout.dp12)) {
+                    rows.forEach { row ->
+                        Row(Modifier.fillMaxWidth()) {
+                            row.forEach { st -> FavoriteItem(st, Modifier.weight(1f), if (st.tint != null) ({ Library.favorites.firstOrNull { it.url == st.url }?.let { Library.toggleFavorite(it.url, it.title) }; Unit }) else ({ Prefs.hideFav(st.host) })) { onOpen(st.url) } }
+                            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
+                } }
+                if (Prefs.hiddenFavs.isNotEmpty()) {
+                    Text(
+                        L("استعادة المواقع الافتراضية"), style = MaterialTheme.typography.bodySmall, color = ios.blue,
+                        modifier = Modifier.stagger(2, shown).padding(horizontal = UiLayout.dp20, vertical = UiLayout.dp4).tapClickable { Prefs.restoreFavs() }
+                    )
+                }
+                    }
+                    "ai" -> {
+                Spacer(Modifier.height(UiLayout.dp12))
+                IosGroup(Modifier.stagger(3, shown)) {
+                    IosCell(
+                        L("وضع الذكاء الاصطناعي"), onAi, sub = L("اسأل Google أي شيء"), chevron = true, divider = false,
+                        leading = { IosTile(ios.indigo) { Text("✦", style = MaterialTheme.typography.bodyMedium, color = Color.White) } }
+                    )
+                }
+                    }
+                    "privacy" -> {
+                StartHeader(L("تقرير الخصوصية"), Modifier.stagger(3, shown))
+                Row(
+                    Modifier.stagger(4, shown).padding(horizontal = UiLayout.dp16).fillMaxWidth().clip(RoundedCornerShape(UiLayout.dp26)).background(ios.cell).padding(UiLayout.dp16),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IosIcon(IosGlyph.ShieldFill, ios.blue, UiLayout.dp40, accent = ios.cell)
+                    Spacer(Modifier.width(UiLayout.dp14))
+                    Column {
+                        Text(Shield.total.toString(), style = MaterialTheme.typography.headlineMedium, color = ios.label)
+                        Text(L("متتبعات تم منعها من تتبعك"), style = MaterialTheme.typography.bodySmall, color = ios.label2)
+                    }
+                }
+                    }
+                    "shortcuts" -> {
+                Spacer(Modifier.height(UiLayout.dp24))
+                Column(Modifier.stagger(5, shown)) {
+                    ListRow(groupShape(0, 5), L("التنزيلات"), dlSub, onDownloads, modifier = Modifier.padding(horizontal = UiLayout.dp16)) { IosTile(ios.blue) { IosIcon(IosGlyph.Download, Color.White, UiLayout.dp18) } }
+                    ListRow(groupShape(1, 5), L("التبويبات"), ("" + tabsCount + L(" مفتوحة")), onTabs, modifier = Modifier.padding(horizontal = UiLayout.dp16)) { IosTile(ios.gray) { IosIcon(IosGlyph.Tabs, Color.White, UiLayout.dp18) } }
+                    ListRow(groupShape(2, 5), L("قائمة القراءة"), (Library.readingList.size.toString() + L(" صفحة")), { Library.initialTab = 2; onLibrary() }, modifier = Modifier.padding(horizontal = UiLayout.dp16)) { IosTile(ios.blue) { IosIcon(IosGlyph.Book, Color.White, UiLayout.dp18) } }
+                    ListRow(groupShape(3, 5), L("المكتبة"), null, onLibrary, modifier = Modifier.padding(horizontal = UiLayout.dp16)) { IosTile(ios.orange) { IosIcon(IosGlyph.Book, Color.White, UiLayout.dp18) } }
+                    ListRow(groupShape(4, 5), L("الإعدادات"), null, onSettings, modifier = Modifier.padding(horizontal = UiLayout.dp16)) { IosTile(ios.gray) { IosIcon(IosGlyph.Gear, Color.White, UiLayout.dp18) } }
+                }
+                    }
+                    "recent" -> RecentSection(Modifier.stagger(5, shown), onOpen)
+                    else -> RecentDownloadsSection(Modifier.stagger(5, shown), onDownloads)
                 }
             }
-        }
-        if (Prefs.hiddenFavs.isNotEmpty()) {
-            Text(
-                L("استعادة المواقع الافتراضية"), style = MaterialTheme.typography.bodySmall, color = ios.blue,
-                modifier = Modifier.stagger(2, shown).padding(horizontal = 20.dp, vertical = 4.dp).tapClickable { Prefs.restoreFavs() }
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        IosGroup(Modifier.stagger(3, shown)) {
-            IosCell(
-                L("وضع الذكاء الاصطناعي"), onAi, sub = L("اسأل Google أي شيء"), chevron = true, divider = false,
-                leading = { IosTile(ios.indigo) { Text("✦", style = MaterialTheme.typography.bodyMedium, color = Color.White) } }
-            )
-        }
-        StartHeader(L("تقرير الخصوصية"), Modifier.stagger(3, shown))
-        Row(
-            Modifier.stagger(4, shown).padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(ios.cell).padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IosIcon(IosGlyph.ShieldFill, ios.blue, 40.dp, accent = ios.cell)
-            Spacer(Modifier.width(14.dp))
-            Column {
-                Text(Shield.total.toString(), style = MaterialTheme.typography.headlineMedium, color = ios.label)
-                Text(L("متتبعات تم منعها من تتبعك"), style = MaterialTheme.typography.bodySmall, color = ios.label2)
-            }
-        }
-        Spacer(Modifier.height(24.dp))
-        Column(Modifier.stagger(5, shown)) {
-            ListRow(groupShape(0, 5), L("التنزيلات"), dlSub, onDownloads, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.blue) { IosIcon(IosGlyph.Download, Color.White, 18.dp) } }
-            ListRow(groupShape(1, 5), L("التبويبات"), ("" + tabsCount + L(" مفتوحة")), onTabs, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.gray) { IosIcon(IosGlyph.Tabs, Color.White, 18.dp) } }
-            ListRow(groupShape(2, 5), L("قائمة القراءة"), (Library.readingList.size.toString() + L(" صفحة")), { Library.initialTab = 2; onLibrary() }, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.blue) { IosIcon(IosGlyph.Book, Color.White, 18.dp) } }
-            ListRow(groupShape(3, 5), L("المكتبة"), null, onLibrary, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.orange) { IosIcon(IosGlyph.Book, Color.White, 18.dp) } }
-            ListRow(groupShape(4, 5), L("الإعدادات"), null, onSettings, modifier = Modifier.padding(horizontal = 16.dp)) { IosTile(ios.gray) { IosIcon(IosGlyph.Gear, Color.White, 18.dp) } }
         }
     }
     }

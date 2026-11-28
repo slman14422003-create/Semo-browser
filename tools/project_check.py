@@ -153,6 +153,33 @@ for rel in ("summarize.js",):
     elif _arabic.search(fp.read_text(encoding="utf-8")): errors.append("extensions/semo/" + rel + ": Arabic text inside code (use \\u escapes)")
 if 'android.intent.action.PROCESS_TEXT' not in mf2: warnings.append("Manifest: PROCESS_TEXT filter missing")
 
+# 2.991) Compose UI port rules: no comments, no dp literals outside UiLayout, animations only through Motion
+_ported = ("ui/Frost.kt", "ui/TabZoom.kt", "ui/Shimmer.kt", "ui/Overscroll.kt", "ui/MagneticDrag.kt", "ui/TabReorder.kt", "ui/Snack.kt", "ui/NovaSheet.kt", "ui/AppFonts.kt",
+           "ui/StoragePage.kt", "ui/SettingsKit.kt", "core/TextMatch.java", "core/StartLayout.java", "core/SnackQueue.java")
+for rel in _ported:
+    fp = SRC / rel
+    if not fp.exists():
+        errors.append(rel + " missing")
+        continue
+    raw = fp.read_text(encoding="utf-8")
+    for n, line in enumerate(raw.splitlines(), 1):
+        t = line.strip()
+        if t.startswith("//") or t.startswith("/*") or t.startswith("*"): errors.append(f"{rel}:{n}: comment in ported code")
+    code = strip(raw)
+    if re.search(r"\d\.?\d*f?\.dp\b", code): errors.append(rel + ": dp literal outside UiLayout.kt")
+    if re.search(r"(?<![\w.])(tween|spring|keyframes|infiniteRepeatable)\(", code): errors.append(rel + ": animation spec not routed through Motion")
+if (SRC / "MainActivity.kt").exists():
+    ma = strip((SRC / "MainActivity.kt").read_text(encoding="utf-8"))
+    for need in ("FrostPresence(", "FrostGhost(", "TabZoomGhost(", "zoom.open(", "zoom.close(", "ghost.show("):
+        if need not in ma: errors.append("MainActivity.kt: missing " + need)
+    for need in ("moveTab(", "onMove = "):
+        if need not in ma: errors.append("MainActivity.kt: missing " + need)
+if (SRC / "browser" / "Tabs.kt").exists():
+    tb = strip((SRC / "browser" / "Tabs.kt").read_text(encoding="utf-8"))
+    for need in ("SkeletonThumb(", "MagneticDrag(", "TabReorder(", "tabCardGestures(", "zIndex(", "MagnetPolicy.flingCloses(", "onMove: (Int, Int) -> Unit"):
+        if need not in tb: errors.append("Tabs.kt: missing " + need)
+    if "tapCombinedClickable" in tb: errors.append("Tabs.kt: card long press must go through tabCardGestures")
+
 # 3) كل Prefs.xxx المستخدمة معرّفة
 prefs = (SRC / "core" / "Settings.kt").read_text(encoding="utf-8")
 defined = set(re.findall(r"(?:va[lr])\s+(\w+)\s*(?:by|=|:)|fun\s+(\w+)\(", prefs))

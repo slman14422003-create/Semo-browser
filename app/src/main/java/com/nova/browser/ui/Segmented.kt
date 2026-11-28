@@ -30,14 +30,24 @@ fun GlassSegments(items: List<Segment>, selected: Int, onSelect: (Int) -> Unit, 
     val ios = LocalIos.current
     val bounds = remember { mutableStateMapOf<Int, Pair<Float, Float>>() }
     val target = bounds[selected]
-    val x by animateFloatAsState(target?.first ?: 0f, Motion.soft(), label = "pillX")
-    val w by animateFloatAsState(target?.second ?: 0f, Motion.soft(), label = "pillW")
+    val lens = remember { LensPill() }
+    LaunchedEffect(target) { target?.let { lens.glideTo(it.first, it.first + it.second) } }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val rim = remember(density) { androidx.compose.ui.graphics.drawscope.Stroke(with(density) { UiLayout.GLASS_RIM.toPx() }) }
     val pill = ios.segThumb
     val scroll = rememberScrollState()
-    Box(modifier.height(36.dp).liquidGlass(raised = false).padding(2.dp)) {
+    Box(modifier.height(UiLayout.dp36).liquidGlass(raised = false).padding(UiLayout.dp2)) {
         Row(
             (if (fill) Modifier.fillMaxSize() else Modifier.fillMaxHeight().horizontalScroll(scroll))
-                .drawBehind { if (w > 0f) drawRoundRect(pill, Offset(x, 0f), Size(w, size.height), CornerRadius(size.height / 2f)) }
+                .drawBehind {
+                    val l = lens.left.value
+                    val w = lens.right.value - l
+                    if (w > 0f) {
+                        val corner = CornerRadius(size.height / 2f)
+                        drawRoundRect(pill, Offset(l, 0f), Size(w, size.height), corner)
+                        if (Glass.level == Glass.FULL) drawRoundRect(androidx.compose.ui.graphics.Color.White, Offset(l, 0f), Size(w, size.height), corner, style = rim, alpha = 0.3f)
+                    }
+                }
         ) {
             items.forEachIndexed { i, item ->
                 val on = i == selected
@@ -47,12 +57,12 @@ fun GlassSegments(items: List<Segment>, selected: Int, onSelect: (Int) -> Unit, 
                         .onGloballyPositioned { bounds[i] = it.positionInParent().x to it.size.width.toFloat() }
                         .tapCombinedClickable(interactionSource = src, indication = null, role = Role.Tab, onLongClick = item.onLong) { onSelect(i) }
                         .semantics { this.selected = on }
-                        .padding(horizontal = if (fill) 4.dp else 14.dp),
+                        .padding(horizontal = if (fill) UiLayout.dp4 else UiLayout.dp14),
                     horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (item.lock) {
-                        IosIcon(IosGlyph.Lock, ios.label, 12.dp)
-                        Spacer(Modifier.width(5.dp))
+                        IosIcon(IosGlyph.Lock, ios.label, UiLayout.dp12)
+                        Spacer(Modifier.width(UiLayout.dp5))
                     }
                     Text(
                         item.label, style = MaterialTheme.typography.bodySmall, color = ios.label,

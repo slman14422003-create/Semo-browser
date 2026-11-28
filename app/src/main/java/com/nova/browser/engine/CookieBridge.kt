@@ -44,6 +44,7 @@ object CookieBridge : WebExtension.MessageDelegate {
         when (type) {
             "hello" -> {
                 userAgent = o.optString("ua")
+                if (!o.optBoolean("dnr")) CrashLog.note("declarativeNetRequest unavailable: ad blocking relies on Gecko ContentBlocking")
                 GeckoCfg.push()
             }
             "cookies" -> pending.remove(o.optString("id"))?.complete(o.optString("header"))

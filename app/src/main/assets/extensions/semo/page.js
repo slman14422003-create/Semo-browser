@@ -4,6 +4,9 @@
   var EDITOR =
     '.monaco-editor,.cm-editor,.CodeMirror,.ace_editor,.view-lines,.xterm,.CodeMirror-scroll,[contenteditable=""],[contenteditable="true"],textarea,canvas,iframe,[role="textbox"],[data-nova-noptr]';
   var timer = 0;
+  var idle = function (f) {
+    return window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 600 }) : setTimeout(f, 150);
+  };
 
   function send(o) {
     try {
@@ -221,7 +224,7 @@
       return;
     }
     lastRun = now;
-    run();
+    idle(run);
   }
 
   function soon() {
@@ -229,26 +232,63 @@
     timer = setTimeout(gated, 300);
   }
 
-  function blocked(t) {
+  var scrollCache = new WeakMap();
+  var SCROLL_TTL = 3000;
+  var chainTimer = 0;
+  var lastTarget = null;
+
+  function scrollable(e, now) {
+    var c = scrollCache.get(e);
+    return c && now - c.t < SCROLL_TTL ? c.v : null;
+  }
+
+  function cachedBlocked(t) {
+    var now = Date.now(), unknown = false, depth = 0;
+    for (var e = t; e && e.nodeType === 1 && depth < 24; e = e.parentElement, depth++) {
+      if (e.matches(EDITOR)) return { v: true, unknown: false };
+      if (e === document.body || e === document.documentElement) break;
+      var c = scrollable(e, now);
+      if (c === null) unknown = true;
+      else if (c) return { v: true, unknown: false };
+    }
+    return { v: false, unknown: unknown };
+  }
+
+  function resolveChain() {
+    chainTimer = 0;
+    var t = lastTarget;
+    lastTarget = null;
+    if (!t) return;
+    var now = Date.now(), depth = 0, hit = false;
     try {
-      var depth = 0;
       for (var e = t; e && e.nodeType === 1 && depth < 24; e = e.parentElement, depth++) {
-        if (e.matches && e.matches(EDITOR)) return true;
-        if (e === document.body || e === document.documentElement) return false;
-        var cs = getComputedStyle(e);
-        if (/(auto|scroll)/.test(cs.overflowY) && e.scrollHeight > e.clientHeight + 4) return true;
+        if (e === document.body || e === document.documentElement) break;
+        var c = scrollable(e, now);
+        if (c === null) {
+          var cs = getComputedStyle(e);
+          c = /(auto|scroll)/.test(cs.overflowY) && e.scrollHeight > e.clientHeight + 4;
+          scrollCache.set(e, { v: c, t: now });
+        }
+        if (c) { hit = true; break; }
       }
     } catch (x) {}
-    return false;
+    if (hit && !last.n) {
+      last.n = true;
+      send({ t: "noPull", v: true });
+    }
   }
 
   document.addEventListener(
     "touchstart",
     function (ev) {
-      var v = blocked(ev.target);
-      if (v !== last.n) {
-        last.n = v;
-        send({ t: "noPull", v: v });
+      var r = cachedBlocked(ev.target);
+      if (r.v !== last.n) {
+        last.n = r.v;
+        send({ t: "noPull", v: r.v });
+      }
+      if (!r.v && r.unknown) {
+        lastTarget = ev.target;
+        if (!chainTimer) chainTimer = idle(resolveChain);
       }
     },
     { capture: true, passive: true }
@@ -259,15 +299,9 @@
   window.addEventListener("load", soon, { once: true });
   setTimeout(gated, 1200);
   setTimeout(gated, 3000);
-  // مواقع كثيرة تبدّل الداكن/الفاتح عبر class أو data-theme على html/body (لا يظهر في <head>)
   try {
-    var themeAttrs = ["class", "data-theme", "data-mode", "data-color-mode", "data-bs-theme", "data-semo-dark"];
-    var watchEl = function (el) {
-      if (el) new MutationObserver(soon).observe(el, { attributes: true, attributeFilter: themeAttrs });
-    };
-    watchEl(document.documentElement);
-    if (document.body) watchEl(document.body);
-    else document.addEventListener("DOMContentLoaded", function () { watchEl(document.body); }, { once: true });
+    var hub = semoHub();
+    hub.on(hub.TH | hub.VP, gated, 900);
   } catch (e) {}
   try {
     var mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -283,13 +317,4 @@
     },
     { passive: true }
   );
-  try {
-    new MutationObserver(soon).observe(document.head || document.documentElement, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["content", "href", "rel", "name"]
-    });
-  } catch (e) {}
 })();
-

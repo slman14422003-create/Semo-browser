@@ -66,7 +66,7 @@ object Adaptive {
         if (!busy) block() else if (deferred.size < 32) deferred.add(block)
     }
     private var thermal = PowerManager.THERMAL_STATUS_NONE
-    private var saver = false
+    var saver by androidx.compose.runtime.mutableStateOf(false); private set
     private var lowBat = false      // بطارية ≤15% وغير موصولة بالشاحن
     private var started = false
 

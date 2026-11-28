@@ -14,18 +14,35 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 
-class Haptics(private val view: View) {
-    private fun play(kind: Int) { if (Prefs.haptics) view.performHapticFeedback(kind) }
-    fun tap() = play(HapticFeedbackConstants.CONTEXT_CLICK)
-    fun tick() = play(HapticFeedbackConstants.CLOCK_TICK)
-    fun confirm() = play(HapticFeedbackConstants.CONFIRM)
-    fun heavy() = play(HapticFeedbackConstants.LONG_PRESS)
+object Haptics {
+    private fun play(view: View, kind: Int) { if (Prefs.haptics) view.performHapticFeedback(kind) }
+    fun tap(view: View) = play(view, HapticFeedbackConstants.CONTEXT_CLICK)
+    fun tick(view: View) = play(view, HapticFeedbackConstants.CLOCK_TICK)
+    fun confirm(view: View) = play(view, HapticFeedbackConstants.CONFIRM)
+    fun heavy(view: View) = play(view, HapticFeedbackConstants.LONG_PRESS)
+    fun glide(view: View) = play(view, HapticFeedbackConstants.SEGMENT_FREQUENT_TICK)
+    fun reject(view: View) = play(view, HapticFeedbackConstants.REJECT)
+    fun threshold(view: View, engaged: Boolean) =
+        play(view, if (engaged) HapticFeedbackConstants.GESTURE_THRESHOLD_ACTIVATE else HapticFeedbackConstants.GESTURE_THRESHOLD_DEACTIVATE)
+    fun toggle(view: View, on: Boolean) =
+        play(view, if (on) HapticFeedbackConstants.TOGGLE_ON else HapticFeedbackConstants.TOGGLE_OFF)
+
+    class On internal constructor(private val view: View) {
+        fun tap() = Haptics.tap(view)
+        fun tick() = Haptics.tick(view)
+        fun confirm() = Haptics.confirm(view)
+        fun heavy() = Haptics.heavy(view)
+        fun glide() = Haptics.glide(view)
+        fun reject() = Haptics.reject(view)
+        fun threshold(engaged: Boolean) = Haptics.threshold(view, engaged)
+        fun toggle(on: Boolean) = Haptics.toggle(view, on)
+    }
 }
 
 @Composable
-fun rememberHaptics(): Haptics {
+fun rememberHaptics(): Haptics.On {
     val view = LocalView.current
-    return remember(view) { Haptics(view) }
+    return remember(view) { Haptics.On(view) }
 }
 
 @Composable

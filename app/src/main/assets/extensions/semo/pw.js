@@ -1,7 +1,7 @@
 (function () {
   if (window.top !== window || window.__semoPw) return;
   window.__semoPw = 1;
-  var last = '', lastT = 0, announced = false, tm = null;
+  var last = '', lastT = 0, announced = false;
 
   function vis(e) {
     try {
@@ -91,14 +91,15 @@
   }, true);
 
   function announce() {
+    if (!document.querySelector('input[type=password],input[autocomplete~=username]')) { announced = false; return; }
     var f = pwFields();
     if (!f.length) f = nameFields();
     if (f.length && !announced) { announced = true; send('form', {}); }
     else if (!f.length) announced = false;
   }
   try {
-    new MutationObserver(function () { clearTimeout(tm); tm = setTimeout(announce, 300); })
-      .observe(document.documentElement, { childList: true, subtree: true });
+    var hub = semoHub();
+    hub.on(hub.CH, announce, 600);
   } catch (e) {}
   announce();
   setTimeout(announce, 800);

@@ -84,7 +84,7 @@ private fun statusLine(t: DlTask): String {
 fun SegmentBar(t: DlTask) {
     val ios = LocalIos.current
     val track = ios.fill3; val fill = ios.blue; val gap = ios.groupedBg
-    Canvas(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))) {
+    Canvas(Modifier.fillMaxWidth().height(UiLayout.dp8).clip(RoundedCornerShape(UiLayout.dp4))) {
         drawRect(track)
         val tot = t.total
         if (tot > 0 && t.segSnap.isNotEmpty()) {
@@ -138,13 +138,13 @@ fun DownloadCard(t: DlTask, modifier: Modifier = Modifier) {
     val failed = t.status == Downloader.FAILED
     val done = t.status == Downloader.DONE
     val kind = kindOf(t.name)
-    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(ios.cell)) {
-        Column(Modifier.padding(16.dp)) {
+    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(UiLayout.dp10)).background(ios.cell)) {
+        Column(Modifier.padding(UiLayout.dp16)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IosTile(kindColor(kind), size = 46.dp) {
+                IosTile(kindColor(kind), size = UiLayout.dp46) {
                     Text(t.name.substringAfterLast('.', "?").take(4).uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(UiLayout.dp12))
                 Column(Modifier.weight(1f)) {
                     Text(t.name.ifBlank { hostOf(t.origUrl) }, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall, color = ios.label)
                     Text(statusLine(t), style = MaterialTheme.typography.bodySmall, color = if (failed) ios.red else ios.label2)
@@ -154,38 +154,40 @@ fun DownloadCard(t: DlTask, modifier: Modifier = Modifier) {
                     )
                 }
                 Box {
-                    Box(Modifier.size(36.dp).tapClickable { menu = true }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.EllipsisCircle, ios.blue, 24.dp) }
-                    IosMenu(expanded = menu, onDismissRequest = { menu = false }, shape = IosShape.menuCompact, tonalElevation = 0.dp) {
-                        DropdownMenuItem(text = { Text(L("نسخ الرابط")) }, leadingIcon = { IosIcon(IosGlyph.Copy, ios.label) }, onClick = tapped { menu = false; copyText(ctx, t.origUrl) })
-                        if (done) {
-                            DropdownMenuItem(text = { Text(L("إزالة من القائمة")) }, leadingIcon = { IosIcon(IosGlyph.Close, ios.label) }, onClick = tapped { menu = false; Downloader.remove(t, false) })
-                            DropdownMenuItem(text = { Text(L("حذف الملف"), color = ios.red) }, leadingIcon = { IosIcon(IosGlyph.Trash, ios.red) }, onClick = tapped { menu = false; confirmDelete = true })
-                        } else DropdownMenuItem(text = { Text(L("إلغاء وحذف"), color = ios.red) }, leadingIcon = { IosIcon(IosGlyph.Trash, ios.red) }, onClick = tapped { menu = false; Downloader.cancel(t) })
-                    }
+                    Box(Modifier.size(UiLayout.dp36).tapClickable { menu = true }, contentAlignment = Alignment.Center) { IosIcon(IosGlyph.EllipsisCircle, ios.blue, UiLayout.dp24) }
                 }
             }
-            if (!done) { Spacer(Modifier.height(12.dp)); SegmentBar(t) }
-            Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.End) {
+            if (!done) { Spacer(Modifier.height(UiLayout.dp12)); SegmentBar(t) }
+            Row(Modifier.fillMaxWidth().padding(top = UiLayout.dp6), horizontalArrangement = Arrangement.End) {
                 when {
                     done -> {
                         IosTextButton(L("مشاركة"), { shareFile(ctx, t) })
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(UiLayout.dp4))
                         IosPillButton(L("فتح"), { openFile(ctx, t) })
                     }
                     running -> {
                         IosTextButton(L("إلغاء"), { Downloader.cancel(t) })
                         if (!t.streamed) {
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(UiLayout.dp4))
                         IosPillButton(L("إيقاف مؤقت"), { Downloader.pause(t) })
                         }
                     }
                     else -> {
                         IosTextButton(L("إلغاء"), { Downloader.cancel(t) })
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(UiLayout.dp4))
                         if (!t.streamed) IosPillButton(if (failed) L("إعادة المحاولة") else L("استئناف"), { Downloader.resume(t) })
                     }
                 }
             }
+        }
+    }
+    if (menu) NovaSheet({ menu = false }) {
+        IosGroup {
+            IosCell(L("نسخ الرابط"), { menu = false; copyText(ctx, t.origUrl) }, trailing = { IosIcon(IosGlyph.Copy, ios.label) })
+            if (done) {
+                IosCell(L("إزالة من القائمة"), { menu = false; Downloader.remove(t, false) }, trailing = { IosIcon(IosGlyph.Close, ios.label) })
+                IosCell(L("حذف الملف"), { menu = false; confirmDelete = true }, tint = ios.red, divider = false, trailing = { IosIcon(IosGlyph.Trash, ios.red) })
+            } else IosCell(L("إلغاء وحذف"), { menu = false; Downloader.cancel(t) }, tint = ios.red, divider = false, trailing = { IosIcon(IosGlyph.Trash, ios.red) })
         }
     }
     if (confirmDelete) NovaDialog(
@@ -201,8 +203,8 @@ private fun ActiveSummary(running: List<DlTask>) {
     val known = running.filter { it.total > 0 }
     val totalB = known.sumOf { it.total }
     val progress = if (totalB > 0) (known.sumOf { it.downloaded }.toFloat() / totalB).coerceIn(0f, 1f) else 0f
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(ios.blue.copy(alpha = 0.12f))) {
-        Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(UiLayout.dp10)).background(ios.blue.copy(alpha = 0.12f))) {
+        Column(Modifier.padding(horizontal = UiLayout.dp18, vertical = UiLayout.dp14)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(L("جارٍ تنزيل ") + running.size + L(" ملف"), style = MaterialTheme.typography.titleSmall, color = ios.blue, fontWeight = FontWeight.Bold)
@@ -211,9 +213,9 @@ private fun ActiveSummary(running: List<DlTask>) {
                 IosTextButton(L("إيقاف الكل"), { Downloader.pauseAll() }, color = ios.blue)
             }
             if (totalB > 0) {
-                Spacer(Modifier.height(8.dp))
-                Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(ios.blue.copy(alpha = 0.18f))) {
-                    Box(Modifier.fillMaxWidth(progress).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(ios.blue))
+                Spacer(Modifier.height(UiLayout.dp8))
+                Box(Modifier.fillMaxWidth().height(UiLayout.dp6).clip(RoundedCornerShape(UiLayout.dp3)).background(ios.blue.copy(alpha = 0.18f))) {
+                    Box(Modifier.fillMaxWidth(progress).fillMaxHeight().clip(RoundedCornerShape(UiLayout.dp3)).background(ios.blue))
                 }
             }
         }
@@ -259,10 +261,10 @@ fun DownloadsScreen(onBack: () -> Unit) {
                     if (nStop > 0) DropdownMenuItem(text = { Text(L("استئناف الكل")) }, leadingIcon = { IosIcon(IosGlyph.Play, ios.label) },
                         onClick = tapped { close(); all.filter(isStop).forEach { Downloader.resume(it) } })
                     if (nDone > 0) DropdownMenuItem(text = { Text(L("مسح المكتملة من القائمة"), color = ios.red) }, leadingIcon = { IosIcon(IosGlyph.Trash, ios.red) }, onClick = tapped { close(); confirmClear = true })
-                    IosDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    Text(L("الترتيب"), style = MaterialTheme.typography.labelMedium, color = ios.label2, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                    IosDivider(modifier = Modifier.padding(vertical = UiLayout.dp4))
+                    Text(L("الترتيب"), style = MaterialTheme.typography.labelMedium, color = ios.label2, modifier = Modifier.padding(horizontal = UiLayout.dp16, vertical = UiLayout.dp6))
                     listOf(L("الأحدث أولاً"), L("الاسم"), L("الحجم")).forEachIndexed { i, n ->
-                        DropdownMenuItem(text = { Text(n) }, trailingIcon = { if (sort == i) IosIcon(IosGlyph.Check, ios.blue, 18.dp) }, onClick = tapped { close(); sort = i })
+                        DropdownMenuItem(text = { Text(n) }, trailingIcon = { if (sort == i) IosIcon(IosGlyph.Check, ios.blue, UiLayout.dp18) }, onClick = tapped { close(); sort = i })
                     }
                 }
             }
@@ -275,7 +277,7 @@ fun DownloadsScreen(onBack: () -> Unit) {
                     filter, { filter = it }
                 )
                 if (list.isEmpty()) PanelEmpty(Icons.Default.Search, L("لا نتائج"), modifier = Modifier.weight(1f).fillMaxWidth())
-                else LazyColumn(overscrollEffect = rememberRubberBand(), modifier = Modifier.weight(1f), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                else LazyColumn(overscrollEffect = rememberRubberBand(), modifier = Modifier.weight(1f), contentPadding = PaddingValues(UiLayout.dp12), verticalArrangement = Arrangement.spacedBy(UiLayout.dp10)) {
                     if (nRun > 0 && filter != 2 && q.isBlank()) item(key = "summary") { ActiveSummary(running) }
                     items(list, key = { it.id }) { DownloadCard(it, Modifier.animateItem()) }
                 }

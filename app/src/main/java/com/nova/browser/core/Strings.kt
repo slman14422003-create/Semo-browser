@@ -19,6 +19,11 @@ object Strings {
         ar = forLocale(app, Locale.forLanguageTag("ar"))
     }
 
+    fun both(id: Int): Pair<String, String> {
+        ensure()
+        return (en ?: Perf.context()).getString(id) to (ar ?: Perf.context()).getString(id)
+    }
+
     fun get(id: Int): String {
         ensure()
         val c = (if (I18n.isEnglish()) en else ar) ?: Perf.context()

@@ -78,6 +78,10 @@ object Prefs {
     var smart by mutableStateOf(true); private set
     var haptics by mutableStateOf(true); private set
     var accent by mutableIntStateOf(0); private set
+    var font by mutableIntStateOf(0); private set
+    var startLayout by mutableStateOf(StartLayout.DEFAULT); private set
+    var accentColor by mutableIntStateOf(Accent.DEFAULT_CUSTOM); private set
+    var glass by mutableIntStateOf(GlassPolicy.UNSET); private set
     var statusMode by mutableIntStateOf(0); private set     // لون شريط الحالة: 0 لون الصفحة، 1 لون التطبيق، 2 أسود، 3 مخصص
     var botMode by mutableIntStateOf(0); private set        // لون الشريط السفلي (نفس الخيارات)
     var statusCustom by mutableIntStateOf(0); private set
@@ -96,6 +100,7 @@ object Prefs {
     )
 
     fun init(c: Context) {
+        PerfAb.init(c)
         val p = ConfStore.open(c); sp = p   // كل الإعدادات من ملف nova.conf دفعة واحدة إلى الرام
         engine = p.getInt("engine", 0).coerceIn(0, engines.lastIndex)
         hiddenFavs = p.getString("hidefav", "").split(",").filter { it.isNotBlank() }.toSet()
@@ -115,7 +120,9 @@ object Prefs {
         fitPages = p.getBoolean("fitpages", true); forceZoom = p.getBoolean("fzoom", true); unlockCopy = p.getBoolean("ucopy", true); draftSave = p.getBoolean("draft", true);
         boost = p.getBoolean("boost", true); suggest = p.getBoolean("suggest", true); smart = p.getBoolean("smart", true);
         notifDone = p.getBoolean("notifdone", true); notifUpdate = p.getBoolean("notifupd", true); notifAsked = p.getBoolean("notifasked", false)
-        haptics = p.getBoolean("haptics", true); accent = p.getInt("accent", 0).coerceIn(0, 5)
+        font = p.getInt("font", 0).coerceIn(0, AppFonts.last); startLayout = p.getString("startlayout", StartLayout.DEFAULT)
+        haptics = p.getBoolean("haptics", true); accent = p.getInt("accent", 0).coerceIn(0, Accent.CUSTOM); accentColor = p.getInt("accentc", Accent.DEFAULT_CUSTOM) and 0xFFFFFF
+        glass = p.getInt("glass", GlassPolicy.UNSET).let { if (it < 0) GlassPolicy.UNSET else GlassPolicy.clamp(it) }
         statusMode = p.getInt("stmode", 0).coerceIn(0, 3); botMode = p.getInt("botmode", 0).coerceIn(0, 3)
         statusCustom = p.getInt("stcolor", 0).coerceIn(0, BarTint.customColors.lastIndex); botCustom = p.getInt("botcolor", 0).coerceIn(0, BarTint.customColors.lastIndex)
     }
@@ -160,11 +167,15 @@ object Prefs {
     fun pickSecureScreen(v: Boolean) { secureScreen = v; sp?.putBoolean("secscr", v) }
     fun pickPwMode(v: Int) { pwMode = v; sp?.putInt("pwmode", v) }
     fun pickHaptics(v: Boolean) { haptics = v; sp?.putBoolean("haptics", v) }
-    fun pickAccent(v: Int) { accent = v; sp?.putInt("accent", v) }
+    fun pickAccent(v: Int) { accent = v.coerceIn(0, Accent.CUSTOM); sp?.putInt("accent", accent) }
+    fun pickAccentColor(rgb: Int) { accentColor = rgb and 0xFFFFFF; accent = Accent.CUSTOM; sp?.putInt("accentc", accentColor); sp?.putInt("accent", accent) }
+    fun pickGlass(v: Int) { glass = GlassPolicy.clamp(v); sp?.putInt("glass", glass) }
     fun pickStatusMode(v: Int) { statusMode = v; sp?.putInt("stmode", v) }
     fun pickBotMode(v: Int) { botMode = v; sp?.putInt("botmode", v) }
     fun pickStatusCustom(v: Int) { statusCustom = v; sp?.putInt("stcolor", v) }
     fun pickBotCustom(v: Int) { botCustom = v; sp?.putInt("botcolor", v) }
+    fun pickFont(v: Int) { font = v.coerceIn(0, AppFonts.last); sp?.putInt("font", font) }
+    fun pickStartLayout(v: String) { startLayout = v; sp?.putString("startlayout", v) }
     fun pickSmart(v: Boolean) { smart = v; sp?.putBoolean("smart", v) }
     fun pickAutoUpdate(v: Boolean) { autoUpdate = v; sp?.putBoolean("autoupd", v) }
     fun pickAdaptive(v: Boolean) { adaptive = v; sp?.putBoolean("adaptive", v); Adaptive.refresh() }
@@ -190,6 +201,28 @@ private class RowSpec(
 
 private class SectionSpec(val id: String, val title: String, val sub: String, val icon: ImageVector, val rows: List<RowSpec>)
 
+private fun perfAbSub(on: Boolean): String =
+    if (on) L("مفعّلة — اضغط للتعطيل (يسري بعد إعادة تحميل الصفحة)") else L("معطّلة — اضغط للتفعيل")
+
+private fun perfAbSection(): SectionSpec = SectionSpec("perfab", L("اختبار الأداء A/B"), L("تعطيل كل مجموعة لقياس كلفتها • نسخة التطوير فقط"), Icons.Default.Settings, listOf(
+            RowSpec(L("سكربت الإطارات (polyfills وwebcompat وshield)"), perfAbSub(!PerfAb.isOff("frames")), Icons.Default.Settings, { PerfAb.toggle("frames") },
+                { IosSwitch(checked = !PerfAb.isOff("frames"), onCheckedChange = null) }),
+            RowSpec(L("سكربتات الأساس"), perfAbSub(!PerfAb.isOff("core")), Icons.Default.Settings, { PerfAb.toggle("core") },
+                { IosSwitch(checked = !PerfAb.isOff("core"), onCheckedChange = null) }),
+            RowSpec(L("سكربتات تحسين الصفحة"), perfAbSub(!PerfAb.isOff("page")), Icons.Default.Settings, { PerfAb.toggle("page") },
+                { IosSwitch(checked = !PerfAb.isOff("page"), onCheckedChange = null) }),
+            RowSpec(L("سكربتات متفرقة (إعلانات وتكبير ونسخ ومسودات)"), perfAbSub(!PerfAb.isOff("misc")), Icons.Default.Settings, { PerfAb.toggle("misc") },
+                { IosSwitch(checked = !PerfAb.isOff("misc"), onCheckedChange = null) }),
+            RowSpec(L("سكربتات الوضع الداكن"), perfAbSub(!PerfAb.isOff("dark")), Icons.Default.Settings, { PerfAb.toggle("dark") },
+                { IosSwitch(checked = !PerfAb.isOff("dark"), onCheckedChange = null) }),
+            RowSpec(L("حجب الشبكة (قواعد DNR)"), perfAbSub(!PerfAb.isOff("net")), Icons.Default.Settings, { PerfAb.toggle("net") },
+                { IosSwitch(checked = !PerfAb.isOff("net"), onCheckedChange = null) }),
+            RowSpec(L("علم FINGERPRINTING"), perfAbSub(!PerfAb.fingerprintOff()), Icons.Default.Lock, { PerfAb.toggleFingerprint(); GeckoSettings.update() },
+                { IosSwitch(checked = !PerfAb.fingerprintOff(), onCheckedChange = null) }),
+            RowSpec(L("شريط الأدوات الديناميكي"), perfAbSub(!PerfAb.dynamicToolbarOff()), Icons.Default.Settings, { PerfAb.toggleDynamicToolbar() },
+                { IosSwitch(checked = !PerfAb.dynamicToolbarOff(), onCheckedChange = null) })
+))
+
 @Composable
 private fun ChoiceDialog(title: String, options: List<String>, selected: Int, onSelect: (Int) -> Unit, onDismiss: () -> Unit) =
     NovaChoiceDialog(title, options, selected, Icons.Default.Settings, onSelect, onDismiss)
@@ -213,17 +246,19 @@ private fun openAutofillSettings(c: Context) {
 }
 
 @Composable
-private fun SettingsRows(rows: List<RowSpec>) {
+private fun SettingsRows(rows: List<RowSpec>, target: String?, onShown: () -> Unit) {
     IosCard {
         rows.forEachIndexed { i, r ->
             val asDetail = r.trailing == null && r.sub != null && r.sub.length <= 24
             IosCell(
-                r.title, r.onClick, sub = if (asDetail) null else r.sub, detail = if (asDetail) r.sub else null,
+                r.title, r.onClick, modifier = settingsTarget(target == r.title, onShown), sub = if (asDetail) null else r.sub, detail = if (asDetail) r.sub else null,
                 trailing = r.trailing, chevron = asDetail, divider = i < rows.size - 1, toggle = r.trailing != null
             )
         }
     }
 }
+
+private fun parentOf(id: String?): String? = if (id == "effects" || id == "font" || id == "startpage") "appearance" else null
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: () -> Unit = {}, onPasswords: () -> Unit = {}, overlayOpen: Boolean = false) {
@@ -250,6 +285,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
     val darkNames = listOf(S(R.string.dark_site_off), S(R.string.dark_site_auto), S(R.string.dark_site_all))
     val themeNames = listOf(L("تلقائي (حسب النظام)"), L("فاتح"), L("داكن"))
     val barModeNames = listOf(L("لون الصفحة (تلقائي)"), L("لون التطبيق"), L("أسود"), L("لون مخصص"))
+    val glassNames = listOf(S(R.string.glass_full), S(R.string.glass_lite), S(R.string.glass_flat))
     val langNames = listOf(L("تلقائي"), "العربية", "English")
     val zoomNames = listOf(L("صغير"), L("عادي"), L("كبير"), L("كبير جداً"))
     val autoCloseNames = listOf(L("يدوياً"), L("بعد يوم"), L("بعد أسبوع"), L("بعد شهر"))
@@ -260,24 +296,40 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
     val notif = rememberNotifState()
     var section by remember { mutableStateOf<String?>(null) }
     var search by remember { mutableStateOf("") }
+    var target by remember { mutableStateOf<String?>(null) }
     val bounce = rememberRubberBand()
     BackHandler(enabled = section == null && search.isNotEmpty() && !overlayOpen) { search = "" }
-    BackHandler(enabled = section != null && !overlayOpen) { section = null }
-    val sections = listOf(
+    BackHandler(enabled = section != null && !overlayOpen) { section = parentOf(section) }
+    val baseSections = listOf(
         SectionSpec("general", L("عام"), L("المتصفح الافتراضي • محرك البحث • المظهر"), Icons.Default.Settings, listOf(
             RowSpec(L("المتصفح الافتراضي"),
                 if (DefaultBrowser.isDefault) L("Semo brawser هو متصفحك الافتراضي — اضغط لتغيير الإعدادات") else L("افتح الروابط من واتساب وبقية التطبيقات عبر Semo brawser"),
                 if (DefaultBrowser.isDefault) Icons.Default.Check else Icons.Default.Star,
                 { val ri = DefaultBrowser.requestIntent(ctx); if (ri != null) runCatching { roleLauncher.launch(ri) }.onFailure { DefaultBrowser.openSystemSettings(ctx) } else DefaultBrowser.openSystemSettings(ctx) }),
             RowSpec(L("محرك البحث"), Prefs.engines[Prefs.engine].first, Icons.Default.Search, { dialog = "engine" }),
-            RowSpec(L("المظهر"), themeNames[Prefs.theme], Icons.Default.Star, { dialog = "theme" }),
-            RowSpec(S(R.string.set_accent), null, Icons.Default.Star, { dialog = "accent" },
-                { Box(Modifier.size(22.dp).clip(CircleShape).background(LocalIos.current.blue)) }),
-            RowSpec(L("لون شريط الحالة"), barModeNames[Prefs.statusMode], Icons.Default.Star, { dialog = "statusbar" }),
-            RowSpec(L("لون الشريط السفلي"), barModeNames[Prefs.botMode], Icons.Default.Star, { dialog = "botbar" }),
             RowSpec(L("المكتبة"), L("المفضلة") + " " + Library.bookmarks.size + " • " + L("السجل") + " " + Library.history.size, Icons.Default.Favorite, { Library.show = true }),
             RowSpec(L("نسخة سطح المكتب افتراضياً"), L("للتبويبات الجديدة"), Icons.Default.Build, { Prefs.pickDesktop(!Prefs.desktop) },
                 { IosSwitch(checked = Prefs.desktop, onCheckedChange = null) })
+        )),
+        SectionSpec("appearance", S(R.string.set_appearance), S(R.string.set_appearance_sub), Icons.Default.Star, listOf(
+            RowSpec(L("المظهر"), themeNames[Prefs.theme], Icons.Default.Star, { dialog = "theme" }),
+            RowSpec(S(R.string.set_accent), null, Icons.Default.Star, { dialog = "accent" },
+                { Box(Modifier.size(UiLayout.dp22).clip(CircleShape).background(LocalIos.current.blue)) }),
+            RowSpec(L("لون شريط الحالة"), barModeNames[Prefs.statusMode], Icons.Default.Star, { dialog = "statusbar" }),
+            RowSpec(L("لون الشريط السفلي"), barModeNames[Prefs.botMode], Icons.Default.Star, { dialog = "botbar" }),
+            RowSpec(S(R.string.set_effects), glassNames[Glass.pick.coerceIn(0, 2)], Icons.Default.Star, { section = "effects" }),
+            RowSpec(S(R.string.set_font), S(AppFonts.names[Prefs.font]), Icons.Default.Edit, { section = "font" }),
+            RowSpec(S(R.string.set_start), null, Icons.Default.Home, { section = "startpage" })
+        )),
+        SectionSpec("font", S(R.string.set_font), "", Icons.Default.Edit,
+            AppFonts.names.map { RowSpec(S(it), null, Icons.Default.Edit, {}) }),
+        SectionSpec("startpage", S(R.string.set_start), "", Icons.Default.Home,
+            StartLayout.parse(Prefs.startLayout).map { RowSpec(startSectionName(StartLayout.id(it)), null, Icons.Default.Home, {}) }),
+        SectionSpec("storage", S(R.string.set_storage), S(R.string.set_storage_sub), Icons.Default.Info,
+            listOf(R.string.storage_cache, R.string.storage_downloads, R.string.storage_sites).map { RowSpec(S(it), null, Icons.Default.Info, {}) }),
+        SectionSpec("effects", S(R.string.set_effects), S(R.string.set_effects_sub), Icons.Default.Star, listOfNotNull(
+            RowSpec(S(R.string.glass_quality), glassNames[Glass.pick.coerceIn(0, 2)], Icons.Default.Star, { dialog = "glass" }),
+            if (Glass.lowered) RowSpec(S(R.string.glass_lowered), S(R.string.glass_active) + ": " + glassNames[Glass.level.coerceIn(0, 2)], Icons.Default.Warning, {}) else null
         )),
         SectionSpec("browsing", L("التصفح والخصوصية"), L("JavaScript • الإعلانات • مسح البيانات"), Icons.Default.Search, listOf(
             RowSpec("JavaScript", L("تعطيله قد يكسر بعض المواقع"), Icons.Default.Check, { Prefs.pickJs(!Prefs.js) },
@@ -396,64 +448,74 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
             })
         )),
     )
+    val sections = if (BuildConfig.DEBUG) baseSections + perfAbSection() else baseSections
 
     val ios = LocalIos.current
     val tints = mapOf(
-        "general" to ios.gray, "browsing" to ios.blue, "passwords" to ios.gray, "google" to ios.blue,
+        "general" to ios.gray, "appearance" to ios.purple, "browsing" to ios.blue, "passwords" to ios.gray, "google" to ios.blue,
         "youtube" to ios.red, "notifications" to ios.red, "language" to ios.blue,
         "security" to ios.green, "performance" to ios.orange, "thermal" to ios.orange, "feedback" to ios.purple,
         "downloads" to ios.blue, "about" to ios.gray
     )
     val rootGroups = listOf(
-        listOf("general", "browsing", "passwords", "google"),
-        listOf("youtube", "notifications", "language"),
-        listOf("security", "performance", "thermal", "feedback"),
-        listOf("downloads", "about")
-    )
+        R.string.group_browser to listOf("general", "appearance", "language", "browsing"),
+        R.string.group_privacy to listOf("security", "passwords", "google"),
+        R.string.group_device to listOf("notifications", "feedback", "performance", "thermal"),
+        R.string.group_data to listOf("downloads", "storage", "about")
+    ) + if (BuildConfig.DEBUG) listOf(R.string.group_debug to listOf("perfab")) else emptyList()
     Surface(Modifier.fillMaxSize(), color = ios.groupedBg) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             val cur = sections.firstOrNull { it.id == section }
-            IosNavBar(cur?.title, { if (section != null) section = null else onBack() }, if (cur != null) L("الإعدادات") else null)
+            IosNavBar(cur?.title, { if (section != null) section = parentOf(section) else onBack() }, if (cur != null) L("الإعدادات") else null)
             AnimatedContent(
                 targetState = section, modifier = Modifier.weight(1f), label = "settings",
                 transitionSpec = { val fwd = targetState != null; Motion.axisEnter(fwd) togetherWith Motion.axisExit(fwd) }
             ) { id ->
                 val sec = sections.firstOrNull { it.id == id }
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState(), overscrollEffect = bounce).padding(bottom = 32.dp)) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState(), overscrollEffect = bounce).padding(bottom = UiLayout.dp32)) {
                     if (sec == null) {
                         IosLargeTitle(L("الإعدادات"))
                         PanelSearch(search, { search = it }, S(R.string.set_search))
                         val q = search.trim()
-                        if (q.isEmpty()) rootGroups.forEach { ids ->
+                        if (q.isEmpty()) rootGroups.forEach { (header, ids) ->
                             val list = ids.mapNotNull { gid -> sections.firstOrNull { it.id == gid } }
                             if (list.isNotEmpty()) {
-                                Spacer(Modifier.height(20.dp))
+                                SettingsHeader(S(header))
                                 IosCard {
                                     list.forEachIndexed { i, sp ->
                                         IosCell(
                                             sp.title, { section = sp.id }, chevron = true, divider = i < list.size - 1,
-                                            leading = { IosTile(tints[sp.id] ?: ios.gray) { Icon(sp.icon, null, Modifier.size(18.dp)) } }
+                                            leading = { IosTile(tints[sp.id] ?: ios.gray) { Icon(sp.icon, null, Modifier.size(UiLayout.dp18)) } }
                                         )
                                     }
                                 }
                             }
                         } else {
                             val found = sections.mapNotNull { s ->
-                                val hits = s.rows.filter { s.title.contains(q, true) || it.title.contains(q, true) || it.sub?.contains(q, true) == true }
+                                val hits = s.rows.mapNotNull { r -> settingsHit(r.title, r.sub, q)?.let { r to it } }
+                                    .ifEmpty { listOfNotNull(settingsHit(s.title, null, q)?.let { null to it }) }
                                 if (hits.isEmpty()) null else s to hits
                             }
-                            if (found.isEmpty()) Text(
-                                S(R.string.set_no_results), style = MaterialTheme.typography.bodyMedium, color = ios.label2,
-                                modifier = Modifier.padding(20.dp)
-                            )
+                            if (found.isEmpty()) SettingsNote(S(R.string.set_no_results))
                             found.forEach { (s, hits) ->
-                                Text(s.title, style = MaterialTheme.typography.bodySmall, color = ios.label2, modifier = Modifier.padding(start = 32.dp, end = 32.dp, top = 18.dp, bottom = 6.dp))
-                                SettingsRows(hits)
+                                SettingsHeader(s.title)
+                                IosCard {
+                                    hits.forEachIndexed { i, (row, hit) ->
+                                        SettingsResult(hit, row?.sub, q, i < hits.lastIndex) { target = row?.title; section = s.id }
+                                    }
+                                }
                             }
                         }
                     } else {
-                        Spacer(Modifier.height(12.dp))
-                        SettingsRows(sec.rows)
+                        Spacer(Modifier.height(UiLayout.dp12))
+                        when (sec.id) {
+                            "font" -> FontPage()
+                            "startpage" -> StartLayoutPage()
+                            "storage" -> StoragePage(onClearCache)
+                            else -> SettingsRows(sec.rows, target) { target = null }
+                        }
+                        if (sec.id == "security") SettingsNote(S(R.string.note_security))
+                        if (sec.id == "performance") SettingsNote(S(R.string.note_performance))
                     }
                 }
             }
@@ -473,46 +535,32 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
                 Row(Modifier.fillMaxWidth()) {
                     BarTint.customColors.forEachIndexed { i, c ->
                         Box(
-                            Modifier.weight(1f).height(44.dp).tapClickable { if (forStatus) Prefs.pickStatusCustom(i) else Prefs.pickBotCustom(i) },
+                            Modifier.weight(1f).height(UiLayout.dp44).tapClickable { if (forStatus) Prefs.pickStatusCustom(i) else Prefs.pickBotCustom(i) },
                             contentAlignment = Alignment.Center
                         ) {
                             Box(
-                                Modifier.size(26.dp).clip(CircleShape).background(c).border(0.75.dp, Color.Gray, CircleShape),
+                                Modifier.size(UiLayout.dp26).clip(CircleShape).background(c).border(UiLayout.dp0_75, Color.Gray, CircleShape),
                                 contentAlignment = Alignment.Center
-                            ) { if ((if (forStatus) Prefs.statusCustom else Prefs.botCustom) == i) IosIcon(IosGlyph.Check, if (c.luminance() > 0.5f) Color.Black else Color.White, 14.dp) }
+                            ) { if ((if (forStatus) Prefs.statusCustom else Prefs.botCustom) == i) IosIcon(IosGlyph.Check, if (c.luminance() > 0.5f) Color.Black else Color.White, UiLayout.dp14) }
                         }
                     }
                 }
             }
         }
-        "accent" -> NovaDialog(title = S(R.string.set_accent), onDismiss = { dialog = null }) {
-            Row(Modifier.fillMaxWidth()) {
-                AccentChoices.forEachIndexed { i, pair ->
-                    Box(
-                        Modifier.weight(1f).height(44.dp).tapClickable { Prefs.pickAccent(i) }
-                            .iosButton(S(R.string.set_accent) + " " + (i + 1)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            Modifier.size(30.dp).clip(CircleShape).background(if (ios.dark) pair.second else pair.first),
-                            contentAlignment = Alignment.Center
-                        ) { if (Prefs.accent == i) IosIcon(IosGlyph.Check, Color.White, 16.dp) }
-                    }
-                }
-            }
-        }
+        "accent" -> AccentSheet { dialog = null }
+        "glass" -> NovaChoiceDialog(S(R.string.glass_quality), glassNames, Glass.pick.coerceIn(0, 2), Icons.Default.Star, { Prefs.pickGlass(it) }) { dialog = null }
         "gacct" -> NovaDialog(
             title = L("حسابات Google"), icon = Icons.Default.Person, onDismiss = { dialog = null },
             confirmText = L("إضافة"), onConfirm = { if (GoogleAccounts.add(gEmail)) { gEmail = ""; gErr = false } else gErr = true }
         ) {
-                Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
+                Column(Modifier.heightIn(max = UiLayout.dp380).verticalScroll(rememberScrollState())) {
                     GoogleAccounts.accounts.toList().forEach { a ->
                         Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).tapClickable { GoogleAccounts.choosePrimary(a) }.padding(vertical = 4.dp),
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(UiLayout.dp16)).tapClickable { GoogleAccounts.choosePrimary(a) }.padding(vertical = UiLayout.dp4),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(selected = a == GoogleAccounts.primary, onClick = null)
-                            Spacer(Modifier.width(12.dp))
+                            Spacer(Modifier.width(UiLayout.dp12))
                             Text(a, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             IconButton(onClick = tapped { GoogleAccounts.remove(a) }) { Icon(Icons.Default.Delete, L("حذف")) }
                         }
@@ -525,11 +573,11 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
                         label = { Text(L("البريد الإلكتروني")) }, isError = gErr,
                         supportingText = if (gErr) ({ Text(L("بريد غير صالح")) }) else null,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        modifier = Modifier.fillMaxWidth().padding(top = UiLayout.dp8)
                     )
                     Text(
                         L("يُحفظ البريد فقط على جهازك. لا تُخزَّن كلمة مرور Google، ولا تنتقل جلسة Google إلى Semo brawser."),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp)
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = UiLayout.dp8)
                     )
                 }
         }
@@ -547,7 +595,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
             confirmText = L("مشاركة"), onConfirm = { shareText(ctx, crashText) },
             extraAction = { TextButton(onClick = tapped { CrashLog.clear(); crashTick++; dialog = null }) { Text(L("مسح السجل")) } }
         ) {
-            Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.heightIn(max = UiLayout.dp380).verticalScroll(rememberScrollState())) {
                 androidx.compose.foundation.text.selection.SelectionContainer {
                     Text(crashText.ifBlank { L("لا توجد أعطال مسجلة") }, style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                 }
@@ -558,7 +606,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
             confirmText = L("إغلاق"), onConfirm = { dialog = null },
             dismissText = L("مسح السجل"), onDismissClick = { Security.clearLog(); dialog = null }
         ) {
-            Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.heightIn(max = UiLayout.dp360).verticalScroll(rememberScrollState())) {
                 androidx.compose.foundation.text.selection.SelectionContainer { Text(Security.summary(), style = MaterialTheme.typography.bodySmall) }
             }
         }

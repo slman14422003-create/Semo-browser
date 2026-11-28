@@ -21,7 +21,7 @@ object FileSaver {
         val data = url.startsWith("data:", true)
         val first = if (data) nameFor(cd, mime?.substringBefore(';')?.trim()?.lowercase().orEmpty()) else Downloader.smartName(url, cd, mime)
         val task = Downloader.startStream(app, first, Downloader.smartMime(first, mime), length)
-        toast(app, L("بدأ التنزيل — القائمة ⋮ ثم التنزيلات"))
+        Snacks.show(L("بدأ التنزيل — القائمة ⋮ ثم التنزيلات"), S(R.string.snack_open)) { openPanel(it, "downloads") }
         Work.io {
             runCatching {
                 if (data) {

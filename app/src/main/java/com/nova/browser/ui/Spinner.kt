@@ -62,10 +62,10 @@ private fun spokeAlpha(d: Int): Float = 1f - 0.88f * (d / (SPOKES - 1f)).pow(1.5
 
 /** مؤشر تحميل بنمط iPhone. اللون الافتراضي يتبع لون المحتوى الحالي فيناسب الفاتح والداكن. */
 @Composable
-fun NovaSpinner(modifier: Modifier = Modifier, size: Dp = 24.dp, color: Color = LocalContentColor.current) {
+fun NovaSpinner(modifier: Modifier = Modifier, size: Dp = UiLayout.dp24, color: Color = LocalContentColor.current) {
     val t = rememberInfiniteTransition(label = "nova-spinner")
     // قيمة صحيحة تتغيّر 12 مرة في الثانية فقط: لا إعادة رسم بلا داعٍ
-    val step by t.animateValue(0, SPOKES, Int.VectorConverter, infiniteRepeatable(tween(Motion.SPIN, easing = LinearEasing)), label = "step")
+    val step by t.animateValue(0, SPOKES, Int.VectorConverter, Motion.loop(Motion.SPIN), label = "step")
     Canvas(modifier.size(size)) {
         val r = this.size.minDimension / 2f
         val sw = r * 0.22f
@@ -90,10 +90,10 @@ fun NovaSpinner(modifier: Modifier = Modifier, size: Dp = 24.dp, color: Color = 
 /** صف انتظار: المؤشر ونص اختياري بجانبه (للقوائم والنوافذ). */
 @Composable
 fun NovaLoadingRow(text: String? = null, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-        NovaSpinner(size = 22.dp, color = LocalIos.current.blue)
+    Row(modifier.fillMaxWidth().padding(UiLayout.dp16), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        NovaSpinner(size = UiLayout.dp22, color = LocalIos.current.blue)
         if (text != null) {
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(UiLayout.dp10))
             Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -108,14 +108,14 @@ fun NovaPullIndicator(state: PullToRefreshState, isRefreshing: Boolean, modifier
         modifier
             .graphicsLayer {
                 val p = if (isRefreshing) 1f else state.distanceFraction.coerceIn(0f, 1.2f)
-                translationY = p * 64.dp.toPx() - 36.dp.toPx()
+                translationY = p * UiLayout.dp64.toPx() - UiLayout.dp36.toPx()
                 alpha = p.coerceIn(0f, 1f)
                 val s = 0.6f + 0.4f * min(p, 1f)
                 scaleX = s; scaleY = s
             }
-            .shadow(4.dp, CircleShape)
+            .shadow(UiLayout.dp4, CircleShape)
             .background(cs.surfaceContainerHigh, CircleShape)
-            .size(40.dp),
+            .size(UiLayout.dp40),
         contentAlignment = Alignment.Center
-    ) { NovaSpinner(size = 20.dp, color = LocalIos.current.blue) }
+    ) { NovaSpinner(size = UiLayout.dp20, color = LocalIos.current.blue) }
 }

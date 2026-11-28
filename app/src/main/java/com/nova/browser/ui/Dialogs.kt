@@ -32,11 +32,11 @@ private fun AlertBtn(text: String, color: Color, bold: Boolean, enabled: Boolean
     val src = remember { MutableInteractionSource() }
     val pressed by src.collectIsPressedAsState()
     Box(
-        modifier.height(44.dp).background(if (pressed) ios.fill2 else Color.Transparent).alpha(if (enabled) 1f else 0.4f)
+        modifier.height(UiLayout.dp44).background(if (pressed) ios.fill2 else Color.Transparent).alpha(if (enabled) 1f else 0.4f)
             .tapClickable(interactionSource = src, indication = null, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(text, style = MaterialTheme.typography.bodyLarge, fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 8.dp))
+        Text(text, style = MaterialTheme.typography.bodyLarge, fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = UiLayout.dp8))
     }
 }
 
@@ -61,13 +61,13 @@ fun NovaDialog(
     val total = (if (hasConfirm) 1 else 0) + (if (hasDismiss) 1 else 0) + (if (extraAction != null) 1 else 0)
     val confirmColor = if (danger) ios.red else ios.blue
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(Modifier.width(menuWidth(280.dp)).clip(IosShape.alert).background(ios.alert)) {
+        Column(Modifier.width(menuWidth(UiLayout.dp280)).clip(IosShape.alert).glass(GlassStyles.Dialog, IosShape.alert)) {
             Column(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 20.dp, bottom = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)
+                Modifier.fillMaxWidth().padding(horizontal = UiLayout.dp16).padding(top = UiLayout.dp20, bottom = UiLayout.dp16),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(UiLayout.dp6)
             ) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = ios.label, textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(UiLayout.dp8), content = content)
             }
             if (total > 0) IosDivider()
             if (total == 2 && extraAction == null) {
@@ -82,7 +82,7 @@ fun NovaDialog(
                     if (extraAction != null || hasDismiss) IosDivider()
                 }
                 if (extraAction != null) {
-                    Box(Modifier.fillMaxWidth().height(44.dp), contentAlignment = Alignment.Center) { extraAction() }
+                    Box(Modifier.fillMaxWidth().height(UiLayout.dp44), contentAlignment = Alignment.Center) { extraAction() }
                     if (hasDismiss) IosDivider()
                 }
                 if (hasDismiss) AlertBtn(dismissText ?: "", ios.blue, total == 1, dismissEnabled, Modifier.fillMaxWidth()) { (onDismissClick ?: onDismiss)() }
@@ -97,13 +97,14 @@ fun NovaChoiceDialog(
     onSelect: (Int) -> Unit, onDismiss: () -> Unit
 ) {
     val ios = LocalIos.current
+    val bounce = rememberRubberBand()
     NovaDialog(title = title, onDismiss = onDismiss, icon = icon, dismissText = L("إغلاق")) {
-        Column(Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxWidth().heightIn(max = UiLayout.dp400).verticalScroll(rememberScrollState(), overscrollEffect = bounce)) {
             options.forEachIndexed { i, o ->
                 val on = i == selected
                 IosCell(
-                    title = o, onClick = { onSelect(i); onDismiss() }, divider = i < options.size - 1, dividerInset = 0.dp,
-                    trailing = if (on) ({ IosIcon(IosGlyph.Check, ios.blue, 20.dp, weight = 1.1f) }) else null
+                    title = o, onClick = { onSelect(i); onDismiss() }, divider = i < options.size - 1, dividerInset = UiLayout.dp0,
+                    trailing = if (on) ({ IosIcon(IosGlyph.Check, ios.blue, UiLayout.dp20, weight = 1.1f) }) else null
                 )
             }
         }

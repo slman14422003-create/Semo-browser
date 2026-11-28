@@ -25,38 +25,36 @@ class BrowserTab(val id: Int, startUrl: String = "") {
     var findInfo by mutableStateOf("")
     var lastUsed = 0L
     var thumb by mutableStateOf<Bitmap?>(null)
+    var glassSnap by mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
+    var glassUrl: String? = null
     var tag by mutableIntStateOf(0)
     var pinned by mutableStateOf(false)
     var group by mutableIntStateOf(0)
     var epoch by mutableIntStateOf(0)
     var barCollapsed by mutableStateOf(false)
-    private var scrollAcc = 0
-    private var scrollLockUntil = 0L
+    var barHidden by mutableStateOf(false)
+    private val hidePolicy = BarHidePolicy(UiLayout.SCROLL_COLLAPSE_PX, UiLayout.SCROLL_EXPAND_PX, UiLayout.SCROLL_TOP_PX, UiLayout.HIDE_LOCK_MS)
 
     fun noteScroll(y: Int, dy: Int) {
-        val now = android.os.SystemClock.elapsedRealtime()
-        if (y <= UiLayout.SCROLL_TOP_PX) {
-            scrollAcc = 0
-            if (barCollapsed) setCollapsed(false, now)
-            return
+        when (hidePolicy.onScroll(y, dy, android.os.SystemClock.elapsedRealtime())) {
+            BarHidePolicy.HIDE -> barHidden = true
+            BarHidePolicy.SHOW -> barHidden = false
         }
-        if (now < scrollLockUntil || dy == 0) return
-        if ((dy > 0) != (scrollAcc > 0)) scrollAcc = 0
-        scrollAcc += dy
-        if (!barCollapsed && scrollAcc > UiLayout.SCROLL_COLLAPSE_PX) setCollapsed(true, now)
-        else if (barCollapsed && -scrollAcc > UiLayout.SCROLL_EXPAND_PX) setCollapsed(false, now)
     }
 
-    fun setCollapsed(on: Boolean, now: Long = android.os.SystemClock.elapsedRealtime()) {
-        scrollAcc = 0
-        scrollLockUntil = now + UiLayout.TOGGLE_LOCK_MS
+    fun revealBar() {
+        hidePolicy.reset()
+        barHidden = false
+    }
+
+    fun setCollapsed(on: Boolean) {
         barCollapsed = on
     }
 
     fun barIsCompact(editing: Boolean): Boolean = barCollapsed && url.isNotBlank() && !editing && !finding
 
     fun resetScroll() {
-        scrollAcc = 0
+        revealBar()
         barCollapsed = false
     }
 

@@ -16,9 +16,10 @@ object GeckoCfg {
         .put("draft", Prefs.draftSave)
         .put("dataSaver", Prefs.dataSaver)
         .put("dark", if (GeckoSettings.appIsDark()) Prefs.darkMode else 0)
+        .put("off", org.json.JSONArray(PerfAb.disabled()))
 
     /** مفتاح يتغير عند تغير أي إعداد مؤثر (للاستخدام في LaunchedEffect). */
-    fun key(): String = json().toString() + Prefs.blockThirdCookies + Prefs.antiFingerprint + Prefs.siteLang
+    fun key(): String = json().toString() + Prefs.blockThirdCookies + Prefs.antiFingerprint + Prefs.siteLang + PerfAb.fingerprintOff() + PerfAb.dynamicToolbarOff()
 
     fun push() {
         CookieBridge.send(JSONObject().put("type", "cfg").put("cfg", json()))

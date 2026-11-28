@@ -75,10 +75,7 @@ val AccentChoices = listOf(
     IosLight.pink to IosDark.pink, IosLight.orange to IosDark.orange, IosLight.teal to IosDark.teal
 )
 
-fun IosColors.accented(): IosColors {
-    val pick = AccentChoices.getOrElse(Prefs.accent) { AccentChoices[0] }
-    return copy(blue = if (dark) pick.second else pick.first)
-}
+fun IosColors.accented(): IosColors = copy(blue = Accent.current(dark))
 
 private val LightColors = lightColorScheme(
     primary = IosLight.blue, onPrimary = Color.White,
@@ -138,19 +135,19 @@ private val NovaTypography = Typography().let { t ->
 }
 
 private val NovaShapes = Shapes(
-    extraSmall = RoundedCornerShape(6.dp), small = RoundedCornerShape(10.dp), medium = RoundedCornerShape(12.dp),
-    large = RoundedCornerShape(16.dp), extraLarge = RoundedCornerShape(22.dp)
+    extraSmall = RoundedCornerShape(UiLayout.dp6), small = RoundedCornerShape(UiLayout.dp10), medium = RoundedCornerShape(UiLayout.dp12),
+    large = RoundedCornerShape(UiLayout.dp16), extraLarge = RoundedCornerShape(UiLayout.dp22)
 )
 
 object IosShape {
     val pill = RoundedCornerShape(50)
-    val card = RoundedCornerShape(26.dp)
-    val field = RoundedCornerShape(22.dp)
-    val sheet = RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp)
-    val alert = RoundedCornerShape(30.dp)
-    val menu = RoundedCornerShape(22.dp)
-    val menuCompact = RoundedCornerShape(14.dp)
-    val control = RoundedCornerShape(10.dp)
+    val card = RoundedCornerShape(UiLayout.dp26)
+    val field = RoundedCornerShape(UiLayout.dp22)
+    val sheet = RoundedCornerShape(topStart = UiLayout.dp34, topEnd = UiLayout.dp34)
+    val alert = RoundedCornerShape(UiLayout.dp30)
+    val menu = RoundedCornerShape(UiLayout.dp22)
+    val menuCompact = RoundedCornerShape(UiLayout.dp14)
+    val control = RoundedCornerShape(UiLayout.dp10)
 }
 
 object IosText {
@@ -171,38 +168,14 @@ fun menuWidth(base: Dp): Dp {
 @Composable
 fun Modifier.liquidGlass(shape: androidx.compose.ui.graphics.Shape = IosShape.pill, raised: Boolean = true): Modifier {
     val ios = LocalIos.current
-    val lite = Adaptive.level >= 2
-    val fill = remember(ios.dark) {
-        Brush.verticalGradient(
-            if (ios.dark) listOf(Color(0xD6202022), Color(0xC2161618)) else listOf(Color(0xDBFBFBFD), Color(0xC7EFEFF3))
-        )
-    }
-    val sheen = remember(ios.dark) {
-        Brush.verticalGradient(
-            0f to (if (ios.dark) Color(0x24FFFFFF) else Color(0x8CFFFFFF)),
-            0.5f to Color.Transparent,
-            1f to Color.Transparent
-        )
-    }
-    val rim = remember(ios.dark) {
-        Brush.verticalGradient(
-            0f to (if (ios.dark) Color(0x70FFFFFF) else Color(0xF2FFFFFF)),
-            0.5f to (if (ios.dark) Color(0x14FFFFFF) else Color(0x0A000000)),
-            1f to (if (ios.dark) Color(0x33FFFFFF) else Color(0x26000000))
-        )
-    }
     val shadow = if (ios.dark) Color(0x80000000) else Color(0x33000000)
-    val lifted = if (lite || !raised) this else this.shadow(7.dp, shape, ambientColor = shadow, spotColor = shadow)
-    return lifted
-        .clip(shape)
-        .background(fill, shape)
-        .then(if (lite) Modifier else Modifier.drawBehind { drawRect(sheen) })
-        .border(0.75.dp, rim, shape)
+    val lifted = if (Glass.level == Glass.FLAT || !raised) this else this.shadow(UiLayout.SHADOW_RAISED, shape, ambientColor = shadow, spotColor = shadow)
+    return lifted.clip(shape).glass(GlassStyles.Pill, shape)
 }
 
 @Composable
 fun NovaTheme(activity: ComponentActivity, content: @Composable () -> Unit) {
-    val dark = when (Prefs.theme) { 1 -> false; 2 -> true; else -> isSystemInDarkTheme() }
+    val dark = ThemeMode.isDark()
     LaunchedEffect(dark) {
         activity.enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { dark },
@@ -212,12 +185,16 @@ fun NovaTheme(activity: ComponentActivity, content: @Composable () -> Unit) {
         activity.window.isNavigationBarContrastEnforced = false
     }
     val accent = Prefs.accent
-    val ios = remember(dark, accent) { (if (dark) IosDark else IosLight).accented() }
-    val scheme = remember(dark, accent) { (if (dark) DarkColors else LightColors).copy(primary = ios.blue, tertiary = ios.blue) }
-    MaterialTheme(colorScheme = scheme, typography = NovaTypography, shapes = NovaShapes) {
+    val accentColor = Prefs.accentColor
+    val ios = remember(dark, accent, accentColor) { (if (dark) IosDark else IosLight).accented() }
+    val scheme = remember(dark, accent, accentColor) { (if (dark) DarkColors else LightColors).copy(primary = ios.blue, tertiary = ios.blue) }
+    val font = Prefs.font
+    val typography = remember(font) { AppFonts.apply(NovaTypography, font) }
+    MaterialTheme(colorScheme = scheme, typography = typography, shapes = NovaShapes) {
         CompositionLocalProvider(
             LocalIos provides ios,
             LocalAppIos provides ios,
+            LocalGlassPage provides (if (activity is MainActivity) Glass.page else null),
             LocalContentColor provides ios.label,
             LocalLayoutDirection provides if (I18n.isEnglish()) LayoutDirection.Ltr else LayoutDirection.Rtl
         ) {

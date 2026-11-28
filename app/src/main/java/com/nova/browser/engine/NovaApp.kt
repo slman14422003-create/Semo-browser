@@ -3,7 +3,6 @@ package com.nova.browser
 import android.app.Application
 import android.os.Handler
 import android.os.Looper
-import android.widget.Toast
 import org.mozilla.geckoview.ContentBlocking
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoRuntimeSettings
@@ -27,7 +26,7 @@ class NovaApp : Application() {
                 if (d != null) mainH.postDelayed({ installShield(r, attempt + 1) }, d)
                 else {
                     ExtensionHealth.failed = true
-                    mainH.post { Toast.makeText(instance, L("تعذّر تشغيل إضافة الحماية: حجب المتتبعات متوقف حالياً"), Toast.LENGTH_LONG).show() }
+                    Snacks.show(L("تعذّر تشغيل إضافة الحماية: حجب المتتبعات متوقف حالياً"), S(R.string.snack_retry)) { installShield(r, 0) }
                 }
             }
             runCatching {

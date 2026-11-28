@@ -13,7 +13,7 @@ object GeckoSettings {
         s.setFontSizeFactor(z / 100f)
         // حجب الإعلانات/المتتبعات، منع تتبع البصمة، والكوكيز الخارجية (معزولة بدل الحجب الكامل كي لا تنكسر تسجيلات الدخول)
         var at = if (Prefs.blockAds) ContentBlocking.AntiTracking.DEFAULT else ContentBlocking.AntiTracking.NONE
-        if (Prefs.antiFingerprint) at = at or ContentBlocking.AntiTracking.FINGERPRINTING
+        if (Prefs.antiFingerprint && !PerfAb.fingerprintOff()) at = at or ContentBlocking.AntiTracking.FINGERPRINTING
         s.contentBlocking.setAntiTracking(at)
         s.contentBlocking.setCookieBehavior(
             if (Prefs.blockThirdCookies) ContentBlocking.CookieBehavior.ACCEPT_FIRST_PARTY_AND_ISOLATE_OTHERS
@@ -27,12 +27,10 @@ object GeckoSettings {
         )
     }
 
-    fun appIsDark(): Boolean = when (Prefs.theme) {
-        1 -> false
-        2 -> true
-        else -> (android.content.res.Resources.getSystem().configuration.uiMode and
+    fun appIsDark(): Boolean = ThemeMode.dark(
+        (android.content.res.Resources.getSystem().configuration.uiMode and
             android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-    }
+    )
 
     fun update() {
         update(NovaApp.runtime().settings)

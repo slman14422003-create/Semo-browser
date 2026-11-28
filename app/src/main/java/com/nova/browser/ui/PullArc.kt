@@ -32,6 +32,7 @@ class ArcRefreshLayout(ctx: Context, color: Int) : SwipeRefreshLayout(ctx) {
         this.color = color
     }
     private val oval = RectF()
+    private val haptics = PullHaptics(UiLayout.CLICK_GAP_MS)
     private var downY = 0f
     private var pull = 0f
     private var dragging = false
@@ -63,6 +64,7 @@ class ArcRefreshLayout(ctx: Context, color: Int) : SwipeRefreshLayout(ctx) {
             downY = ev.y
             pull = 0f
             dragging = false
+            haptics.reset()
         }
         return super.onInterceptTouchEvent(ev)
     }
@@ -76,10 +78,12 @@ class ArcRefreshLayout(ctx: Context, color: Int) : SwipeRefreshLayout(ctx) {
                     dragging = true
                     pull = (raw * DRAG_RATE / triggerPx).coerceIn(0f, 1.5f)
                     invalidateArc()
-                }
+                    feel(pull)
+                } else feel(0f)
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 dragging = false
+                haptics.reset()
                 invalidateArc()
             }
         }
@@ -119,6 +123,13 @@ class ArcRefreshLayout(ctx: Context, color: Int) : SwipeRefreshLayout(ctx) {
         }
         if (sweep > 0f) canvas.drawArc(oval, start, sweep, false, paint)
         invalidateArc()
+    }
+
+    private fun feel(fraction: Float) {
+        when (haptics.onPull(fraction, SystemClock.uptimeMillis())) {
+            PullHaptics.ENGAGED -> Haptics.threshold(this, true)
+            PullHaptics.RELEASED -> Haptics.threshold(this, false)
+        }
     }
 
     private fun invalidateArc() {

@@ -120,8 +120,10 @@ gradle.taskGraph.whenReady {
     }
 }
 
-val syncShieldList by tasks.registering(Copy::class) {
-    from("../tools/src/blocklist.txt")
-    into("src/main/assets/extensions/semo")
+val syncShieldList by tasks.registering(Exec::class) {
+    workingDir = rootDir
+    commandLine("python3", "tools/gen-ext.py")
+    isIgnoreExitValue = true
+    onlyIf { runCatching { ProcessBuilder("python3", "--version").start().waitFor() == 0 }.getOrDefault(false) }
 }
 tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(syncShieldList) }

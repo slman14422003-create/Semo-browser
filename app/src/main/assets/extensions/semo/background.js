@@ -1,89 +1,47 @@
-const hosts = new Set();
-// إعدادات التطبيق (Prefs) تصل عبر المنفذ الأصلي وتُحفظ ليعمل الحقن فور بدء التشغيل
-const DEFAULT_CFG = { shield: true, ads: true, fit: true, lazy: true, boost: true, pop: true, zoom: true, copy: true, draft: true, dataSaver: false, dark: 0 };
+const DEFAULT_CFG = { shield: true, ads: true, fit: true, lazy: true, boost: true, pop: true, zoom: true, copy: true, draft: true, dataSaver: false, dark: 0, off: [] };
 let cfg = Object.assign({}, DEFAULT_CFG);
-fetch(browser.runtime.getURL("blocklist.txt"))
+
+const DNR = browser.declarativeNetRequest || null;
+const ADS_RULESET = "ads";
+const IMG_RULE = 1;
+const WEB_FILTER = ["http://*/*", "https://*/*"];
+const IDS = ["semo-frames", "semo-core", "semo-page", "semo-misc", "semo-dark"];
+const bypass = new Map();
+
+function off(group) {
+  return Array.isArray(cfg.off) && cfg.off.indexOf(group) >= 0;
+}
+
+const bypassReady = fetch(browser.runtime.getURL("bypass.txt"))
   .then(r => r.text())
   .then(t => {
     for (const line of t.split("\n")) {
       const s = line.trim().toLowerCase();
-      if (s && s[0] !== "#") hosts.add(s);
+      if (!s || s[0] === "#") continue;
+      const parts = s.split(/\s+/);
+      if (parts.length < 2) continue;
+      bypass.set(parts[0], new Set(parts[1].split(",").map(x => x.trim()).filter(Boolean)));
     }
   })
   .catch(() => {});
 
-function listed(h) {
-  while (h) {
-    if (hosts.has(h)) return true;
-    const i = h.indexOf(".");
-    if (i < 0) return false;
-    h = h.slice(i + 1);
+function excludeFor(group) {
+  const out = [];
+  for (const [host, groups] of bypass) {
+    if (groups.has(group) || groups.has("all")) out.push("*://*." + host + "/*");
   }
-  return false;
+  return out;
 }
 
-function baseOf(h) {
-  try { return self.__semoPsl.registrable(h); } catch (e) { return h; }
-}
-
-const verdict = new Map();
-
-function hostFast(u) {
-  const a = u.indexOf("//");
-  if (a < 0) return "";
-  let b = u.indexOf("/", a + 2);
-  if (b < 0) b = u.length;
-  let h = u.slice(a + 2, b);
-  const at = h.lastIndexOf("@");
-  if (at >= 0) h = h.slice(at + 1);
-  const c = h.indexOf(":");
-  if (c >= 0) h = h.slice(0, c);
-  return h.toLowerCase();
-}
-
-function adListener(d) {
+function syncNet() {
+  if (!DNR) return;
   try {
-    if (!cfg.ads) return {};
-    const host = hostFast(d.url);
-    if (!host) return {};
-    const doc = d.documentUrl || d.originUrl || "";
-    const key = (doc ? hostFast(doc) : "") + ">" + host;
-    let v = verdict.get(key);
-    if (v === undefined) {
-      v = false;
-      if (listed(host)) {
-        const dh = doc ? hostFast(doc) : "";
-        v = !(dh && baseOf(dh) === baseOf(host));
-      }
-      if (verdict.size > 4000) verdict.clear();
-      verdict.set(key, v);
-    }
-    return v ? { cancel: true } : {};
-  } catch (e) {
-    return {};
-  }
-}
-
-function imageListener() {
-  return { cancel: true };
-}
-
-const WEB_FILTER = ["http://*/*", "https://*/*"];
-
-browser.webRequest.onBeforeRequest.addListener(
-  adListener,
-  { urls: WEB_FILTER, types: ["script", "sub_frame", "xmlhttprequest", "ping", "beacon"] },
-  ["blocking"]
-);
-
-function syncImageBlock() {
-  try {
-    const on = browser.webRequest.onBeforeRequest.hasListener(imageListener);
-    if (cfg.dataSaver && !on) {
-      browser.webRequest.onBeforeRequest.addListener(imageListener, { urls: WEB_FILTER, types: ["image", "imageset"] }, ["blocking"]);
-    } else if (!cfg.dataSaver && on) {
-      browser.webRequest.onBeforeRequest.removeListener(imageListener);
-    }
+    const wantAds = cfg.ads && !off("net");
+    DNR.updateEnabledRulesets(wantAds ? { enableRulesetIds: [ADS_RULESET] } : { disableRulesetIds: [ADS_RULESET] }).catch(() => {});
+    const add = cfg.dataSaver
+      ? [{ id: IMG_RULE, priority: 1, action: { type: "block" }, condition: { urlFilter: "|http", resourceTypes: ["image"] } }]
+      : [];
+    DNR.updateSessionRules({ removeRuleIds: [IMG_RULE], addRules: add }).catch(() => {});
   } catch (e) {}
 }
 
@@ -125,7 +83,7 @@ function nativeConnect() {
     } else if (m.type === "cfg") {
       cfg = Object.assign({}, DEFAULT_CFG, m.cfg || {});
       try { browser.storage.local.set({ cfg }).catch(() => {}); } catch (e) {}
-      syncImageBlock();
+      syncNet();
       applyMain();
     } else if (m.type === "fill") {
       browser.tabs.sendMessage(m.tab, { pwFill: true, host: m.host, u: m.u, p: m.p }, { frameId: 0 }).catch(() => {});
@@ -141,7 +99,7 @@ function nativeConnect() {
     }
   });
   nativeRetry = 0;
-  nativeReply(p, { type: "hello", ua: navigator.userAgent });
+  nativeReply(p, { type: "hello", ua: navigator.userAgent, dnr: !!DNR });
 }
 
 nativeConnect();
@@ -156,42 +114,36 @@ browser.runtime.onMessage.addListener((m, sender) => {
   }
 });
 
-const MAIN_ID = "semo-main";
-const MAIN_TOP_ID = "semo-main-top";
-
-function framesFiles() {
-  const js = ["main-polyfills.js", "main-webcompat.js"];
-  if (cfg.shield) js.push("main-shield.js");
-  return js;
-}
-
-function topFiles() {
-  const js = ["main-langfix.js", "main-enhance.js", "main-perfboost.js"];
-  if (cfg.ads) js.push("main-cosmetic.js");
-  if (cfg.fit) js.push("main-fit.js");
-  if (cfg.lazy) js.push("main-lazy.js");
-  if (cfg.boost) js.push("main-boost.js");
-  if (cfg.pop) js.push("main-pop.js");
-  if (cfg.fit || cfg.lazy || cfg.boost || cfg.pop) js.push("main-heavy.js");
-  if (cfg.zoom) js.push("main-zoom.js");
-  if (cfg.copy) js.push("main-copy.js");
-  if (cfg.draft) js.push("main-draft.js");
-  if (cfg.dark === 2) js.push("main-darkforce.js");
-  if (cfg.dark === 1 || cfg.dark === 2) js.push("main-dark.js");
-  return js;
+function scriptList() {
+  const m = ["http://*/*", "https://*/*"];
+  const list = [];
+  const add = (id, group, js, allFrames) => {
+    const ex = excludeFor(group);
+    const o = { id, matches: m, js: [js], runAt: "document_start", world: "MAIN", allFrames, persistAcrossSessions: false };
+    if (ex.length) o.excludeMatches = ex;
+    list.push(o);
+  };
+  if (!off("frames")) add("semo-frames", "frames", cfg.shield ? "main-frames.js" : "main-frames-ns.js", true);
+  if (!off("core")) add("semo-core", "core", "main-core.js", false);
+  const page = (cfg.fit ? 1 : 0) | (cfg.lazy ? 2 : 0) | (cfg.boost ? 4 : 0) | (cfg.pop ? 8 : 0);
+  if (page && !off("page")) add("semo-page", "page", "main-page-" + page + ".js", false);
+  const misc = (cfg.ads ? 1 : 0) | (cfg.zoom ? 2 : 0) | (cfg.copy ? 4 : 0) | (cfg.draft ? 8 : 0);
+  if (misc && !off("misc")) add("semo-misc", "misc", "main-misc-" + misc + ".js", false);
+  if ((cfg.dark === 1 || cfg.dark === 2) && !off("dark")) add("semo-dark", "dark", "main-dark-" + cfg.dark + ".js", false);
+  return list;
 }
 
 async function applyMainNow() {
   try {
     if (!browser.scripting || !browser.scripting.registerContentScripts) return;
+    await bypassReady;
     try {
-      await browser.scripting.unregisterContentScripts({ ids: [MAIN_ID, MAIN_TOP_ID] });
+      const cur = await browser.scripting.getRegisteredContentScripts();
+      const ids = cur.map(s => s.id).filter(id => IDS.indexOf(id) >= 0);
+      if (ids.length) await browser.scripting.unregisterContentScripts({ ids });
     } catch (e) {}
-    const m = ["http://*/*", "https://*/*"];
-    await browser.scripting.registerContentScripts([
-      { id: MAIN_ID, matches: m, js: framesFiles(), runAt: "document_start", world: "MAIN", allFrames: true, persistAcrossSessions: false },
-      { id: MAIN_TOP_ID, matches: m, js: topFiles(), runAt: "document_start", world: "MAIN", allFrames: false, persistAcrossSessions: false }
-    ]);
+    const list = scriptList();
+    if (list.length) await browser.scripting.registerContentScripts(list);
   } catch (e) {}
 }
 
@@ -206,7 +158,8 @@ try {
       if (r && r.cfg) cfg = Object.assign({}, DEFAULT_CFG, r.cfg);
     })
     .catch(() => {})
-    .then(() => { syncImageBlock(); applyMain(); });
+    .then(() => { syncNet(); applyMain(); });
 } catch (e) {
+  syncNet();
   applyMain();
 }

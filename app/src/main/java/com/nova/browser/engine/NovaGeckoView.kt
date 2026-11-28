@@ -23,17 +23,21 @@ class NovaGeckoView(ctx: Context) : GeckoView(ctx) {
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(ev: MotionEvent): Boolean {
         if (session == null) return super.onTouchEvent(ev)
-        if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+        val action = ev.actionMasked
+        if (action == MotionEvent.ACTION_DOWN) {
             dirs = -1
             content = false
-        }
-        if (ev.actionMasked == MotionEvent.ACTION_DOWN || ev.actionMasked == MotionEvent.ACTION_UP) PopupGate.SHARED.touch()
-        onTouchEventForDetailResult(ev).accept { d ->
-            if (d != null) {
-                dirs = d.scrollableDirections()
-                if (d.handledResult() == PanZoomController.INPUT_RESULT_HANDLED_CONTENT) content = true
+            PopupGate.SHARED.touch()
+            onTouchEventForDetailResult(ev).accept { d ->
+                if (d != null) {
+                    dirs = d.scrollableDirections()
+                    if (d.handledResult() == PanZoomController.INPUT_RESULT_HANDLED_CONTENT) content = true
+                }
             }
+            return true
         }
+        if (action == MotionEvent.ACTION_UP) PopupGate.SHARED.touch()
+        super.onTouchEvent(ev)
         return true
     }
 
@@ -76,10 +80,14 @@ object PageBars {
         view?.get()?.let { push(it, maxChanged) }
     }
 
+    fun refresh(v: GeckoView) {
+        (v as? NovaGeckoView)?.let { push(it, true) }
+    }
+
     private fun push(v: NovaGeckoView, withMax: Boolean) {
         runCatching {
             if (withMax) v.setDynamicToolbarMaxHeight(max)
-            v.setVerticalClipping(clip)
+            v.setVerticalClipping(max - clip)
         }
     }
 }
