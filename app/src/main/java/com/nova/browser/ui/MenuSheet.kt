@@ -132,7 +132,7 @@ fun MenuSheet(
     val marked = hasPage && Library.isBookmarked(tab.url)
     val reading = hasPage && Library.isInReadingList(tab.url)
     val startFav = hasPage && Library.isFavorite(tab.url)
-    NovaSheet(onDismiss, state) {
+    NovaStatefulSheet(onDismiss, state) {
             ShareHeader(tab) { act {} }
             if (hasPage) ShareApps(tab.url, tab.title) { a -> act(a) }
             IosGroup {

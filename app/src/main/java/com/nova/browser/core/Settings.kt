@@ -493,7 +493,7 @@ fun SettingsScreen(onBack: () -> Unit, onClearData: () -> Unit, onClearCache: ()
                         } else {
                             val found = sections.mapNotNull { s ->
                                 val hits = s.rows.mapNotNull { r -> settingsHit(r.title, r.sub, q)?.let { r to it } }
-                                    .ifEmpty { listOfNotNull(settingsHit(s.title, null, q)?.let { null to it }) }
+                                    .ifEmpty { listOfNotNull(settingsHit(s.title, null, q)?.let { (null as RowSpec?) to it }) }
                                 if (hits.isEmpty()) null else s to hits
                             }
                             if (found.isEmpty()) SettingsNote(S(R.string.set_no_results))

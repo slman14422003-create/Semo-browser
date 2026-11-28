@@ -17,9 +17,15 @@ import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NovaSheet(
+fun NovaSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    NovaStatefulSheet(onDismiss, rememberModalBottomSheetState(skipPartiallyExpanded = true), content)
+}
+
+@ExperimentalMaterial3Api
+@Composable
+fun NovaStatefulSheet(
     onDismiss: () -> Unit,
-    state: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    state: SheetState,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val ios = LocalIos.current

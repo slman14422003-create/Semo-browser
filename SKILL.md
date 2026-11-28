@@ -160,3 +160,9 @@ Check first when a compiler is available
 - LocalActivity (activity-compose 1.10.1), BringIntoViewRequester, FontFamily(Typeface), StorageController.ClearFlags, ModalBottomSheet scrimColor
 - On device: site data size path, snackbar above the bottom bar and keyboard, sheet opened from the address bar, RTL layout of the start page editor arrows
 - Native AlertDialogs keep the system font
+
+## First compile fixes (GitHub Actions log, release build)
+- NovaSheet no longer exposes the experimental SheetState; NovaStatefulSheet is for callers that already opt in
+- Glass.kt: import addOutline and drawOutline
+- TabReorder.kt: import util.addPointerInputChange
+- Not yet rebuilt
